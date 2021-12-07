@@ -9,8 +9,7 @@ export const enum NodeKind {
     And,
     Or,
     BlockExpression,
-    When,
-    WhenClause,
+    IfThenElse,
     Loop,
     Break,
     Continue,
@@ -50,8 +49,7 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.And: return "And"
         case NodeKind.Or: return "Or"
         case NodeKind.BlockExpression: return "BlockExpression"
-        case NodeKind.When: return "When"
-        case NodeKind.WhenClause: return "WhenClause"
+        case NodeKind.IfThenElse: return "IfThenElse"
         case NodeKind.Loop: return "Loop"
         case NodeKind.Break: return "Break"
         case NodeKind.Continue: return "Continue"
@@ -91,8 +89,7 @@ export type Tree =
     Negate |
     Not |
     BlockExpression |
-    When |
-    WhenClause |
+    IfThenElse |
     Loop |
     Break |
     Continue |
@@ -192,17 +189,11 @@ export interface BlockExpression extends Locatable {
     block: Tree[]
 }
 
-export interface When extends Locatable {
-    kind: NodeKind.When
-    target?: Tree
-    targetName?: string
-    clauses: WhenClause[]
-}
-
-export interface WhenClause extends Locatable {
-    kind: NodeKind.WhenClause
+export interface IfThenElse extends Locatable {
+    kind: NodeKind.IfThenElse
     condition: Tree
-    body: Tree
+    then: Tree
+    else?: Tree
 }
 
 export interface Loop extends Locatable {

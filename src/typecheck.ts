@@ -1,4 +1,4 @@
-import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, When, Import, Parameter } from "./ast"
+import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse } from "./ast"
 import { ArrayType, booleanType, capabilitesOf, Capabilities, doubleType, globals, intType, StructType, Type, TypeKind, typeToString, voidType } from "./types";
 
 const builtins = new Scope<Type>(globals)
@@ -177,8 +177,8 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case NodeKind.BlockExpression:
                 type = blockExpression(tree, scope)
                 break
-            case NodeKind.When:
-                type = whenExpression(tree, scope)
+            case NodeKind.IfThenElse:
+                type = ifThenElseExpresssion(tree, scope)
                 break
             case NodeKind.Loop:
                 type = loopStatement(tree, scope)
@@ -329,20 +329,20 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return typeCheckStatements(block.block, scope)
     }
 
-    function whenExpression(when: When, scope: Scope<Type>): Type {
-        const target = when.target
-        let resultType: Type | undefined = undefined
-        for (const clause of when.clauses) {
-            const conditionType = typeCheckExpr(clause.condition, scope)
-            expectBoolean(clause.condition, conditionType)
-            const bodyType = typeCheckExpr(clause.body, scope)
-            if (resultType) {
-                mustMatch(clause.body, resultType, bodyType)
-            } else {
-                resultType = bodyType
-            }
+    function ifThenElseExpresssion(tree: IfThenElse, scope: Scope<Type>): Type {
+        const conditionType = typeCheckExpr(tree.condition, scope)
+        mustMatch(tree.condition, conditionType, booleanType)
+        const thenType = typeCheckExpr(tree.then, scope)
+        const elseNode = tree.else
+        var ifType: Type
+        if (!elseNode) {
+            ifType = voidType
+        } else {
+            const elseType = typeCheckExpr(elseNode, scope)
+            mustMatch(tree, elseType, thenType)
+            ifType = thenType
         }
-        return resultType ?? voidType
+        return ifType
     }
 
     function loopStatement(loop: Loop, scope: Scope<Type>): Type {

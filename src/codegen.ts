@@ -1,4 +1,4 @@
-import { ArrayLit, Assign, Call, CompareOp, Index, Function, Let, LiteralKind, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, When, WhenClause } from "./ast";
+import { ArrayLit, Assign, Call, CompareOp, Index, Function, Let, LiteralKind, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, IfThenElse } from "./ast";
 import { booleanType, doubleType, intType, Type, TypeKind, voidType } from "./types";
 import { ByteWriter } from "./wasm/bytewriter";
 import { Generate, gen, Label, label } from "./wasm/codeblock";
@@ -45,7 +45,7 @@ function sizeOfParts(parts: GenTypeParts): number {
             case NumberType.i64: return 8
             case ReferenceType.externref: return 4
             case ReferenceType.funcref: return 4
-        } 
+        }
     }
     const fields = parts.fields
     if (fields) {
@@ -409,7 +409,7 @@ abstract class LoadonlySymbol {
     abstract load(g: Generate): void
 
     store(g: Generate): void {
-        unsupported()   
+        unsupported()
     }
 
     storeTo(symbol: Symbol, g: Generate) {
@@ -547,7 +547,7 @@ class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
         const elements = this.elements
         for (const element of elements) {
             element.load(g)
-        } 
+        }
     }
 
     storeTo(symbol: Symbol, g: Generate) {
@@ -706,7 +706,7 @@ class CompareSymbol extends LoadonlySymbol implements Symbol {
 class GotoSymbol extends LoadonlySymbol implements Symbol {
     type = voidGenType
     label: Label
-    
+
     constructor(label: Label) {
         super()
         this.label = label
@@ -739,7 +739,7 @@ class CallSymbol extends LoadonlySymbol implements Symbol {
     type: GenType
     funcIndex: FuncIndex
     args: Symbol[]
-    
+
     constructor(type: GenType, index: FuncIndex, args: Symbol[]) {
         super()
         this.type = type
@@ -784,7 +784,7 @@ class IfThenSymbol extends LoadonlySymbol implements Symbol {
         const type = this.type
         const blockType = type.parts.piece ?? 0x40
         const {thenBlock, elseBlock} = g.if(blockType)
-        const body = this.then  
+        const body = this.then
         const e = this.else
         body.load(thenBlock.body)
         if (e) {
@@ -1002,7 +1002,7 @@ function genTypeOf(type: Type, cache?: Map<Type, GenType>): GenType {
     const cached = cache?.get(type)
     if (cached) return cached
     switch (type.kind) {
-        case TypeKind.Int: 
+        case TypeKind.Int:
             return new GenType(type, { piece: NumberType.i32 })
         case TypeKind.Boolean:
             return new GenType(type, { piece: NumberType.i32 })
@@ -1129,18 +1129,6 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     const genTypes = new Map<Type, GenType>()
     const typeSection = new TypeSection()
     const importSection = new ImportSection()
-    /*
-    const printType = typeSection.funtionType({
-        parameters: [NumberType.f64], 
-        result: []
-    })
-    const printIndex = importSection.importFunction('host', 'print', printType);
-    const sqrtType = typeSection.funtionType({
-        parameters: [NumberType.f64],
-        result: [NumberType.f64]
-    })
-    const sqrtIndex = importSection.importFunction('host', 'sqrt', sqrtType)
-    */
     const globalSection = new GlobalSection(importSection.globalsCount)
     const funcSection = new FunctionSection(importSection.funcsCount)
     const codeSection = new CodeSection()
@@ -1157,8 +1145,8 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     }
 
     const rootScope = new Scope<Symbol>()
-    const rootScopes: Scopes = { 
-        continues: new Scope<Label>(), 
+    const rootScopes: Scopes = {
+        continues: new Scope<Label>(),
         breaks: new Scope<Label>(),
         symbols: rootScope,
         alloc: dataAllocator
@@ -1207,7 +1195,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 const right = treeToSymbol(tree.right, scopes)
                 return new CompareSymbol(left, right, tree.op)
             }
-            case NodeKind.BlockExpression: 
+            case NodeKind.BlockExpression:
                 return statementsToSymbol(tree.block, scopes)
             case NodeKind.Break: {
                 const l = required(scopes.breaks.find(tree.name ?? "$top"))
@@ -1230,7 +1218,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                         return new DoubleConstSymbol(tree.value)
                 }
                 break
-            case NodeKind.StructLit: 
+            case NodeKind.StructLit:
                 return structLitToSymbol(tree, scopes)
             case NodeKind.Field:
                 return treeToSymbol(tree.value, scopes)
@@ -1256,8 +1244,8 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 return varToSymbol(tree, scopes)
             case NodeKind.Let:
                 return letToSymbol(tree, scopes)
-            case NodeKind.When:
-                return whenToSymbol(tree, scopes)
+            case NodeKind.IfThenElse:
+                return ifThenElseSymbol(tree, scopes)
             case NodeKind.Loop:
                 return loopToSymbol(tree, scopes)
             case NodeKind.Type:
@@ -1334,7 +1322,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
 
         // Allow the function to call itself if it is named
         const functionName = scopes.letTarget
-        if (functionName) 
+        if (functionName)
             symbols.enter(functionName, funcSymbol)
 
         // Generate the body
@@ -1374,33 +1362,12 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         return emptySymbol
     }
 
-    function whenToSymbol(tree: When, scopes: Scopes): Symbol {
-        const target = tree.target
-        const blockLabel = label()
-        const blockScope = new Scope<Label>(scopes.breaks);
-        blockScope.enter("$top", blockLabel)
-        const stmts: Symbol[] = []
-        if (target) {
-            const targetType = typeOf(target)
-            const name = required(tree.targetName)
-            const targetSymbol = scopes.alloc.allocate(targetType)
-            const targetValue = treeToSymbol(target, scopes)
-            stmts.push(new AssignSymbol(targetSymbol, targetValue))
-            scopes.symbols.enter(name, targetSymbol)
-        }
+    function ifThenElseSymbol(tree: IfThenElse, scopes: Scopes): Symbol {
+        const condition = treeToSymbol(tree.condition, scopes)
+        const then = treeToSymbol(tree.then, scopes)
+        const elsePart = tree.else && treeToSymbol(tree.else, scopes)
 
-        const clauses = tree.clauses
-        const whenType = typeOf(tree)
-        const last = clauses.length - 1
-        function convertClause(i: number): Symbol {
-            const clause = clauses[i]
-            const condition = treeToSymbol(clause.condition, scopes)
-            const thenPart = treeToSymbol(clause.body, scopes)
-            const elsePart = i < last ? convertClause(i + 1) : undefined
-            return new IfThenSymbol(whenType, condition, thenPart, elsePart)
-        }
-        stmts.push(convertClause(0))
-        return new BlockSymbol(whenType, stmts, label())
+        return new IfThenSymbol(then.type, condition, then, elsePart)
     }
 
     function loopToSymbol(tree: Loop, scopes: Scopes): Symbol {
@@ -1415,7 +1382,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         continues.enter("$top", continueLabel)
         if (name) {
             breaks.enter(name, breakLabel)
-            continues.enter(name, continueLabel)    
+            continues.enter(name, continueLabel)
         }
         const body = statementsToSymbol(tree.body, { symbols, alloc, breaks, continues })
         return new LoopSymbol(voidGenType, body.symbols, breakLabel, continueLabel)
