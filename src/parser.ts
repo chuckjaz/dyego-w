@@ -1,4 +1,4 @@
-import { CompareOp, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Reference, Scope, StructField, Tree, WhenClause } from "./ast";
+import { CompareOp, Let, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Function, Reference, Scope, StructField, Tree, Var, WhenClause } from "./ast";
 import { Scanner } from "./scanner";
 import { Token } from "./tokens";
 
@@ -22,7 +22,7 @@ export function parse(text: string): Tree[] {
     }
 
     function program(): Tree[] {
-        const result = sequence()
+        const result = topLevelSequence()
         expect(Token.EOF)
         return result
     }
@@ -39,6 +39,50 @@ export function parse(text: string): Tree[] {
         }
     }
 
+    function topLevelSequence(): Tree[] {
+        const result: Tree[] = []
+        while (token != Token.EOF) {
+            switch(token) {
+                case Token.Export: {
+                    next()
+                    const item = exportableTopLevelItem()
+                    item.exported = true
+                    result.push(item)
+                    semi()
+                    continue
+                }
+                case Token.Fun: 
+                case Token.Var: {
+                    result.push(exportableTopLevelItem())
+                    semi()
+                    continue
+                }
+                case Token.Let:
+                    result.push(letDeclaration())
+                    semi()
+                    continue
+                case Token.Type:
+                    result.push(typeDeclaration())
+                    semi()
+                    continue
+            }
+
+            break
+        }
+        return result
+    }
+
+    function exportableTopLevelItem(): Function | Var {
+        switch(token) {
+            case Token.Fun:
+                return func()
+            case Token.Var:
+                return varDeclaration()
+        }
+        expect(Token.Fun)
+        error("")
+    }
+
     function sequence(): Tree[] {
         const result: Tree[] = []
         
@@ -47,7 +91,6 @@ export function parse(text: string): Tree[] {
                 case Token.Identifier:
                 case Token.Int:
                 case Token.Double:
-                case Token.String:
                 case Token.True:
                 case Token.False:
                 case Token.Dash:
@@ -66,12 +109,12 @@ export function parse(text: string): Tree[] {
                     semi()
                     continue
                 case Token.Export: {
-                    result.push(exportedNamedFunc())
+                    result.push(exportedFunc())
                     semi()
                     continue
                 }
                 case Token.Fun: {
-                    result.push(namedFunction())
+                    result.push(func())
                     semi()
                     continue
                 }
@@ -100,8 +143,8 @@ export function parse(text: string): Tree[] {
         return result
     }
 
-    function letDeclaration(): Tree {
-        return l<Tree>(() => {
+    function letDeclaration(): Let {
+        return l<Let>(() => {
             expect(Token.Let)
             const name = expectName()
             let type: Tree | undefined
@@ -115,8 +158,8 @@ export function parse(text: string): Tree[] {
         })
     }
 
-    function varDeclaration(): Tree {
-        return l<Tree>(() => {
+    function varDeclaration(): Var {
+        return l<Var>(() => {
             expect(Token.Var)
             const name = expectName()
             let type: Tree | undefined
@@ -304,11 +347,6 @@ export function parse(text: string): Tree[] {
                     next() 
                     return { kind: NodeKind.Literal, literalKind: LiteralKind.Double, value }
                 }
-                case Token.String: {
-                    const value = scanner.value
-                    next() 
-                    return { kind: NodeKind.Literal, literalKind: LiteralKind.String, value }
-                }
                 case Token.True: 
                 case Token.False: {
                     const value = scanner.value
@@ -334,7 +372,6 @@ export function parse(text: string): Tree[] {
                     const target = primitiveExpression()
                     return { kind: NodeKind.Not, target }
                 }
-                case Token.Fun: return lambda()
                 case Token.When: return when()
                 case Token.If: return ifExpr()
                 case Token.Loop: return loop()
@@ -362,7 +399,6 @@ export function parse(text: string): Tree[] {
                         case Token.Identifier:
                         case Token.Int:
                         case Token.Double:
-                        case Token.String:
                         case Token.True:
                         case Token.False:
                         case Token.Dash:
@@ -398,46 +434,36 @@ export function parse(text: string): Tree[] {
         })
     }
 
-    function lambda(named: boolean = false, exported: boolean = false): Tree {
-        return l<Tree>(() => {
-            let name: string | undefined = undefined
-            const lambda = l<Tree>(() => {
-                expect(Token.Fun)
-                if (named) {
-                    name = expectName()
-                }
-                expect(Token.LParen)
-                const parameters: Parameter[] = []
-                while (token != Token.RParen && token != Token.EOF) {
-                    const name = expectName()
-                    expect(Token.Colon)
-                    const type = typeExpression()
-                    parameters.push({ kind: NodeKind.Parameter, name, type })
-                    if (token == Token.Comma) next()
-                }
-                expect(Token.RParen)
+    function func(exported: boolean = false): Function {
+        return l<Function>(() => {
+            expect(Token.Fun)
+            const name = expectName()
+            expect(Token.LParen)
+            const parameters: Parameter[] = []
+            while (token != Token.RParen && token != Token.EOF) {
+                const name = expectName()
                 expect(Token.Colon)
-                const result = typeExpression()
-                let body: Tree[] = []
-                switch (token as any) {
-                    case Token.Equal:
-                        next()
-                        body.push(expression())
-                        break
-                    case Token.LBrace:
-                        body = block()
-                        break
-                    default:
-                        expect(Token.LBrace)
-                        break
-                }
-                return { kind: NodeKind.Lambda, parameters, body, result }
-            })
-            if (name) {
-                return { kind: NodeKind.Let, name, value: lambda, exported }
-            } else {
-                return lambda
+                const type = typeExpression()
+                parameters.push({ kind: NodeKind.Parameter, name, type })
+                if (token == Token.Comma) next()
             }
+            expect(Token.RParen)
+            expect(Token.Colon)
+            const result = typeExpression()
+            let body: Tree[] = []
+            switch (token as any) {
+                case Token.Equal:
+                    next()
+                    body.push(expression())
+                    break
+                case Token.LBrace:
+                    body = block()
+                    break
+                default:
+                    expect(Token.LBrace)
+                    break
+            }
+            return { kind: NodeKind.Function, parameters, body, result, name, exported }
         })
     }
 
@@ -593,13 +619,9 @@ export function parse(text: string): Tree[] {
         })
     }
 
-    function exportedNamedFunc(): Tree {
+    function exportedFunc(): Tree {
         expect(Token.Export)
-        return lambda(true, true)
-    }
-
-    function namedFunction(): Tree {
-        return lambda(true, false)
+        return func(true)
     }
 
     function struct(): Tree {
@@ -624,7 +646,7 @@ export function parse(text: string): Tree[] {
                         if (token as any == Token.Comma) next()
                         continue
                     case Token.Fun:
-                        body.push(namedFunction())
+                        body.push(func(false))
                         if (token as any == Token.Comma) next()
                         continue
                 }
@@ -794,7 +816,6 @@ export function parse(text: string): Tree[] {
             case Token.Comma: return `","`
             case Token.Colon: return `":"`
             case Token.Bang: return `"!"`
-            case Token.String: return "a string"
             case Token.LBrack: return `"["`
             case Token.RBrack: return `"]"`
             case Token.Spread: return `"..."`

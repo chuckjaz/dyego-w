@@ -1,4 +1,4 @@
-import { ArrayLit, Assign, Call, CompareOp, Index, Lambda, Let, LiteralKind, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, When, WhenClause } from "./ast";
+import { ArrayLit, Assign, Call, CompareOp, Index, Function, Let, LiteralKind, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, When, WhenClause } from "./ast";
 import { booleanType, doubleType, intType, Type, TypeKind, voidType } from "./types";
 import { ByteWriter } from "./wasm/bytewriter";
 import { Generate, gen, Label, label } from "./wasm/codeblock";
@@ -1008,8 +1008,6 @@ function genTypeOf(type: Type, cache?: Map<Type, GenType>): GenType {
             return new GenType(type, { piece: NumberType.i32 })
         case TypeKind.Double:
             return new GenType(type, { piece: NumberType.f64 })
-        case TypeKind.String:
-            unsupported()
         case TypeKind.Unknown:
             unsupported()
         case TypeKind.Void:
@@ -1024,7 +1022,7 @@ function genTypeOf(type: Type, cache?: Map<Type, GenType>): GenType {
             return new GenType(type, { fields })
         case TypeKind.Location:
             return genTypeOf(type.type, cache)
-        case TypeKind.Lambda:
+        case TypeKind.Function:
             return genTypeOf(type.result, cache)
     }
     unsupported()
@@ -1250,8 +1248,8 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 unsupported()
             case NodeKind.Assign:
                 return assignToSymbol(tree, scopes)
-            case NodeKind.Lambda:
-                return lambdaToSymbol(tree, scopes)
+            case NodeKind.Function:
+                return functionToSymbol(tree, scopes)
             case NodeKind.Call:
                 return callToSymbol(tree, scopes)
             case NodeKind.Var:
@@ -1301,7 +1299,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         return new AssignSymbol(target, value)
     }
 
-    function lambdaToSymbol(tree: Lambda, scopes: Scopes): Symbol {
+    function functionToSymbol(tree: Function, scopes: Scopes): Symbol {
         const g = gen()
 
         // Create the function scopes
@@ -1347,6 +1345,9 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         const bytes = new ByteWriter()
         g.write(bytes)
         codeSection.allocate(g.currentLocals(), bytes)
+        if (tree.exported) {
+            exportSection.allocate(tree.name, ExportKind.Func, funcIndex)
+        }
 
         return funcSymbol
     }
@@ -1370,9 +1371,6 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     function letToSymbol(tree: Let, scopes: Scopes): Symbol {
         const symbol = treeToSymbol(tree.value, { ...scopes, letTarget: tree.name })
         scopes.symbols.enter(tree.name, symbol)
-        if (tree.exported) {
-            exportSection.allocate(tree.name, ExportKind.Func, (symbol as FunctionSymbol).funcIndex)
-        }
         return emptySymbol
     }
 

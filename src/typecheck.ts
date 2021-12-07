@@ -1,5 +1,5 @@
-import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Lambda, LiteralKind, LiteralStruct, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, When } from "./ast"
-import { ArrayType, booleanType, capabilitesOf, Capabilities, doubleType, globals, intType, stringType, StructType, Type, TypeKind, typeToString, voidType } from "./types";
+import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, When } from "./ast"
+import { ArrayType, booleanType, capabilitesOf, Capabilities, doubleType, globals, intType, StructType, Type, TypeKind, typeToString, voidType } from "./types";
 
 function scopeOf(...values: {name: string, type: Type}[]): Scope<Type> {
     const scope = new Scope<Type>()
@@ -10,8 +10,8 @@ function scopeOf(...values: {name: string, type: Type}[]): Scope<Type> {
 }
 
 const builtins = new Scope<Type>(globals)
-builtins.enter("sqrt", { kind: TypeKind.Lambda, parameters: scopeOf({name: "a", type: doubleType}), result: doubleType})
-builtins.enter("print", { kind: TypeKind.Lambda, parameters: scopeOf({name: "a", type: doubleType}), result: voidType})
+builtins.enter("sqrt", { kind: TypeKind.Function, parameters: scopeOf({name: "a", type: doubleType}), result: doubleType})
+builtins.enter("print", { kind: TypeKind.Function, parameters: scopeOf({name: "a", type: doubleType}), result: voidType})
 
 export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> {
     const result = new Map<Tree, Type>()
@@ -40,7 +40,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 const declaredTypeTree = tree.type
                 const type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
                 mustMatch(tree.value, exprType, type)
-                if (type.kind == TypeKind.Lambda) {
+                if (type.kind == TypeKind.Function) {
                     type.name = tree.name
                     enter(tree, tree.name, type, scope)
                 } else {
@@ -63,6 +63,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 }
                 enter(tree, tree.name, type, scope)
                 return voidType
+            }
+            case NodeKind.Function: {
+                const type = typeCheckExpr(tree, scope)
+                enter(tree, tree.name, type, scope)
             }
             default:
                 return typeCheckExpr(tree, scope)
@@ -185,15 +189,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                     case LiteralKind.Int:
                         type = intType
                         break
-                    case LiteralKind.String:
-                        type = stringType
-                        break
-                    default:
-                        error(tree, `Unsupported literal ${nameOfLiteralKind(tree.literalKind)}`)
                 }
                 break
-            case NodeKind.Lambda:
-                type = lambda(tree, scope)
+            case NodeKind.Function:
+                type = func(tree, scope)
                 break
             case NodeKind.StructLit:
                 type = structLit(tree, scope)
@@ -220,7 +219,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return type
     }
 
-    function lambda(tree: Lambda, scope: Scope<Type>): Type {
+    function func(tree: Function, scope: Scope<Type>): Type {
         const parameters = new Scope<Type>()
         for (const parameter of tree.parameters) {
             if (parameters.has(parameter.name)) error(parameter, `Duplicate parameter name`)
@@ -236,13 +235,13 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         if (bodyResult.kind != TypeKind.Void) {
             mustMatch(tree, bodyResult, resultType)
         }
-        return { kind: TypeKind.Lambda, parameters, result: resultType }
+        return { kind: TypeKind.Function, parameters, result: resultType }
     }
 
     function call(tree: Call, scope: Scope<Type>): Type {
         const callType = typeCheckExpr(tree.target, scope)
         requireCapability(callType, Capabilities.Callable, tree.target)
-        if (callType.kind != TypeKind.Lambda) error(tree.target, `Expected a function reference`)
+        if (callType.kind != TypeKind.Function) error(tree.target, `Expected a function reference`)
         if (tree.arguments.length != callType.parameters.size) {
             error(tree, `Expected ${callType.parameters.size} arguments, received ${tree.arguments.length}`)
         }
@@ -360,10 +359,6 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return { kind: TypeKind.Unknown }
     }
 
-    function structLiteral(tree: LiteralStruct, scope: Scope<Type>): Type {
-        error(tree, "Unsupported struct literal")
-    }
-
     function typeExpr(tree: Tree, scope: Scope<Type>): Type {
         switch (tree.kind) {
             case NodeKind.Reference: {
@@ -403,11 +398,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             switch (from.kind) {
                 case TypeKind.Int:
                 case TypeKind.Double:
-                case TypeKind.String:
                 case TypeKind.Void:
                     return true;
                 case TypeKind.Struct:
-                case TypeKind.Lambda:
+                case TypeKind.Function:
                     return false;
                 case TypeKind.Array:
                     return equivilent(from.elements, (to as ArrayType).elements)
@@ -422,7 +416,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case TypeKind.Array: 
                 const elements = substitute(type.elements, secondary, primary)
                 return elements == type.elements ? type : { kind: TypeKind.Array, elements }
-            case TypeKind.Lambda:
+            case TypeKind.Function:
                 let changed = false
                 const newParmeters = new Scope<Type>()
                 type.parameters.forEach((name, paramType) => {
@@ -432,7 +426,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 })
                 const newResult = substitute(type.result, secondary, primary)
                 if (newResult != type.result) changed = true
-                if (changed) return { kind: TypeKind.Lambda, parameters: newParmeters, result: newResult }
+                if (changed) return { kind: TypeKind.Function, parameters: newParmeters, result: newResult }
                 return type
         }
         return type
