@@ -1,0 +1,177 @@
+let PI = 3.141592653589793;
+let SOLAR_MASS = 4 * PI * PI;
+let DAYS_PER_YEAR = 365.24;
+
+type BodyValue = <
+    x: Double,
+    y: Double,
+    z: Double,
+    vx: Double,
+    vy: Double,
+    vz: Double,
+    mass: Double,
+>
+
+fun Body(
+    x: Double, 
+    y: Double, 
+    z: Double, 
+    vx: Double, 
+    vy: Double, 
+    vz: Double, 
+    mass: Double
+): BodyValue = {
+    x: x,
+    y: y,
+    z: z,
+    vx: vx,
+    vy: vy,
+    vz: vz,
+    mass: mass,
+}
+
+fun Jupiter(): BodyValue = Body(
+        4.84143144246472090e+00,
+        -1.16032004402742839e+00,
+        -1.03622044471123109e-01,
+        1.66007664274403694e-03 * DAYS_PER_YEAR,
+        7.69901118419740425e-03 * DAYS_PER_YEAR,
+        -6.90460016972063023e-05 * DAYS_PER_YEAR,
+        9.54791938424326609e-04 * SOLAR_MASS
+    )
+
+fun Saturn(): BodyValue = Body(
+        8.34336671824457987e+00,
+        4.12479856412430479e+00,
+        -4.03523417114321381e-01,
+        -2.76742510726862411e-03 * DAYS_PER_YEAR,
+        4.99852801234917238e-03 * DAYS_PER_YEAR,
+        2.30417297573763929e-05 * DAYS_PER_YEAR,
+        2.85885980666130812e-04 * SOLAR_MASS
+    )
+
+fun Uranus(): BodyValue = Body(
+        1.28943695621391310e+01,
+        -1.51111514016986312e+01,
+        -2.23307578892655734e-01,
+        2.96460137564761618e-03 * DAYS_PER_YEAR,
+        2.37847173959480950e-03 * DAYS_PER_YEAR,
+        -2.96589568540237556e-05 * DAYS_PER_YEAR,
+        4.36624404335156298e-05 * SOLAR_MASS
+    )
+
+fun Neptune(): BodyValue = Body(
+        1.53796971148509165e+01,
+        -2.59193146099879641e+01,
+        1.79258772950371181e-01,
+        2.68067772490389322e-03 * DAYS_PER_YEAR,
+        1.62824170038242295e-03 * DAYS_PER_YEAR,
+        -9.51592254519715870e-05 * DAYS_PER_YEAR,
+        5.15138902046611451e-05 * SOLAR_MASS
+    )
+
+fun Sun(): BodyValue = Body(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SOLAR_MASS)
+
+let bodies: BodyValue[] = [Sun(), Jupiter(), Saturn(), Uranus(), Neptune()];
+
+fun offsetMomentum(): Void {
+    let size = 5;
+    var px = 0.0;
+    var py = 0.0;
+    var pz = 0.0;
+    var i = 0;
+    while (i < size) {
+        let mass = bodies[i].mass;
+        px = px + bodies[i].vx * mass;
+        py = py + bodies[i].vy * mass;
+        pz = pz + bodies[i].vz * mass;
+        i = i + 1
+    }
+
+    bodies[0].vx = -px / SOLAR_MASS;
+    bodies[0].vy = -py / SOLAR_MASS;
+    bodies[0].vz = -pz / SOLAR_MASS;
+}
+
+fun advance(dt: Double): Void {
+    let size = 5;
+
+    var i = 0;
+    while (i < size) {    
+        var vxi = bodies[i].vx;
+        var vyi = bodies[i].vy;
+        var vzi = bodies[i].vz;
+        var j = i + 1;
+        while (j < size) {
+            let dx = bodies[i].x - bodies[j].x;
+            let dy = bodies[i].y - bodies[j].y;
+            let dz = bodies[i].z - bodies[j].z;
+
+            let d2 = dx * dx + dy * dy + dz * dz;
+            let mag = dt / (d2 * sqrt(d2));
+
+            let massj = bodies[j].mass;
+            vxi = vxi - dx * massj * mag;
+            vyi = vyi - dy * massj * mag;
+            vzi = vzi - dz * massj * mag;
+
+            let massi = bodies[i].mass;
+            bodies[j].vx = bodies[j].vx + dx * massi * mag;
+            bodies[j].vy = bodies[j].vy + dy * massi * mag;
+            bodies[j].vz = bodies[j].vz + dz * massi * mag;
+            j = j + 1
+        }
+        bodies[i].vx = vxi;
+        bodies[i].vy = vyi;
+        bodies[i].vz = vzi;
+
+        i = i + 1
+    }
+
+    i = 0;
+    while (i < size) {
+        bodies[i].x = bodies[i].x + dt * bodies[i].vx;
+        bodies[i].y = bodies[i].y + dt * bodies[i].vy;
+        bodies[i].z = bodies[i].z + dt * bodies[i].vz;
+        i = i + 1
+    }
+}
+
+fun energy(): Double {
+    let size = 5
+
+    var e = 0.0;
+    var i = 0
+    while (i < size) {
+        e = e + (0.5 * bodies[i].mass * ( bodies[i].vx * bodies[i].vx + 
+            bodies[i].vy * bodies[i].vy + bodies[i].vz * bodies[i].vz ));
+        var j = i + 1;
+        while (j < size) {
+            let dx = bodies[i].x - bodies[j].x;
+            let dy = bodies[i].y - bodies[j].y;
+            let dz = bodies[i].z - bodies[j].z;
+
+            let distance = sqrt(dx * dx + dy * dy + dz * dz);
+            e = e -((bodies[i].mass * bodies[j].mass) / distance);
+            j = j + 1
+        }
+        i = i + 1
+    }
+
+    e;
+}
+
+fun main(): Void {
+    let n = 50000
+
+    offsetMomentum()
+    print(energy())
+
+    var i = 0;
+    while (i < n) {
+        advance(0.01)
+        i = i + 1
+    }
+
+    print(energy())
+}

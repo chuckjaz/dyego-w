@@ -1,0 +1,21 @@
+{
+  "name": "dyego-w",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jasmine"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jasmine": "^3.10.2",
+    "c8": "^7.10.0",
+    "jasmine": "^3.10.0",
+    "typescript": "^4.5.2"
+  },
+  "dependencies": {
+    "@types/node": "^16.11.10"
+  }
+}
