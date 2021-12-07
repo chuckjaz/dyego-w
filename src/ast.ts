@@ -25,7 +25,7 @@ export const enum NodeKind {
     Index,
     FieldRef,
     Assign,
-    Lambda,
+    Function,
     Parameter,
     Call,
     Let,
@@ -64,7 +64,7 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.Index: return "Index"
         case NodeKind.FieldRef: return "FieldRef"
         case NodeKind.Assign: return "Assign"
-        case NodeKind.Lambda: return "Lambda"
+        case NodeKind.Function: return "Function"
         case NodeKind.Parameter: return "Parameter"
         case NodeKind.Call: return "Call"
         case NodeKind.Let: return "Let"
@@ -102,7 +102,7 @@ export type Tree =
     Index |
     FieldRef |
     Assign |
-    Lambda |
+    Function |
     Parameter |
     Call |
     Let |
@@ -222,33 +222,21 @@ export interface Return extends Locatable {
 export const enum LiteralKind {
     Int,
     Double,
-    String,
     Boolean,
-    Struct,
-    Array,
-    Void,
 }
 
 export function nameOfLiteralKind(kind: LiteralKind): string {
     switch (kind) {
+        case LiteralKind.Boolean: return "Boolean";
         case LiteralKind.Int: return "Int";
         case LiteralKind.Double: return "Double";
-        case LiteralKind.String: return "String";
-        case LiteralKind.Boolean: return "Boolean";
-        case LiteralKind.Struct: return "Struct";
-        case LiteralKind.Array: return "Array";
-        case LiteralKind.Void: return "Void";
     }    
 }
 
 export type Literal =
     LiteralInt |
     LiteralDouble |
-    LiteralString |
-    LiteralBoolean |
-    LiteralStruct |
-    LiteralArray |
-    LiteralVoid
+    LiteralBoolean
 
 export interface LiteralInt extends Locatable {
     kind: NodeKind.Literal
@@ -262,38 +250,10 @@ export interface LiteralDouble extends Locatable {
     value: number
 }
 
-export interface LiteralString extends Locatable {
-    kind: NodeKind.Literal
-    literalKind: LiteralKind.String
-    value: string
-}
-
 export interface LiteralBoolean extends Locatable {
     kind: NodeKind.Literal
     literalKind: LiteralKind.Boolean
     value: boolean
-}
-
-export interface Struct extends Array<Tree> {
-    class: Scope<Tree>
-}
-
-export interface LiteralStruct extends Locatable {
-    kind: NodeKind.Literal
-    literalKind: LiteralKind.Struct
-    value: Struct
-}
-
-export interface LiteralArray extends Locatable {
-    kind: NodeKind.Literal
-    literalKind: LiteralKind.Array
-    value: Tree[]
-}
-
-export interface LiteralVoid extends Locatable {
-    kind: NodeKind.Literal
-    literalKind: LiteralKind.Void
-    value: undefined
 }
 
 export interface StructLit extends Locatable {
@@ -338,7 +298,6 @@ export interface FieldRef extends Locatable {
     kind: NodeKind.FieldRef
     target: Tree
     index: number
-    struct?: LiteralStruct
 }
 
 export interface Assign extends Locatable {
@@ -347,11 +306,13 @@ export interface Assign extends Locatable {
     value: Tree
 }
 
-export interface Lambda extends Locatable {
-    kind: NodeKind.Lambda
+export interface Function extends Locatable {
+    kind: NodeKind.Function
+    name: string
     parameters: Parameter[]
     body: Tree[]
     result: Tree
+    exported?: boolean
 }
 
 export interface Parameter extends Locatable {
@@ -371,7 +332,6 @@ export interface Let extends Locatable {
     name: string
     type?: Tree
     value: Tree
-    exported?: boolean
 }
 
 export interface Var extends Locatable {
@@ -379,6 +339,7 @@ export interface Var extends Locatable {
     name: string
     type?: Tree
     value: Tree
+    exported?: boolean
 }
 
 export interface Type extends Locatable {

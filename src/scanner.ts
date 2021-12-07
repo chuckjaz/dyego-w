@@ -117,23 +117,6 @@ export class Scanner {
                     }
                     break                
                 }
-                case "\"":
-                    while (true) {
-                        switch (text[i++]) {
-                            case "\"": 
-                                break
-                            case "\0":
-                                result = Token.Error
-                                i--
-                                break loop
-                            default:
-                                continue
-                        }
-                        break
-                    }
-                    result = Token.String
-                    this.value = text.substring(this.start + 1, i - 1)
-                    break
                 case ".":
                     if (text[i] == "." && text[i+1] == ".") {
                         i += 2

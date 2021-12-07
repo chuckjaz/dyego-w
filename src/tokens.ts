@@ -2,7 +2,6 @@ export const enum Token {
     Identifier,
     Int,
     Double,
-    String,
     Let,
     Var,
     Type,
