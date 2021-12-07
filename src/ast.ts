@@ -34,6 +34,8 @@ export const enum NodeKind {
     StructTypeLit,
     StructField,
     ArrayCtor,
+    Import,
+    ImportFunction
 }
 
 export function nameOfNodeKind(kind: NodeKind): string {
@@ -73,8 +75,11 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.StructTypeLit: return "StructTypeLit"
         case NodeKind.StructField: return "StructField"
         case NodeKind.ArrayCtor: return "ArrayCtor"
+        case NodeKind.Import: return "Import"
+        case NodeKind.ImportFunction: return "ImportItem"
     }
 }
+
 export type Tree = 
     Add |
     Subtract |
@@ -110,7 +115,9 @@ export type Tree =
     Type |
     StructTypeLit |
     StructField |
-    ArrayCtor
+    ArrayCtor |
+    Import |
+    ImportItem 
 
 export interface Locatable {
     start?: number
@@ -363,6 +370,22 @@ export interface ArrayCtor extends Locatable {
     kind: NodeKind.ArrayCtor
     element: Tree
     size?: number
+}
+
+export interface Import extends Locatable {
+    kind: NodeKind.Import
+    imports: ImportItem[]
+}
+
+export type ImportItem = ImportFunction
+
+export interface ImportFunction extends Locatable {
+    kind: NodeKind.ImportFunction
+    name: string
+    module: string
+    parameters: Parameter[]
+    result: Tree
+    as?: string
 }
 
 export class Scope<T> {

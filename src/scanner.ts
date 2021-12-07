@@ -88,6 +88,8 @@ export class Scanner {
                             case "type": result = Token.Type; break
                             case "var": result = Token.Var; break
                             case "export": result = Token.Export; break
+                            case "import": result = Token.Import; break
+                            case "as": result = Token.As; break
                         }
                         break
                     }
@@ -116,6 +118,27 @@ export class Scanner {
                         this.value = parseFloat(text.substring(this.start, i))
                     }
                     break                
+                }
+                case "`": {
+                    result = Token.Identifier
+                    while (true) {
+                        switch (text[i]) {
+                            case "\n":
+                            case "\r":
+                                result = Token.Error
+                                break
+                            case "`":
+                                i++
+                                break
+                            default:
+                                i++
+                                continue
+                        }
+
+                        break
+                    }
+                    this.value = text.substring(this.start + 1, i - 1)
+                    break
                 }
                 case ".":
                     if (text[i] == "." && text[i+1] == ".") {

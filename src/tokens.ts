@@ -12,6 +12,8 @@ export const enum Token {
     If,
     Else,
     Export,
+    Import,
+    As,
     Loop,
     While,
     Break,

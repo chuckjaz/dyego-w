@@ -1,17 +1,7 @@
-import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, When } from "./ast"
+import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, When, Import, Parameter } from "./ast"
 import { ArrayType, booleanType, capabilitesOf, Capabilities, doubleType, globals, intType, StructType, Type, TypeKind, typeToString, voidType } from "./types";
 
-function scopeOf(...values: {name: string, type: Type}[]): Scope<Type> {
-    const scope = new Scope<Type>()
-    for (const {name, type} of values) {
-        scope.enter(name, type)
-    }
-    return scope
-}
-
 const builtins = new Scope<Type>(globals)
-builtins.enter("sqrt", { kind: TypeKind.Function, parameters: scopeOf({name: "a", type: doubleType}), result: doubleType})
-builtins.enter("print", { kind: TypeKind.Function, parameters: scopeOf({name: "a", type: doubleType}), result: voidType})
 
 export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> {
     const result = new Map<Tree, Type>()
@@ -67,9 +57,33 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case NodeKind.Function: {
                 const type = typeCheckExpr(tree, scope)
                 enter(tree, tree.name, type, scope)
+                return type
+            }
+            case NodeKind.Import: {
+                typeCheckImport(tree, scope)
+                return voidType
             }
             default:
                 return typeCheckExpr(tree, scope)
+        }
+    }
+
+    function typeCheckImport(tree: Import, scope: Scope<Type>) {
+        for (const imp of tree.imports) {
+            switch (imp.kind) {
+                case NodeKind.ImportFunction: {
+                    const parameterNodes = imp.parameters
+                    const parameters = funcParameters(parameterNodes, scope)
+                    const funcResult = typeExpr(imp.result, scope)
+                    const name = imp.name
+                    const type: Type = { kind: TypeKind.Function, parameters, result: funcResult, name }
+                    result.set(imp, type)
+                    enter(imp, imp.as ?? name, type, scope)
+                    break
+                }
+                default:
+                    error(imp, `Unsuppoerted node type: ${nameOfNodeKind(imp.kind)}`)
+            }
         }
     }
 
@@ -220,14 +234,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
     }
 
     function func(tree: Function, scope: Scope<Type>): Type {
-        const parameters = new Scope<Type>()
-        for (const parameter of tree.parameters) {
-            if (parameters.has(parameter.name)) error(parameter, `Duplicate parameter name`)
-            const type = typeExpr(parameter.type, scope)
-            const parameterType: Type = { kind: TypeKind.Location, type }
-            result.set(parameter, parameterType)
-            parameters.enter(parameter.name, parameterType)
-        }
+        const parameters = funcParameters(tree.parameters, scope)
         const resultType = typeExpr(tree.result, scope)
         const bodyScope = new Scope(parameters, scope)
         bodyScope.enter("$$result", resultType)
@@ -236,6 +243,18 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             mustMatch(tree, bodyResult, resultType)
         }
         return { kind: TypeKind.Function, parameters, result: resultType }
+    }
+
+    function funcParameters(parameterNodes: Parameter[], scope: Scope<Type>): Scope<Type> {
+        const parameters = new Scope<Type>()
+        for (const parameter of parameterNodes) {
+            if (parameters.has(parameter.name)) error(parameter, `Duplicate parameter name`)
+            const type = typeExpr(parameter.type, scope)
+            const parameterType: Type = { kind: TypeKind.Location, type }
+            result.set(parameter, parameterType)
+            parameters.enter(parameter.name, parameterType)
+        }
+        return parameters
     }
 
     function call(tree: Call, scope: Scope<Type>): Type {

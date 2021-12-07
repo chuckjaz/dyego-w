@@ -1,4 +1,4 @@
-import { CompareOp, Let, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Function, Reference, Scope, StructField, Tree, Var, WhenClause } from "./ast";
+import { CompareOp, Let, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Function, Reference, Scope, StructField, Tree, Var, WhenClause, ImportItem, ImportFunction } from "./ast";
 import { Scanner } from "./scanner";
 import { Token } from "./tokens";
 
@@ -43,6 +43,10 @@ export function parse(text: string): Tree[] {
         const result: Tree[] = []
         while (token != Token.EOF) {
             switch(token) {
+                case Token.Import:
+                    result.push(importDeclaration())
+                    semi()
+                    continue
                 case Token.Export: {
                     next()
                     const item = exportableTopLevelItem()
@@ -180,6 +184,47 @@ export function parse(text: string): Tree[] {
             expect(Token.Equal)
             const type = typeExpression()
             return { kind: NodeKind.Type, name, type }
+        })
+    }
+
+    function importDeclaration(): Tree {
+        return l<Tree>(() => {
+            expect(Token.Import)
+            const module = expectName()
+            expect(Token.LBrace)
+            const imports = importItems(module)
+            expect(Token.RBrace)
+            return { kind: NodeKind.Import, imports }
+        })
+    }
+
+    function importItems(module: string): ImportItem[] {
+        const result: ImportItem[] = []
+        while (true) {
+            switch (token) {
+                case Token.Fun:
+                    result.push(importFunction(module))
+                    semi()
+                    continue
+            }
+            break
+        }
+        return result
+    }
+
+    function importFunction(module: string): ImportFunction {
+        return l<ImportFunction>(() => {
+            expect(Token.Fun)
+            const name = expectName()
+            const parameters = funcParameters()
+            expect(Token.Colon)
+            const result = typeExpression()
+            let as: string | undefined = undefined
+            if (token == Token.As) {
+                next()
+                as = expectName()
+            }
+            return { kind: NodeKind.ImportFunction, name, module, parameters, result, as  }
         })
     }
 
@@ -434,20 +479,31 @@ export function parse(text: string): Tree[] {
         })
     }
 
+    function param(): Parameter {
+        return l<Parameter>(() => {
+            const name = expectName()
+            expect(Token.Colon)
+            const type = typeExpression()
+            return { kind: NodeKind.Parameter, name, type }
+        })
+    }
+
+    function funcParameters(): Parameter[] {
+        expect(Token.LParen)
+        const parameters: Parameter[] = []
+        while (token != Token.RParen && token != Token.EOF) {
+            parameters.push(param())
+            comma()
+        }
+        expect(Token.RParen)
+        return parameters
+    }
+
     function func(exported: boolean = false): Function {
         return l<Function>(() => {
             expect(Token.Fun)
             const name = expectName()
-            expect(Token.LParen)
-            const parameters: Parameter[] = []
-            while (token != Token.RParen && token != Token.EOF) {
-                const name = expectName()
-                expect(Token.Colon)
-                const type = typeExpression()
-                parameters.push({ kind: NodeKind.Parameter, name, type })
-                if (token == Token.Comma) next()
-            }
-            expect(Token.RParen)
+            const parameters = funcParameters()
             expect(Token.Colon)
             const result = typeExpression()
             let body: Tree[] = []
@@ -801,6 +857,8 @@ export function parse(text: string): Tree[] {
             case Token.If: return `if`
             case Token.Else: return `else`
             case Token.Export: return `export`
+            case Token.Import: return `import`
+            case Token.As: return `as`
             case Token.Loop: return `loop`
             case Token.Break: return `break`
             case Token.Continue: return `continue`
