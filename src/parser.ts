@@ -1,4 +1,4 @@
-import { CompareOp, Let, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Function, Reference, Scope, StructField, Tree, Var, WhenClause, ImportItem, ImportFunction } from "./ast";
+import { CompareOp, Let, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Function, Reference, Scope, StructField, Tree, Var, ImportItem, ImportFunction } from "./ast";
 import { Scanner } from "./scanner";
 import { Token } from "./tokens";
 
@@ -55,7 +55,7 @@ export function parse(text: string): Tree[] {
                     semi()
                     continue
                 }
-                case Token.Fun: 
+                case Token.Fun:
                 case Token.Var: {
                     result.push(exportableTopLevelItem())
                     semi()
@@ -89,7 +89,7 @@ export function parse(text: string): Tree[] {
 
     function sequence(): Tree[] {
         const result: Tree[] = []
-        
+
         while (token != Token.EOF) {
             switch(token) {
                 case Token.Identifier:
@@ -236,7 +236,7 @@ export function parse(text: string): Tree[] {
                 const value = andExpression()
                 return { kind: NodeKind.Assign, target: result, value }
             }
-            return result    
+            return result
         })
     }
 
@@ -248,7 +248,7 @@ export function parse(text: string): Tree[] {
                 const right = orExperssion()
                 result = { kind: NodeKind.And, left: result, right }
             }
-            return result    
+            return result
         })
     }
 
@@ -366,7 +366,7 @@ export function parse(text: string): Tree[] {
                 if (token == Token.Comma) next()
             }
             expect(Token.RParen)
-            return { kind: NodeKind.Call, target, arguments: args }    
+            return { kind: NodeKind.Call, target, arguments: args }
         })
     }
 
@@ -384,15 +384,15 @@ export function parse(text: string): Tree[] {
             switch (token) {
                 case Token.Int: {
                     const value = scanner.value
-                    next() 
+                    next()
                     return { kind: NodeKind.Literal, literalKind: LiteralKind.Int, value }
                 }
                 case Token.Double: {
                     const value = scanner.value
-                    next() 
+                    next()
                     return { kind: NodeKind.Literal, literalKind: LiteralKind.Double, value }
                 }
-                case Token.True: 
+                case Token.True:
                 case Token.False: {
                     const value = scanner.value
                     next()
@@ -417,7 +417,6 @@ export function parse(text: string): Tree[] {
                     const target = primitiveExpression()
                     return { kind: NodeKind.Not, target }
                 }
-                case Token.When: return when()
                 case Token.If: return ifExpr()
                 case Token.Loop: return loop()
                 case Token.While: return whileExpr()
@@ -461,7 +460,7 @@ export function parse(text: string): Tree[] {
                         case Token.Fun: {
                             value = expression()
                             break
-                        }        
+                        }
                     }
                     return { kind: NodeKind.Return, value }
                 }
@@ -474,7 +473,7 @@ export function parse(text: string): Tree[] {
                     return result
                 }
             }
-    
+
             error(`Expected an expression`)
         })
     }
@@ -523,80 +522,6 @@ export function parse(text: string): Tree[] {
         })
     }
 
-    function when(): Tree {
-        return l<Tree>(() => {
-            expect(Token.When)
-            let target: Tree | undefined = undefined
-            let targetName: string | undefined = undefined
-            if (token == Token.LParen) {
-                expect(Token.LParen)
-                target = expression()
-                expect(Token.RParen)
-                targetName = `$$when_${uniqueWhen++}`
-            }
-            expect(Token.LBrace)
-            const clauses = whenClauses(targetName)
-            expect(Token.RBrace)
-            return { kind: NodeKind.When, target, targetName, clauses }
-        })
-    }
-
-    function whenElseClause(): WhenClause {
-        return l<WhenClause>(() => {
-            expect(Token.Else)
-            expect(Token.Arrow)
-            const body = expression()
-            const condition: LiteralBoolean = {
-                kind: NodeKind.Literal,
-                literalKind: LiteralKind.Boolean,
-                value: true
-            }
-            return { kind: NodeKind.WhenClause, condition, body }
-        })
-    }
-
-    function whenClauses(targetName: string | undefined): WhenClause[] {
-        const result: WhenClause[] = []
-        while (true) {
-            switch (token) {
-                case Token.Else: {
-                    result.push(whenElseClause())
-                    semi()
-                    continue
-                }
-                case Token.EOF:
-                case Token.RBrace:
-                    break
-                default: {
-                    let clause = l<WhenClause>(() => {
-                        let condition = expression()
-                        if (targetName) {
-                            condition = {
-                                kind: NodeKind.Compare,
-                                op: CompareOp.Equal,
-                                left: {
-                                    kind: NodeKind.Reference,
-                                    name: targetName
-                                },
-                                right: condition
-                            }
-                        }
-                        expect(Token.Arrow)
-                        const body = expression()
-                        return { kind: NodeKind.WhenClause, condition, body }
-                    })
-                    result.push(clause)
-                    semi()
-                    continue
-                }
-            }
-
-            break
-        }
-
-        return result
-    }
-
     function blockOrExpression(): Tree {
         return l<Tree>(() => {
             if (token == Token.LBrace) {
@@ -610,26 +535,17 @@ export function parse(text: string): Tree[] {
 
     function ifExpr(): Tree {
         return l<Tree>(() => {
-            const clauses: WhenClause[] = []
-            const ifClause = l<WhenClause>(() => {
-                expect(Token.If)
-                expect(Token.LParen)
-                const condition = expression()
-                expect(Token.RParen)
-                const body = blockOrExpression()    
-                return { kind: NodeKind.WhenClause, condition, body }
-            })
-            clauses.push(ifClause)
+            expect(Token.If)
+            expect(Token.LParen)
+            const condition = expression()
+            expect(Token.RParen)
+            const then = blockOrExpression()
+            let elsePart: Tree | undefined = undefined
             if (token == Token.Else) {
                 next()
-                const elseClause = l<WhenClause>(() => {
-                    const condition: Tree = { kind: NodeKind.Literal, literalKind: LiteralKind.Boolean, value: true }
-                    const body = blockOrExpression()
-                    return { kind: NodeKind.WhenClause, condition, body }
-                })
-                clauses.push(elseClause)
+                elsePart = blockOrExpression()
             }
-            return { kind: NodeKind.When, clauses }    
+            return { kind: NodeKind.IfThenElse, condition, then, else: elsePart }
         })
     }
 
@@ -656,22 +572,17 @@ export function parse(text: string): Tree[] {
             const condition = expression()
             expect(Token.RParen)
             const test: Tree = {
-                kind: NodeKind.When,
-                clauses: [
-                    {
-                        kind: NodeKind.WhenClause,
-                        condition: {
-                            kind: NodeKind.Not,
-                            target: condition
-                        },
-                        body: {
-                            kind: NodeKind.Break
-                        }
-                    }
-                ]
+                kind: NodeKind.IfThenElse,
+                condition: {
+                    kind: NodeKind.Not,
+                    target: condition
+                },
+                then: {
+                    kind: NodeKind.Break
+                }
             }
             const body = [test, ...block()]
-            return { kind: NodeKind.Loop, body }        
+            return { kind: NodeKind.Loop, body }
         })
     }
 
@@ -778,7 +689,7 @@ export function parse(text: string): Tree[] {
                 }
                 break
             }
-            return result    
+            return result
         })
     }
 
@@ -827,7 +738,7 @@ export function parse(text: string): Tree[] {
         (e as any).position = scanner.start
         throw e
     }
-    
+
     function expectName(): string {
         if (token != Token.Identifier) {
             error(`Expected an identifer`)
