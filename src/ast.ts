@@ -415,6 +415,14 @@ export class Scope<T> {
         this.internalForEach(new Set(), callback)
     }
 
+    without(name: string): Scope<T> {
+        const result = new Scope<T>(...this.parents)
+        this.forEach((n, value) => {
+            if (n !== name) result.enter(n, value)
+        })
+        return result
+    }
+
     map<V>(callback: (name: string, value: T) => V): V[] {
         const result: V[] = []
         this.internalForEach(new Set(), (name, value) => {
