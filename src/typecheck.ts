@@ -1,5 +1,5 @@
 import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse } from "./ast"
-import { ArrayType, booleanType, capabilitesOf, Capabilities, doubleType, globals, intType, StructType, Type, TypeKind, typeToString, voidType } from "./types";
+import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f64Type, globals, i32Type, StructType, Type, TypeKind, typeToString, voidType } from "./types";
 
 const builtins = new Scope<Type>(globals)
 
@@ -148,31 +148,31 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 type = reference(tree, scope)
                 break
             case NodeKind.Add:
-                type = binary(tree, tree.left, tree.right, Capabilities.Addable, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
                 break
             case NodeKind.Subtract:
-                type = binary(tree, tree.left, tree.right, Capabilities.Subtractable, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
                 break
             case NodeKind.Multiply:
-                type = binary(tree, tree.left, tree.right, Capabilities.Multipliable, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
                 break
             case NodeKind.Divide:
-                type = binary(tree, tree.left, tree.right, Capabilities.Dividable, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
                 break
             case NodeKind.Negate:
                 type = unary(tree, tree.target, Capabilities.Negatable, scope)
                 break
             case NodeKind.Not:
-                type = unary(tree, tree.target, Capabilities.Notable, scope)
+                type = unary(tree, tree.target, Capabilities.Logical, scope)
                 break
             case NodeKind.Compare:
                 type = binary(tree, tree.left, tree.right, Capabilities.Comparable, scope, booleanType)
                 break
             case NodeKind.And:
-                type = binary(tree, tree.left, tree.right, Capabilities.Andable, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Logical, scope)
                 break
             case NodeKind.Or:
-                type = binary(tree, tree.left, tree.right, Capabilities.Orable, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Logical, scope)
                 break
             case NodeKind.BlockExpression:
                 type = blockExpression(tree, scope)
@@ -198,10 +198,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                         type = booleanType
                         break
                     case LiteralKind.Double:
-                        type = doubleType
+                        type = f64Type
                         break
                     case LiteralKind.Int:
-                        type = intType
+                        type = i32Type
                         break
                 }
                 break
@@ -274,13 +274,38 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
     }
 
     function select(tree: Select, scope: Scope<Type>): Type {
-        const targetType = typeCheckExpr(tree.target, scope)
-        const struct = expectStruct(targetType, tree)
-        const fieldType = struct.fields.find(tree.name)
-        if (!fieldType) error(tree, `Type ${typeToString(struct)} does not have field ${tree.name}`)
-        if (targetType.kind == TypeKind.Location)
-            return { kind: TypeKind.Location, type: fieldType }
-        return fieldType
+        const originalTarget = typeCheckExpr(tree.target, scope)
+        const targetType = read(originalTarget)
+        switch (targetType.kind) {
+            case TypeKind.Struct:
+                const fieldType = targetType.fields.find(tree.name)
+                if (!fieldType) error(tree, `Type ${typeToString(targetType)} does not have member "${tree.name}"`)
+                if (originalTarget.kind == TypeKind.Location)
+                    return { kind: TypeKind.Location, type: fieldType }
+                return fieldType
+            default:
+                const builtins = builtInMethodsOf(targetType)
+                const memberType = builtins.find(tree.name)
+                if (!memberType) error(tree, `Type ${typeToString(targetType)} does not ahve a member "${tree.name}"`)
+                if (memberType.kind == TypeKind.Function) {
+                    const thisParameter = memberType.parameters.find("this")
+                    if (thisParameter != null) {
+                        mustMatch(tree, originalTarget, thisParameter)
+                        return { 
+                            kind: TypeKind.Function,
+                            name: memberType.name,
+                            parameters: memberType.parameters.without("this"),
+                            result: memberType.result
+                        }
+                    }
+                }
+                return memberType
+        }
+    }
+
+    function read(type: Type): Type {
+        if (type.kind == TypeKind.Location) return type.type
+        return type
     }
 
     function index(tree: Index, scope: Scope<Type>): Type {
@@ -415,8 +440,12 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         if (to.kind == TypeKind.Location) return equivilent(from, to.type)
         if (from.kind == to.kind) {
             switch (from.kind) {
-                case TypeKind.Int:
-                case TypeKind.Double:
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.I32:
+                case TypeKind.I64:
+                case TypeKind.F32:
+                case TypeKind.F64:
                 case TypeKind.Void:
                     return true;
                 case TypeKind.Struct:

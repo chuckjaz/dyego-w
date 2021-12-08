@@ -13,6 +13,12 @@ describe("codegen", () => {
             expect(val).toBe(42);
         })
     })
+    it("can call a built in member", () => {
+        cg("export fun sqrt(a: Double): Double = a.sqrt()", exports => {
+            const val = exports.sqrt(64)
+            expect(val).toBe(8)
+        })
+    })
 })
 
 function cg(text: string, cb: (exports: any) => void): any {

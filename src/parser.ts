@@ -10,8 +10,10 @@ export function parse(text: string): Tree[] {
     return program()
 
     function l<T extends Locatable>(cb: () => T): T {
-        const start = scanner.start
-        const n = cb()
+        return loc(scanner.start, cb())
+    }
+
+    function loc<T extends Locatable>(start: number, n: T): T {
         n.start = start
         n.end = scanner.end
         return n
@@ -241,99 +243,95 @@ export function parse(text: string): Tree[] {
     }
 
     function andExpression(): Tree {
-        return l(() => {
-            let result = orExperssion()
-            if (token == Token.And) {
-                next()
-                const right = orExperssion()
-                result = { kind: NodeKind.And, left: result, right }
-            }
-            return result
-        })
+        const start = scanner.start
+        let result = orExperssion()
+        if (token == Token.And) {
+            next()
+            const right = orExperssion()
+            result = loc<Tree>(start, { kind: NodeKind.And, left: result, right })
+        }
+        return result
     }
 
     function orExperssion(): Tree {
-        return l(() => {
-            let result = compareExpression()
-            if (token == Token.Or) {
-                next()
-                const right = compareExpression()
-                result = { kind: NodeKind.Or, left: result, right}
-            }
-            return result
-        })
+        const start = scanner.start
+        let result = compareExpression()
+        if (token == Token.Or) {
+            next()
+            const right = compareExpression()
+            result = loc<Tree>(start, { kind: NodeKind.Or, left: result, right})
+        }
+        return result
     }
 
     function compareExpression(): Tree {
-        return l(() => {
-            let result = addExpression()
-            let op = CompareOp.Unknown
-            switch (token) {
-                case Token.Gt: op = CompareOp.GreaterThan; break
-                case Token.Gte: op = CompareOp.GreaterThanEqual; break
-                case Token.Lt: op = CompareOp.LessThan; break
-                case Token.Lte: op = CompareOp.LessThanEqual; break
-                case Token.EqualEqual: op = CompareOp.Equal; break
-                case Token.NotEqual: op = CompareOp.NotEqual; break
-            }
-            if (op != CompareOp.Unknown) {
-                next()
-                const right = addExpression()
-                result = { kind: NodeKind.Compare, op, left: result, right }
-            }
-            return result
-        })
+        const start = scanner.start
+        let result = addExpression()
+        let op = CompareOp.Unknown
+        switch (token) {
+            case Token.Gt: op = CompareOp.GreaterThan; break
+            case Token.Gte: op = CompareOp.GreaterThanEqual; break
+            case Token.Lt: op = CompareOp.LessThan; break
+            case Token.Lte: op = CompareOp.LessThanEqual; break
+            case Token.EqualEqual: op = CompareOp.Equal; break
+            case Token.NotEqual: op = CompareOp.NotEqual; break
+        }
+        if (op != CompareOp.Unknown) {
+            next()
+            const right = addExpression()
+            result = loc<Tree>(start, { kind: NodeKind.Compare, op, left: result, right })
+        }
+        return result
     }
 
     function addExpression(): Tree {
-        return l(() => {
-            let result = multiplyExpression()
-            while (true) {
-                switch (token) {
-                    case Token.Plus: {
-                        next()
-                        const right = addExpression()
-                        result = { kind: NodeKind.Add, left: result, right }
-                        continue
-                    }
-                    case Token.Dash: {
-                        next()
-                        const right = addExpression()
-                        result = { kind: NodeKind.Subtract, left: result, right }
-                        continue
-                    }
+        const start = scanner.start
+        let result = multiplyExpression()
+        while (true) {
+            switch (token) {
+                case Token.Plus: {
+                    next()
+                    const right = addExpression()
+                    result = loc<Tree>(start, { kind: NodeKind.Add, left: result, right })
+                    continue
                 }
-                break
+                case Token.Dash: {
+                    next()
+                    const right = addExpression()
+                    result = loc<Tree>(start, { kind: NodeKind.Subtract, left: result, right })
+                    continue
+                }
             }
-            return result
-        })
+            break
+        }
+        return result
     }
 
     function multiplyExpression(): Tree {
-        return l(() => {
-            let result = simpleExpression()
-            while (true) {
-                switch (token) {
-                    case Token.Star: {
-                        next()
-                        const right = multiplyExpression()
-                        result = { kind: NodeKind.Multiply, left: result, right }
-                        continue
-                    }
-                    case Token.Slash: {
-                        next()
-                        const right = multiplyExpression()
-                        result = { kind: NodeKind.Divide, left: result, right }
-                        continue
-                    }
+        const start = scanner.start
+        let result = simpleExpression()
+        while (true) {
+            switch (token) {
+                case Token.Star: {
+                    next()
+                    const right = multiplyExpression()
+                    result = loc<Tree>(start, { kind: NodeKind.Multiply, left: result, right })
+                    continue
                 }
-                break
+                case Token.Slash: {
+                    next()
+                    const right = multiplyExpression()
+                    result = loc<Tree>(start, { kind: NodeKind.Divide, left: result, right })
+                    continue
+                }
             }
-            return result
-        })
+            break
+        }
+        return result
     }
 
     function simpleExpression(): Tree {
+        const start = scanner.start
         return l(() => {
             let result = primitiveExpression()
             while (true) {
@@ -347,7 +345,7 @@ export function parse(text: string): Tree[] {
                     case Token.Dot: {
                         next()
                         const name = expectName()
-                        result = { kind: NodeKind.Select, target: result, name }
+                        result = loc<Tree>(start, { kind: NodeKind.Select, target: result, name })
                         continue
                     }
                 }
@@ -665,13 +663,14 @@ export function parse(text: string): Tree[] {
 
     function typeExpression(): Tree {
         return l<Tree>(() => {
+            const start = scanner.start
             let result = primitiveTypeExpression()
             while (true) {
                 switch (token) {
                     case Token.Dot: {
                         next()
                         const name = expectName()
-                        result = { kind: NodeKind.Select, target: result, name }
+                        result = loc<Tree>(start, { kind: NodeKind.Select, target: result, name })
                         continue
                     }
                     case Token.LBrack: {
@@ -679,10 +678,10 @@ export function parse(text: string): Tree[] {
                         if (token as any == Token.Int) {
                             const size = scanner.value as number
                             expect(Token.RBrack)
-                            result = { kind: NodeKind.ArrayCtor, element: result, size }
+                            result = loc<Tree>(start, { kind: NodeKind.ArrayCtor, element: result, size })
                         } else {
                             expect(Token.RBrack)
-                            result = { kind: NodeKind.ArrayCtor, element: result }
+                            result = loc<Tree>(start, { kind: NodeKind.ArrayCtor, element: result })
                         }
                         continue
                     }

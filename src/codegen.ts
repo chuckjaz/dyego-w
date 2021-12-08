@@ -1,5 +1,5 @@
 import { ArrayLit, Assign, Call, CompareOp, Index, Function, Let, LiteralKind, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, IfThenElse } from "./ast";
-import { booleanType, doubleType, intType, Type, TypeKind, voidType } from "./types";
+import { booleanType, builtInMethodsOf, f64Type, i32Type, Type, TypeKind, voidType } from "./types";
 import { ByteWriter } from "./wasm/bytewriter";
 import { Generate, gen, Label, label } from "./wasm/codeblock";
 import { CodeSection } from "./wasm/codesection";
@@ -80,10 +80,10 @@ class GenType {
     size: number
     parts: GenTypeParts
 
-    constructor(type: Type, parts: GenTypeParts) {
+    constructor(type: Type, parts: GenTypeParts, size?: number) {
         this.type = type
         this.parts = parts
-        this.size = sizeOfParts(parts)
+        this.size = size ?? sizeOfParts(parts)
     }
 
     loadData(g: Generate, addr: Symbol, offset: number) {
@@ -241,41 +241,93 @@ class GenType {
         switch (kind) {
             case NodeKind.Add:
                 switch (this.type.kind) {
-                    case TypeKind.Double:
-                        g.inst(Inst.f64_add)
-                        return
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
                         g.inst(Inst.i32_add)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_add)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_add)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_add)
                         return
                 }
                 break
             case NodeKind.Subtract:
                 switch (this.type.kind) {
-                    case TypeKind.Double:
-                        g.inst(Inst.f64_sub)
-                        return
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
                         g.inst(Inst.i32_sub)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_sub)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_sub)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_sub)
                         return
                 }
                 break
             case NodeKind.Multiply:
                 switch (this.type.kind) {
-                    case TypeKind.Double:
-                        g.inst(Inst.f64_mul)
-                        return
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
                         g.inst(Inst.i32_mul)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_mul)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_mul)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_mul)
                         return
                 }
                 break
             case NodeKind.Divide:
                 switch (this.type.kind) {
-                    case TypeKind.Double:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                        g.inst(Inst.i32_div_s)
+                        break
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_div_u)
+                        break
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_div_s)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_div_u)
+                        return
+                    case TypeKind.F32:
                         g.inst(Inst.f64_div)
                         return
-                    case TypeKind.Int:
-                        g.inst(Inst.i32_div_s)
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_div)
                         return
                 }
                 break
@@ -287,60 +339,152 @@ class GenType {
         switch (op) {
             case CompareOp.Equal:
                 switch (this.type.kind) {
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
                         g.inst(Inst.i32_eq)
                         return
-                    case TypeKind.Double:
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_eq)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_eq)
+                        return
+                    case TypeKind.F64:
                         g.inst(Inst.f64_eq)
                         return
                 }
                 break
             case CompareOp.GreaterThan:
                 switch (this.type.kind) {
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
                         g.inst(Inst.i32_gt_s)
                         return
-                    case TypeKind.Double:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_gt_u)
+                        return
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_gt_s)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_gt_u)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_gt)
+                        return
+                    case TypeKind.F64:
                         g.inst(Inst.f64_gt)
                         return
                 }
                 break
             case CompareOp.GreaterThanEqual:
                 switch (this.type.kind) {
-                    case TypeKind.Int:
-                        g.inst(Inst.i32_ge_s)
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                        g.inst(Inst.i32_gt_s)
                         return
-                    case TypeKind.Double:
-                        g.inst(Inst.f64_ge)
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_gt_u)
+                        return
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_gt_s)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_gt_u)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f64_gt)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_gt)
                         return
                 }
                 break
             case CompareOp.LessThan:
                 switch (this.type.kind) {
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
                         g.inst(Inst.i32_lt_s)
                         return
-                    case TypeKind.Double:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_lt_u)
+                        return
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_lt_s)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_lt_u)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f64_lt)
+                        return
+                    case TypeKind.F64:
                         g.inst(Inst.f64_lt)
                         return
                 }
                 break
             case CompareOp.LessThanEqual:
                 switch (this.type.kind) {
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
                         g.inst(Inst.i32_le_s)
                         return
-                    case TypeKind.Double:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_le_u)
+                        return
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_le_s)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_le_u)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f64_le)
+                        return
+                    case TypeKind.F64:
                         g.inst(Inst.f64_le)
                         return
                 }
                 break
             case CompareOp.NotEqual:
                 switch (this.type.kind) {
-                    case TypeKind.Int:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
                         g.inst(Inst.i32_ne)
                         return
-                    case TypeKind.Double:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_ne)
+                        return
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_ne)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_ne)
+                        return
+                    case TypeKind.F32:
+                        g.inst(Inst.f64_ne)
+                        return
+                    case TypeKind.F64:
                         g.inst(Inst.f64_ne)
                         return
                 }
@@ -400,8 +544,8 @@ class LocalSymbol implements Symbol {
     }
 }
 
-const intGenType = genTypeOf(intType)
-const doubleGenType = genTypeOf(doubleType)
+const i32GenType = genTypeOf(i32Type)
+const f64GenType = genTypeOf(f64Type)
 const voidGenType = genTypeOf(voidType)
 const booleanGenType = genTypeOf(booleanType)
 
@@ -455,7 +599,7 @@ class EmptySymbol extends LoadonlySymbol implements Symbol {
 const emptySymbol = new EmptySymbol()
 
 class NumberConstSymbol extends LoadonlySymbol implements Symbol {
-    type = intGenType
+    type = i32GenType
     value: number
 
     constructor(value: number) {
@@ -478,7 +622,7 @@ class NumberConstSymbol extends LoadonlySymbol implements Symbol {
 }
 
 class DoubleConstSymbol extends LoadonlySymbol implements Symbol {
-    type = doubleGenType
+    type = f64GenType
     value: number
 
     constructor(value: number) {
@@ -640,8 +784,25 @@ class OpSymbol extends LoadonlySymbol implements Symbol {
                 default:
                     return this
             }
-            if (this.type.type.kind == TypeKind.Int) {
-                result = result | 0
+            switch (this.type.type.kind) {
+                case TypeKind.I8:
+                    result = result | 0x7F
+                    break
+                case TypeKind.I16:
+                    result = result | 0x7FFF
+                    break
+                case TypeKind.I32:
+                    result = result | 0x7FFFFFFF
+                    break
+                case TypeKind.U8:
+                    result = result | 0xFF
+                    break
+                case TypeKind.U16:
+                    result = result | 0xFFFF
+                    break
+                case TypeKind.U32:
+                    result = result | 0xFFFFFFFF
+                    break
             }
             return new NumberConstSymbol(result)
         }
@@ -650,6 +811,193 @@ class OpSymbol extends LoadonlySymbol implements Symbol {
         }
         return new OpSymbol(this.type, leftSimple, rightSimple, this.op)
     }
+}
+
+class InstSymbol extends LoadonlySymbol implements Symbol {
+    type: GenType
+    inst: Inst
+    args: Symbol[]
+
+    constructor(type: GenType, inst: Inst, args: Symbol[]) {
+        super()
+        this.type = type
+        this.inst = inst
+        this.args = args
+    }
+
+    load(g: Generate) {
+        for (const arg of this.args) {
+            arg.load(g)
+        }
+        g.inst(this.inst)
+    }
+}
+
+class BuiltinsSymbol extends LoadonlySymbol implements Symbol {
+    type: GenType
+    inst: Inst
+    target: Symbol
+
+    constructor(type: GenType, inst: Inst, target: Symbol) {
+        super()
+        this.type = type
+        this.inst = inst
+        this.target = target
+    }
+
+    load(g: Generate) {
+        unsupported()
+    }
+
+    call(args: Symbol[]) {
+        return new InstSymbol(this.type, this.inst, [this.target, ...args])
+    }
+}
+
+function builtinSymbolFor(type: Type, result: GenType, name: string, target: Symbol): Symbol {
+    let inst = Inst.Nop
+    switch (name) {
+        case "countLeadingZeros":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.I32:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.U32:
+                    inst = Inst.i32_clz
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_clz
+                    break
+            }
+            break
+        case "countTrailingZeros":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.I32:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.U32:
+                    inst = Inst.i32_ctz
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_ctz
+                    break
+            }
+            break
+        case "countNonZeros":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.I32:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.U32:
+                    inst = Inst.i32_popcnt
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_popcnt
+                    break
+            }
+            break
+        case "abs":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_abs
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_abs
+                    break
+            }
+            break
+        case "sqrt":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_sqrt
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_sqrt
+                    break
+            }
+            break
+        case "floor":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_floor
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_floor
+                    break
+            }
+            break
+        case "ceil":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_ceil
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_ceil
+                    break
+            }
+            break
+        case "trunc":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_trunc
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_trunc
+                    break
+            }
+            break
+        case "nearest":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_nearest
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_nearest
+                    break
+            }
+            break
+        case "min":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_min
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_min
+                    break
+            }
+            break
+        case "max":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_max
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_max
+                    break
+            }
+            break
+        case "copysign":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f32_copysign
+                    break
+                case TypeKind.F64:
+                    inst = Inst.f64_copysign
+                    break
+            }
+            break
+    }
+    if (inst == Inst.Nop) unsupported()
+    return new BuiltinsSymbol(result, inst, target)
 }
 
 const trueSymbol = new NumberConstSymbol(1)
@@ -895,7 +1243,7 @@ class FunctionSymbol extends LoadonlySymbol implements Symbol {
 }
 
 class ScaledOffsetSymbol extends LoadonlySymbol implements Symbol {
-    type = intGenType
+    type = i32GenType
     base: Symbol
     i: Symbol
     scale: Symbol
@@ -927,7 +1275,7 @@ class ScaledOffsetSymbol extends LoadonlySymbol implements Symbol {
             return new NumberConstSymbol(baseNumber + scaleNumber * iNumber)
         }
         if (iNumber !== undefined && scaleNumber != undefined) {
-            return new OpSymbol(intGenType, this.base, new NumberConstSymbol(scaleNumber * iNumber), NodeKind.Add)
+            return new OpSymbol(i32GenType, this.base, new NumberConstSymbol(scaleNumber * iNumber), NodeKind.Add)
         }
         if (this.base === base && this.i === i && this.scale === scale)
             return this
@@ -977,7 +1325,7 @@ class DataSymbol implements Symbol {
 
     select(index: number): Symbol {
         const {type, offset} = this.type.select(index)
-        const offsetAddress = new OpSymbol(intGenType, this.address, new NumberConstSymbol(offset), NodeKind.And)
+        const offsetAddress = new OpSymbol(i32GenType, this.address, new NumberConstSymbol(offset), NodeKind.And)
         return new DataSymbol(type, offsetAddress)
     }
 
@@ -1002,11 +1350,23 @@ function genTypeOf(type: Type, cache?: Map<Type, GenType>): GenType {
     const cached = cache?.get(type)
     if (cached) return cached
     switch (type.kind) {
-        case TypeKind.Int:
+        case TypeKind.I8:
+        case TypeKind.U8:
+            return new GenType(type, { piece: NumberType.i32 }, 1)
+        case TypeKind.I16:
+        case TypeKind.U16:
+            return new GenType(type, { piece: NumberType.i32 }, 2)
+        case TypeKind.I32:
+        case TypeKind.U32:
             return new GenType(type, { piece: NumberType.i32 })
+        case TypeKind.I64:
+        case TypeKind.U64:
+            return new GenType(type, { piece: NumberType.i64 })
         case TypeKind.Boolean:
-            return new GenType(type, { piece: NumberType.i32 })
-        case TypeKind.Double:
+            return new GenType(type, { piece: NumberType.i32 }, 1)
+        case TypeKind.F32:
+            return new GenType(type, { piece: NumberType.f32 })
+        case TypeKind.F64:
             return new GenType(type, { piece: NumberType.f64 })
         case TypeKind.Unknown:
             unsupported()
@@ -1272,7 +1632,13 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
 
     function selectToSymbol(tree: Select, scopes: Scopes): Symbol {
         const target = treeToSymbol(tree.target, scopes)
-        return target.select(tree.name)
+        const targetType = read(required(types.get(tree.target)))
+        if (targetType.kind == TypeKind.Struct)
+            return target.select(tree.name)
+        else {
+            const type = typeOf(tree)
+            return builtinSymbolFor(targetType, type, tree.name, target)
+        }
     }
 
     function indexToSymbol(tree: Index, scopes: Scopes): Symbol {
@@ -1341,7 +1707,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     }
 
     function callToSymbol(tree: Call, scopes: Scopes): Symbol {
-        const target = treeToSymbol(tree, scopes)
+        const target = treeToSymbol(tree.target, scopes)
         const args = tree.arguments.map(a => treeToSymbol(a, scopes))
         return target.call(args)
     }
@@ -1386,5 +1752,10 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         }
         const body = statementsToSymbol(tree.body, { symbols, alloc, breaks, continues })
         return new LoopSymbol(voidGenType, body.symbols, breakLabel, continueLabel)
+    }
+
+    function read(type: Type): Type {
+        if (type.kind == TypeKind.Location) return type.type
+        return type
     }
 }
