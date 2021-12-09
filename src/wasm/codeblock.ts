@@ -1,14 +1,8 @@
 import { ByteWriter } from "./bytewriter";
 import { BlockType, FuncIndex, Inst, LabelIndex, LocalIndex, TableIndex, TypeIndex, ValueType } from "./wasm";
 
-export abstract class Label { 
+export abstract class Label {
     private _brand: undefined;
-    abstract resolved(): LabelIndex;
-}
-
-export interface CodeBlock {
-    label: Label;
-    body: Generate;
 }
 
 export interface Generate {
@@ -23,14 +17,14 @@ export interface Generate {
     memarg(align: number, offset: number): void;
     byte(value: number): void;
 
-    label(): Label
-    block(type: BlockType, label?: Label): CodeBlock;
-    loop(type: BlockType, label?: Label): CodeBlock;
+    block(type: BlockType, label?: Label): Generate
+    loop(type: BlockType, label?: Label): Generate;
 
     br(label: Label): void;
     br_if(label: Label): void;
     table(label: Label[], elseLabel: Label): void;
-    if(type: BlockType, label?: Label): { thenBlock: CodeBlock, elseBlock: CodeBlock };
+    if(type: BlockType, label?: Label): Generate;
+    if_else(type: BlockType, label?: Label): { then: Generate, else: Generate }
 
     call(func: FuncIndex): void;
     callIndirect(type: TypeIndex, index: TableIndex): void;
@@ -40,14 +34,17 @@ export interface Generate {
     release(index: LocalIndex): void;
     currentLocals(): ValueType[];
 
-    done(): void
-
     write(writer: ByteWriter): void;
+}
+
+interface WriteContext {
+    writer: ByteWriter
+    controlStack: GeneratedBlock[]
 }
 
 class LabelImpl extends Label {
     index: LabelIndex | undefined;
-    assigned: boolean = false;
+    bound: GeneratedBlock | undefined
 
     constructor() {
         super();
@@ -60,26 +57,17 @@ class LabelImpl extends Label {
         else return bytesOf(index);
     }
 
-    override resolved(): LabelIndex {
-        const result = this.index;
-        if (result === undefined) {
-            throw new Error("Unresolved label");
-        }
-        if (!this.assigned) {
-            throw new Error("Label was never assigned");
-        }
-        return result;
+    bind(bound: GeneratedBlock) {
+        if (this.bound) error("Label was bound twice")
+        this.bound = bound
     }
 
-    assign() { this.assigned = true; }
-    resolve(index: LabelIndex) { this.index = index; }
-
-    write(writer: ByteWriter) {
-        const index = this.index;
-        if (!this.assigned || index === undefined) {
-            error("Label was not resolved correctly")
-        }
-        writer.write32u(index);
+    writeTo(context: WriteContext) {
+        const bound = this.bound
+        if (!bound) error("Label was not bound")
+        const index = context.controlStack.indexOf(bound)
+        if (index < 0) error("Label was not in context")
+        context.writer.write32u(index);
     }
 }
 
@@ -104,14 +92,11 @@ class LocalsDelegate {
 }
 
 class BasicBlock extends LocalsDelegate {
-    block = new ByteWriter(64);
+    block = new ByteWriter(32);
     isDone: boolean = false;
-    label: LabelImpl;
 
-    constructor(locals: Locals, label: LabelImpl) {
+    constructor(locals: Locals) {
         super(locals);
-        this.label = label;
-        label.assign()
     }
 
     size(): number {
@@ -119,19 +104,16 @@ class BasicBlock extends LocalsDelegate {
     }
 
     inst(instruction: number) {
-        this.check();
         this.block.writeByte(instruction);
     }
 
     prefixInst(instuction: number) {
-        this.check();
         const block = this.block;
         block.writeByte(Inst.Extended);
         block.write32u(instuction);
     }
 
     vectorInst(instruction: number) {
-        this.check();
         const block = this.block;
         block.writeByte(Inst.Vector);
         block.write32u(instruction);
@@ -149,7 +131,7 @@ class BasicBlock extends LocalsDelegate {
         const b = new Float32Array(1);
         b[0] = value;
         const bs = new Uint8Array(b.buffer);
-        this.block.writeByteArray(bs); 
+        this.block.writeByteArray(bs);
     }
 
     float64(value: number): void {
@@ -167,20 +149,8 @@ class BasicBlock extends LocalsDelegate {
         this.block.writeByte(value);
     }
 
-    done() {
-        this.isDone = true
-    }
-
-    write(writer: ByteWriter) {
-        writer.write(this.block);
-    }
-
-    place(index: number) {
-        this.label.resolve(index);
-    }
-
-    private check() {
-        if (this.isDone) error("done() has already been called")
+    writeTo(context: WriteContext) {
+        context.writer.write(this.block);
     }
 }
 
@@ -193,7 +163,7 @@ class Branch {
         this.inst = inst;
         this.label = label;
     }
-    
+
     size(): number {
         return 1 + this.label.size();
     }
@@ -202,10 +172,11 @@ class Branch {
 
     place(index: number) { }
 
-    write(writer: ByteWriter) {
+    writeTo(context: WriteContext) {
+        const writer = context.writer
         const expected = writer.current + this.size();
         writer.writeByte(this.inst);
-        this.label.write(writer);
+        this.label.writeTo(context);
         while (writer.current < expected) {
             writer.writeByte(Inst.Nop)
         }
@@ -231,14 +202,15 @@ class BranchTable {
 
     place(index: number) { }
 
-    write(writer: ByteWriter) {
+    writeTo(context: WriteContext) {
+        const writer = context.writer
         const expected = writer.current + this.size();
         writer.writeByte(Inst.Br_table);
         writer.write32u(this.branches.length);
         for (const label of this.branches) {
-            label.write(writer);
+            label.writeTo(context);
         }
-        this.elseBranch.write(writer);
+        this.elseBranch.writeTo(context);
         while (writer.current < expected) {
             writer.writeByte(Inst.Nop)
         }
@@ -251,8 +223,8 @@ class End {
     size(): number { return 1 }
     done() { }
     place(index: number) { }
-    write(writer: ByteWriter) {
-        writer.writeByte(Inst.End)
+    writeTo(context: WriteContext) {
+        context.writer.writeByte(Inst.End)
     }
 }
 
@@ -296,14 +268,14 @@ class Locals {
 type GeneratedBlock = GenerateImpl | BasicBlock | Branch | BranchTable | End;
 
 class GenerateImpl extends LocalsDelegate implements Generate {
-    isDone = false;
     private current: BasicBlock;
     private blocks: GeneratedBlock[] = [];
     private tail: GeneratedBlock | undefined;
 
     constructor(locals: Locals, label: LabelImpl, tail?: GeneratedBlock) {
         super(locals);
-        const current = new BasicBlock(locals, label);
+        label.bind(this)
+        const current = new BasicBlock(locals);
         this.current = current;
         this.blocks.push(current);
         this.tail = tail;
@@ -349,15 +321,11 @@ class GenerateImpl extends LocalsDelegate implements Generate {
         this.current.byte(value);
     }
 
-    label(): Label {
-        return new LabelImpl;
-    }
-
-    block(type: BlockType, label?: Label): CodeBlock {
+    block(type: BlockType, label?: Label): Generate {
         return this.newBlock(Inst.Block, type, label)
     }
 
-    loop(type: BlockType, label?: Label): CodeBlock {
+    loop(type: BlockType, label?: Label): Generate {
         return this.newBlock(Inst.Loop, type, label);
     }
 
@@ -375,24 +343,23 @@ class GenerateImpl extends LocalsDelegate implements Generate {
         this.branchTable(ls, el);
     }
 
-    if(type: BlockType, label?: Label): { thenBlock: CodeBlock; elseBlock: CodeBlock; } {
-        const thenLabel = labelOf(label);
-        const elseLabel = new LabelImpl();
-        const elseBlock = new GenerateImpl(this.locals, elseLabel, new End());
-        elseBlock.current.inst(Inst.Else);
-        const thenBlock = new GenerateImpl(this.locals, thenLabel, elseBlock);
-        thenBlock.current.inst(Inst.If);
-        thenBlock.current.block.write128s(BigInt(type));
-        return {
-            thenBlock: {
-                label: thenLabel,
-                body: thenBlock,
-            },
-            elseBlock: {
-                label: elseLabel,
-                body: elseBlock
-            }
-        };
+    if(type: BlockType, label?: Label): Generate {
+        const thenBlock = new GenerateImpl(this.locals, labelOf(label), new End())
+        thenBlock.inst(Inst.If)
+        thenBlock.index(type)
+        this.advance(thenBlock)
+        return thenBlock
+    }
+
+    if_else(type: BlockType, label?: Label): { then: Generate; else: Generate } {
+        const thenBlock = new GenerateImpl(this.locals, labelOf(label))
+        thenBlock.inst(Inst.If)
+        thenBlock.index(type)
+        this.advance(thenBlock)
+        const elseBlock = new GenerateImpl(this.locals, new LabelImpl(), new End())
+        elseBlock.inst(Inst.Else)
+        this.advance(elseBlock)
+        return { then: thenBlock, else: elseBlock }
     }
 
     call(func: FuncIndex): void {
@@ -411,58 +378,38 @@ class GenerateImpl extends LocalsDelegate implements Generate {
         this.current.inst(Inst.Return);
     }
 
-    done(): void {
-        if (!this.isDone) {
-            const blocks = this.blocks;
-            this.current.done();
-            const tail = this.tail;
-            if (tail) {
-                tail.done();
-                blocks.push(tail);
-            }
-            if (blocks.some(it => !it.isDone)) {
-                error("Not all blocks are complete")
-            }
-            this.isDone = true;
-        }
-    }
-
-    place(index: number) {
-        let current = index;
-        for (const block of this.blocks) {
-            block.place(index);
-            current += block.size();
-        }
-    }
-
     write(writer: ByteWriter) {
-        if (!this.isDone) {
-            error("Block is not done.")
+        this.writeTo({ writer, controlStack: [this] })
+    }
+
+    writeTo(context: WriteContext) {
+        const nestedBlock = {
+            writer: context.writer,
+            controlStack: [this, ...context.controlStack]
         }
         for (const block of this.blocks) {
-            block.write(writer);
+            block.writeTo(nestedBlock)
         }
+        const tail = this.tail
+        if (tail) tail.writeTo(nestedBlock)
     }
 
     private advance(block: GeneratedBlock) {
         const blocks = this.blocks;
-        this.check()
         const current = this.current;
-        current.done();
-        const newCurrent = new BasicBlock(this.locals, new LabelImpl());
+        const newCurrent = new BasicBlock(this.locals);
         blocks.push(block);
         blocks.push(newCurrent);
         this.current = newCurrent;
     }
 
-    private newBlock(inst: number, type: BlockType, label?: Label): CodeBlock {
-        this.check();
+    private newBlock(inst: number, type: BlockType, label?: Label): Generate {
         const blockLabel = labelOf(label);
         const newBlock = new GenerateImpl(this.locals, blockLabel, new End());
         newBlock.inst(inst);
-        newBlock.current.block.write128s(BigInt(type));
+        newBlock.current.block.write32u(type);
         this.advance(newBlock);
-        return { label: blockLabel, body: newBlock }
+        return newBlock
     }
 
     private branch(inst: number, label: LabelImpl) {
@@ -474,33 +421,8 @@ class GenerateImpl extends LocalsDelegate implements Generate {
         const table = new BranchTable(labels, elseBranch);
         this.advance(table);
     }
-
-    private check() {
-        if (this.isDone) error("done() has already been called.")
-    }
 }
 
-class RootGenerator extends GenerateImpl {
-    constructor() {
-        super(new Locals(), new LabelImpl())
-    }
-    
-    write(writer: ByteWriter): void {
-        if (!this.isDone) {
-            error("Generator is not done.")
-        }
-
-        let size = this.size();
-        while(true) {
-            this.place(0);
-            const newSize = this.size();
-            if (newSize < size) continue;
-            break;
-        }
-
-        super.write(writer);
-    }
-}
 
 function error(message: string): never {
     throw new Error(message)
@@ -516,7 +438,7 @@ function labelOf(label: Label | undefined): LabelImpl {
 }
 
 export function gen(): Generate {
-    return new RootGenerator();
+    return new GenerateImpl(new Locals(), new LabelImpl());
 }
 
 export function label(): Label {

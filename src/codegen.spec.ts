@@ -19,6 +19,12 @@ describe("codegen", () => {
             expect(val).toBe(8)
         })
     })
+    it("can generate an if statement", () => {
+        cg("export fun min(a: Double, b: Double): Double = if (a > b) b else a", exports => {
+            const val = exports.min(72, 42)
+            expect(val).toBe(42)
+        })
+    })
 })
 
 function cg(text: string, cb: (exports: any) => void): any {

@@ -135,6 +135,5 @@ describe("modules", () => {
 function generate(cb: (g: Generate) => void): Generate {
     const g = gen();
     cb(g);
-    g.done();
     return g;
 }

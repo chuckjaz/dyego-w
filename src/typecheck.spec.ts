@@ -19,6 +19,9 @@ describe("typecheck", () => {
     it("can call a built in method", () => {
         tc("fun sqrt(a: Double): Double = a.sqrt()")
     })
+    it("can use an if statement", () => {
+        tc("fun min(a: Double, b: Double): Double = if (a > b) b else a")
+    })
 })
 
 function tc(text: string) {

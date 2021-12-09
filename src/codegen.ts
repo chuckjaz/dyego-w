@@ -1128,15 +1128,18 @@ class IfThenSymbol extends LoadonlySymbol implements Symbol {
     }
 
     load(g: Generate) {
-        this.condition.load(g)
         const type = this.type
         const blockType = type.parts.piece ?? 0x40
-        const {thenBlock, elseBlock} = g.if(blockType)
-        const body = this.then
-        const e = this.else
-        body.load(thenBlock.body)
-        if (e) {
-            e.load(elseBlock.body)
+        this.condition.load(g)
+        const thenSymbol = this.then
+        const elseSymbol = this.else
+        if (elseSymbol) {
+            const blocks = g.if_else(blockType)
+            thenSymbol.load(blocks.then)
+            elseSymbol.load(blocks.else)
+        } else {
+            const block = g.if(blockType)
+            thenSymbol.load(block)
         }
     }
 
@@ -1172,10 +1175,10 @@ class LoopSymbol extends LoadonlySymbol implements Symbol {
     }
 
     load(g: Generate): void {
-        const {body: outer} = g.block(0x40, this.breakLabel)
-        const {body} = outer.loop(0x40, this.continueLabel)
+        const breakBlock = g.block(0x40, this.breakLabel)
+        const loopBlock = breakBlock.loop(0x40, this.continueLabel)
         for (const symbol of this.symbols) {
-            symbol.load(body)
+            symbol.load(loopBlock)
         }
     }
 
@@ -1203,7 +1206,7 @@ class BlockSymbol extends LoadonlySymbol implements Symbol {
     load(g: Generate): void {
         const type = this.type
         const blockType = type.parts.piece ?? 0x40
-        const {body} = g.loop(blockType)
+        const body = g.block(blockType)
         for (const symbol of this.symbols) {
             symbol.load(body)
         }
@@ -1695,7 +1698,6 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         const body = statementsToSymbol(tree.body, functionScopes).simplify()
         body.load(g)
         g.inst(Inst.End)
-        g.done()
         const bytes = new ByteWriter()
         g.write(bytes)
         codeSection.allocate(g.currentLocals(), bytes)
