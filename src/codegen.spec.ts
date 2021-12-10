@@ -25,6 +25,17 @@ describe("codegen", () => {
             expect(val).toBe(42)
         })
     })
+    it("can assign a variable", () => {
+        cg(`
+          export fun test(): Boolean {
+              var i: Int = 0;
+              i = i + 1;
+              i == 1;
+          }
+        `, exports => {
+            expect(exports.test()).toBeTruthy()
+        })
+    })
 })
 
 function cg(text: string, cb: (exports: any) => void): any {
@@ -34,7 +45,7 @@ function cg(text: string, cb: (exports: any) => void): any {
     const module = new Module()
     codegen(program, types, module)
     const writer = new ByteWriter()
-    module.write(writer) 
+    module.write(writer)
     const bytes = writer.extract()
     expect(WebAssembly.validate(bytes)).toBeTrue();
     const mod = new WebAssembly.Module(bytes);
