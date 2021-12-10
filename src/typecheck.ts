@@ -43,7 +43,9 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 const declaredTypeTree = tree.type
                 const type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
                 mustMatch(tree.value, exprType, type)
-                enter(tree, tree.name, { kind: TypeKind.Location, type }, scope)
+                var treeType: Type = { kind: TypeKind.Location, type }
+                enter(tree, tree.name, treeType, scope)
+                result.set(tree, treeType)
                 return voidType
             }
             case NodeKind.Type: {

@@ -723,7 +723,7 @@ class AssignSymbol extends LoadonlySymbol implements Symbol {
     }
 
     load(g: Generate) {
-        this.value.storeTo(this.value, g)
+        this.value.storeTo(this.target, g)
     }
 
     simplify(): Symbol {
@@ -732,9 +732,9 @@ class AssignSymbol extends LoadonlySymbol implements Symbol {
         const simpleTarget = target.simplify()
         const simpleValue = value.simplify()
         if (target === simpleTarget && value === simpleValue) {
-            return new AssignSymbol(simpleTarget, simpleValue)
+            return this
         }
-        return this
+        return new AssignSymbol(simpleTarget, simpleValue)
     }
 }
 
