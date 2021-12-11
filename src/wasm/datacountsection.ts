@@ -19,7 +19,7 @@ export class DataCountSection implements Section {
     write(writer: ByteWriter): void {
         writer.write32u(SectionIndex.DataCount);
         const countProvider = this.count
-        const count = typeof countProvider == "number" ? countProvider : countProvider.size
+        const count = typeof countProvider == "number" ? countProvider : countProvider.segments
         writeSized(writer, writer => writer.write32u(count));
     }
 }

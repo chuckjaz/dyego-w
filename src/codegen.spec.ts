@@ -52,6 +52,45 @@ describe("codegen", () => {
             expect(exports.test()).toBe(45)
         })
     })
+    it("can declare globals", () => {
+        cg(`
+            var d: Int = 42;
+            export fun test(): Int {
+                d;
+            }
+        `, exports => {
+            expect(exports.test()).toBe(42);
+        })
+    })
+    it("can declare a global that requires init", () => {
+        cg(`
+            var a: Int = 12;
+            var b: Int = 30;
+            var c: Int = a + b;
+            export fun test(): Int {
+                c;
+            }
+        `, exports => {
+            expect(exports.test()).toBe(42)
+        })
+    })
+    it("can declare a global initalized array", () => {
+        cg(`
+            var values: Int[] = [1, 2, 3, 4, 5];
+
+            export fun test(): Int {
+                var i: Int = 0;
+                var sum: Int = 0;
+                while (i < 5) {
+                    sum = sum + values[i]
+                    i = i + 1
+                }
+                sum;
+            }
+        `, exports => {
+            expect(exports.test()).toBe(15)
+        })
+    })
 })
 
 function cg(text: string, cb: (exports: any) => void): any {
@@ -63,9 +102,9 @@ function cg(text: string, cb: (exports: any) => void): any {
     const writer = new ByteWriter()
     module.write(writer)
     const bytes = writer.extract()
+    writeFileSync("out/tmp.wasm", bytes)
     expect(WebAssembly.validate(bytes)).toBeTrue();
     const mod = new WebAssembly.Module(bytes);
     const inst = new WebAssembly.Instance(mod);
-    writeFileSync("out/tmp.wasm", bytes)
     cb(inst.exports)
 }

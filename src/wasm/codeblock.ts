@@ -6,6 +6,7 @@ export abstract class Label {
 }
 
 export interface Generate {
+    size(): number
     inst(instruction: number): void;
     prefixInst(instruction: number): void;
     vectorInst(instruction: number): void;
