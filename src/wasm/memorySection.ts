@@ -37,11 +37,11 @@ export class MemorySection implements Section {
 
 export function writeLimits(writer: ByteWriter, limit: Limits) {
     if (limit.max) {
-        writer.write32u(0)
+        writer.write32u(1)
         writer.write32u(limit.min)
         writer.write32u(limit.max)
     } else {
-        writer.write32u(1)
+        writer.write32u(0)
         writer.write32u(limit.min)
     }
 }

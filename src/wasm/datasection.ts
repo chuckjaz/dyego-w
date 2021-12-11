@@ -29,28 +29,18 @@ interface ActiveMemoryData {
 type Data = PassiveData | ActiveData | ActiveMemoryData;
 
 export class DataSection implements Section {
-    private offset: number = 0
     private datas: Data[] = [];
 
-    allocatePassive(bytes: ByteWriter): DataIndex {
-        const index = this.offset
-        this.offset += bytes.current
+    allocatePassive(bytes: ByteWriter) {
         this.datas.push({ mode: DataMode.Passive, bytes });
-        return index
     }
 
-    allocateActive(bytes: ByteWriter, expr: ByteWriter): DataIndex {
-        const index = this.offset
-        this.offset += bytes.current
+    allocateActive(bytes: ByteWriter, expr: ByteWriter) {
         this.datas.push({ mode: DataMode.Active, bytes, expr });
-        return index
     }
 
-    allocateActiveMemory(bytes: ByteWriter, expr: ByteWriter, memindex: MemIndex): DataIndex {
-        const index = this.offset
-        this.offset += bytes.current
+    allocateActiveMemory(bytes: ByteWriter, expr: ByteWriter, memindex: MemIndex) {
         this.datas.push({ mode: DataMode.ActiveMemory, bytes, expr, memindex });
-        return index
     }
 
     get index(): SectionIndex { return SectionIndex.Data }
@@ -61,6 +51,10 @@ export class DataSection implements Section {
 
     get size(): number {
         return this.offset
+    }
+
+    get segments(): number {
+        return this.datas.length;
     }
 
     write(writer: ByteWriter): void {

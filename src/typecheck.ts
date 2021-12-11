@@ -41,7 +41,12 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case NodeKind.Var: {
                 const exprType = typeCheckExpr(tree.value, scope)
                 const declaredTypeTree = tree.type
-                const type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
+                let type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
+                if (exprType.kind == TypeKind.Array && type.kind == TypeKind.Array) {
+                    if (exprType.size !== undefined) {
+                        type = { ...type, size: exprType.size }
+                    }
+                }
                 mustMatch(tree.value, exprType, type)
                 var treeType: Type = { kind: TypeKind.Location, type }
                 enter(tree, tree.name, treeType, scope)
@@ -115,10 +120,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
 
     function binary(
         node: Tree,
-        left: Tree, 
-        right: Tree, 
+        left: Tree,
+        right: Tree,
         capabilities: Capabilities,
-        scope: Scope<Type>, 
+        scope: Scope<Type>,
         result?: Type
     ): Type {
         const leftType = typeCheckExpr(left, scope);
@@ -142,7 +147,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
 
     function typeCheckExpr(tree: Tree, scope: Scope<Type>): Type {
         if (result.has(tree)) {
-            return result.get(tree)!! 
+            return result.get(tree)!!
         }
         let type: Type = { kind: TypeKind.Void }
         switch (tree.kind) {
@@ -191,7 +196,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case NodeKind.Continue:
                 type = voidType
                 break
-            case NodeKind.Return: 
+            case NodeKind.Return:
                 type = returnStatement(tree, scope)
                 break
             case NodeKind.Literal:
@@ -293,7 +298,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                     const thisParameter = memberType.parameters.find("this")
                     if (thisParameter != null) {
                         mustMatch(tree, originalTarget, thisParameter)
-                        return { 
+                        return {
                             kind: TypeKind.Function,
                             name: memberType.name,
                             parameters: memberType.parameters.without("this"),
@@ -400,7 +405,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 const type = typeCheckExpr(element, scope)
                 mustMatch(element, elementType, type)
             }
-            return { kind: TypeKind.Array, elements: elementType }
+            return { kind: TypeKind.Array, elements: elementType, size: elements.length }
         }
         return { kind: TypeKind.Unknown }
     }
@@ -463,7 +468,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
     function substitute(type: Type, secondary: Type, primary: Type): Type {
         if (type === secondary) return primary
         switch (type.kind) {
-            case TypeKind.Array: 
+            case TypeKind.Array:
                 const elements = substitute(type.elements, secondary, primary)
                 return elements == type.elements ? type : { kind: TypeKind.Array, elements }
             case TypeKind.Function:

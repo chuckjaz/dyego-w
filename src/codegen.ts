@@ -9,15 +9,18 @@ import { ExportKind, ExportSection } from "./wasm/exportsection";
 import { FunctionSection } from "./wasm/functionSection";
 import { GlobalSection } from "./wasm/globalsection";
 import { ImportSection } from "./wasm/importSection";
+import { MemorySection } from "./wasm/memorySection";
 import { Module } from "./wasm/module";
 import { Section } from "./wasm/section";
+import { StartSection } from "./wasm/startsection";
 import { TypeSection } from "./wasm/typesection";
-import { FuncIndex, Inst, LocalIndex, NumberType, ReferenceType, ValueType } from "./wasm/wasm";
+import { DataIndex, FuncIndex, Inst, LocalIndex, NumberType, ReferenceType, ValueType } from "./wasm/wasm";
 
 interface Symbol {
     type: GenType
     load(g: Generate): void
-    store(g: Generate): void
+    pop(g: Generate): void
+    store(value: Symbol, g: Generate): void
     storeTo(symbol: Symbol, g: Generate): void
     addr(g: Generate): void
     call(args: Symbol[]): Symbol
@@ -26,6 +29,7 @@ interface Symbol {
     simplify(): Symbol
     number(): number | undefined
     tryNot(): Symbol | undefined
+    initMemory(bytes: ByteWriter): boolean
 }
 
 interface GenTypeParts {
@@ -94,26 +98,26 @@ class GenType {
                 case NumberType.f32:
                     addr.load(g)
                     g.inst(Inst.f32_load)
+                    g.index(2)
                     g.index(offset)
-                    g.index(4)
                     return
                 case NumberType.f64:
                     addr.load(g)
                     g.inst(Inst.f64_load)
+                    g.index(2)
                     g.index(offset)
-                    g.index(8)
                     return
                 case NumberType.i32:
                     addr.load(g)
                     g.inst(Inst.i32_load)
+                    g.index(2)
                     g.index(offset)
-                    g.index(4)
                     return
                 case NumberType.i64:
                     addr.load(g)
                     g.inst(Inst.i64_load)
+                    g.index(2)
                     g.index(offset)
-                    g.index(4)
                     return
                 default:
                     unsupported()
@@ -132,33 +136,37 @@ class GenType {
         unsupported()
     }
 
-    storeData(g: Generate, addr: Symbol, offset: number) {
+    storeData(g: Generate, addr: Symbol, value: Symbol, offset: number) {
         const piece = this.parts.piece
         if (piece !== undefined) {
             switch (piece) {
                 case NumberType.f32:
                     addr.load(g)
+                    value.load(g)
                     g.inst(Inst.f32_store)
+                    g.index(2)
                     g.index(offset)
-                    g.index(4)
                     return
                 case NumberType.f64:
                     addr.load(g)
+                    value.load(g)
                     g.inst(Inst.f64_store)
+                    g.index(2)
                     g.index(offset)
-                    g.index(8)
                     return
                 case NumberType.i32:
                     addr.load(g)
+                    value.load(g)
                     g.inst(Inst.i32_store)
+                    g.index(2)
                     g.index(offset)
-                    g.index(4)
                     return
                 case NumberType.i64:
                     addr.load(g)
+                    value.load(g)
                     g.inst(Inst.i64_store)
+                    g.index(2)
                     g.index(offset)
-                    g.index(8)
                     return
                 default:
                     unsupported()
@@ -166,18 +174,115 @@ class GenType {
         }
         const fields = this.parts.fields
         if (fields) {
-            let current = offset
-            const offsets: number[] = []
-            for (const field of fields) {
-                offsets.push(current)
+            let current = 0
+            for (let i = 0; i < fields.length; i++) {
+                const field = fields[i]
+                field.storeData(g, addr, value.select(i), current)
                 current += field.size
-            }
-            for (let i = offsets.length - 1; i >= 0; i--) {
-                fields[i].storeData(g, addr, offsets[i])
             }
             return
         }
         unsupported()
+    }
+
+    popToData(g: Generate, addr: Symbol, offset: number) {
+        const piece = this.parts.piece
+        let i32Local: LocalIndex | undefined
+        let f32Local: LocalIndex | undefined
+        let i64Local: LocalIndex | undefined
+        let f64Local: LocalIndex | undefined
+
+        function tmpLocal(type: NumberType): LocalIndex {
+            switch (type) {
+                case NumberType.f32:
+                    if (f32Local === undefined) {
+                        f32Local = g.local(type)
+                    }
+                    return f32Local
+                case NumberType.f64:
+                    if (f64Local === undefined) {
+                        f64Local = g.local(type)
+                    }
+                    return f64Local
+                case NumberType.i32:
+                    if (i32Local === undefined) {
+                        i32Local = g.local(type)
+                    }
+                    return i32Local
+                case NumberType.i64:
+                    if (i64Local === undefined) {
+                        i64Local = g.local(type)
+                    }
+                default:
+                    unsupported()
+            }
+        }
+
+        function returnTmpLocals() {
+            if (i32Local !== undefined) g.release(i32Local)
+            if (i64Local !== undefined) g.release(i64Local)
+            if (f32Local !== undefined) g.release(f32Local)
+            if (f64Local !== undefined) g.release(f64Local)
+        }
+
+        function store(piece: LocalIndex, inst: Inst) {
+            const local = tmpLocal(piece)
+            g.inst(Inst.Local_set)
+            g.index(local)
+            addr.load(g)
+            g.inst(Inst.Local_get)
+            g.index(local)
+            g.inst(inst)
+            g.index(2)
+            g.index(offset)
+        }
+
+        function doStore(parts: GenTypeParts) {
+            if (piece !== undefined) {
+                switch (piece) {
+                    case NumberType.f32:
+                        store(piece, Inst.f32_store)
+                        return
+                    case NumberType.f64:
+                        store(piece, Inst.f64_store)
+                        return
+                    case NumberType.i32:
+                        store(piece, Inst.i32_store)
+                        return
+                    case NumberType.i64:
+                        store(piece, Inst.i64_store)
+                        return
+                    default:
+                        unsupported()
+                }
+            }
+            const fields = parts.fields
+            if (fields) {
+                let current = 0
+                for (let i = fields.length - 1 ; i >= 0; i--) {
+                    const field = fields[i]
+                    field.popToData(g, addr, current)
+                    current += field.size
+                }
+                return
+            }
+            unsupported()
+        }
+
+        doStore(this.parts)
+        returnTmpLocals()
+    }
+
+    popToLocals(g: Generate, localIndex: LocalIndexes) {
+        if (typeof localIndex == "number") {
+            g.inst(Inst.Local_get)
+            g.index(localIndex)
+        } else {
+            const fields = required(this.parts.fields)
+            for (let i = fields.length - 1; i >= 0; i--) {
+                fields[i].popToLocals(g, localIndex[i])
+            }
+        }
     }
 
     loadLocal(g: Generate, localIndex: LocalIndexes) {
@@ -193,15 +298,16 @@ class GenType {
         }
     }
 
-    storeLocal(g: Generate, localIndex: LocalIndexes) {
+    storeLocal(g: Generate, value: Symbol, localIndex: LocalIndexes) {
         if (typeof localIndex == "number") {
+            value.load(g)
             g.inst(Inst.Local_set)
             g.index(localIndex)
         } else {
             const fields = required(this.parts.fields)
             check(fields.length == localIndex.length)
             for (let i =fields.length - 1; i >=0; i--) {
-                fields[i].loadLocal(g,localIndex[i])
+                fields[i].storeLocal(g, value.select(i), localIndex[i])
             }
         }
     }
@@ -312,7 +418,7 @@ class GenType {
                     case TypeKind.I16:
                     case TypeKind.I32:
                         g.inst(Inst.i32_div_s)
-                        break
+                        return
                     case TypeKind.U8:
                     case TypeKind.U16:
                     case TypeKind.U32:
@@ -500,6 +606,57 @@ class GenType {
         }
         unsupported()
     }
+
+    writeValue(bytes: ByteWriter, value: number | bigint): boolean {
+        switch (this.type.kind) {
+            case TypeKind.I8:
+            case TypeKind.U8:
+                bytes.writeByte(Number(value))
+                break
+            case TypeKind.I16:
+            case TypeKind.U16: {
+                const v = Number(value)
+                bytes.writeByte(v | 0xFF)
+                bytes.writeByte((v >> 8) | 0xFF)
+                break
+            }
+            case TypeKind.I32:
+            case TypeKind.U32: {
+                const v = Number(value)
+                const b = new Uint8Array(4)
+                const i = new Int32Array(b.buffer)
+                i[0] = Number(value)
+                bytes.writeByteArray(b)
+                break
+            }
+            case TypeKind.I64: {
+                const v = BigInt(value)
+                const b = new Uint8Array(8)
+                const i = new Int32Array(b.buffer)
+                i[0] = Number(v | 0xFFFFFFFFn)
+                i[1] = Number((v >> 32n) | 0xFFFFFFFFn)
+                bytes.writeByteArray(b)
+                break
+            }
+            case TypeKind.F32: {
+                const b = new Uint8Array(4)
+                const f = new Float32Array(b.buffer)
+                f[0] = Number(value)
+                bytes.writeByteArray(b)
+                break
+            }
+            case TypeKind.F64: {
+                const b = new Uint8Array(8)
+                const f = new Float64Array(b.buffer)
+                f[0] = Number(value)
+                bytes.writeByteArray(b)
+                break
+            }
+            default:
+                return false
+        }
+        return true
+    }
 }
 
 class LocalSymbol implements Symbol {
@@ -515,13 +672,16 @@ class LocalSymbol implements Symbol {
         this.type.loadLocal(g, this.locals)
     }
 
-    store(g: Generate): void {
-        this.type.storeLocal(g, this.locals)
+    pop(g: Generate) {
+        this.type.popToLocals(g, this.locals)
     }
 
-    storeTo(symbol: Symbol, g:Generate) {
-        this.load(g)
-        symbol.store(g)
+    store(value: Symbol, g: Generate): void {
+        this.type.storeLocal(g, value, this.locals)
+    }
+
+    storeTo(symbol: Symbol, g: Generate): void {
+        symbol.store(this, g)
     }
 
     addr(g: Generate): void {
@@ -552,6 +712,10 @@ class LocalSymbol implements Symbol {
     number(): undefined {
         return undefined
     }
+
+    initMemory(bytes: ByteWriter): boolean {
+        return false
+    }
 }
 
 const i32GenType = genTypeOf(i32Type)
@@ -562,13 +726,16 @@ const booleanGenType = genTypeOf(booleanType)
 abstract class LoadonlySymbol {
     abstract load(g: Generate): void
 
-    store(g: Generate): void {
+    store(value: Symbol, g: Generate): void {
         unsupported()
     }
 
-    storeTo(symbol: Symbol, g: Generate) {
-        this.load(g)
-        symbol.store(g)
+    storeTo(symbol: Symbol, g: Generate): void {
+        symbol.store(this as any as Symbol, g)
+    }
+
+    pop(g: Generate): void {
+        unsupported()
     }
 
     addr(g: Generate): void {
@@ -598,12 +765,20 @@ abstract class LoadonlySymbol {
     tryNot(): Symbol | undefined {
         return undefined
     }
+
+    initMemory(bytes: ByteWriter): boolean {
+        return false
+    }
 }
 
 class EmptySymbol extends LoadonlySymbol implements Symbol {
     type = voidGenType
 
     load(g: Generate): void { }
+
+    initMemory(bytes: ByteWriter): boolean {
+        return true
+    }
 }
 
 const emptySymbol = new EmptySymbol()
@@ -629,6 +804,10 @@ class NumberConstSymbol extends LoadonlySymbol implements Symbol {
     tryNot(): Symbol {
         return new NumberConstSymbol(this.value === 0 ? 1 : 0)
     }
+
+    initMemory(bytes: ByteWriter): boolean {
+        return this.type.writeValue(bytes, this.value)
+    }
 }
 
 class DoubleConstSymbol extends LoadonlySymbol implements Symbol {
@@ -643,6 +822,10 @@ class DoubleConstSymbol extends LoadonlySymbol implements Symbol {
     load(g: Generate): void {
         g.inst(Inst.f64_const)
         g.float64(this.value)
+    }
+
+    initMemory(bytes: ByteWriter): boolean {
+        return this.type.writeValue(bytes, this.value)
     }
 }
 
@@ -685,6 +868,13 @@ class StructLiteralSymbol extends LoadonlySymbol implements Symbol {
             return this
         return new StructLiteralSymbol(this.type, simpleFields)
     }
+
+    initMemory(bytes: ByteWriter): boolean {
+        for (const symbol of this.fields) {
+            if (!symbol.initMemory(bytes)) return false
+        }
+        return true
+    }
 }
 
 class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
@@ -718,6 +908,13 @@ class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
         if (elements === simple)
             return this
         return new ArrayLiteralSymbol(this.type, simple)
+    }
+
+    initMemory(bytes: ByteWriter): boolean {
+        for (const element of this.elements) {
+            if (!element.initMemory(bytes)) return false
+        }
+        return true
     }
 }
 
@@ -1387,17 +1584,24 @@ class DataSymbol implements Symbol {
             this.type.loadData(g, this.address, 0)
     }
 
-    store(g: Generate): void {
+    pop(g: Generate): void {
         const address = this.address.number()
         if (address !== undefined)
-            this.type.storeData(g, zeroSymbol, address)
+            this.type.popToData(g, zeroSymbol, address)
         else
-            this.type.storeData(g, this.address, 0)
+            this.type.popToData(g, this.address, 0)
     }
 
-    storeTo(symbol: Symbol, g:Generate) {
-        this.load(g)
-        symbol.store(g)
+    store(value: Symbol, g: Generate): void {
+        const address = this.address.number()
+        if (address !== undefined)
+            this.type.storeData(g, zeroSymbol, value, address)
+        else
+            this.type.storeData(g, this.address, value, 0)
+    }
+
+    storeTo(symbol: Symbol, g: Generate): void {
+        symbol.store(this, g)
     }
 
     addr(g: Generate): void {
@@ -1432,6 +1636,10 @@ class DataSymbol implements Symbol {
 
     number(): undefined {
         return undefined
+    }
+
+    initMemory(bytes: ByteWriter) {
+        return false
     }
 }
 
@@ -1504,29 +1712,43 @@ interface SymbolAllocator {
 }
 
 class DataAllocator implements SymbolAllocator {
+    private current: number = 0
     data: DataSection
+    offset: number
+    init: Generate
 
-    constructor(data: DataSection) {
+    constructor(data: DataSection, offset: number, init: Generate) {
         this.data = data
+        this.offset = offset
+        this.init = init
     }
+
+    get size() { return this.current }
 
     allocate(type: GenType, init?: Symbol): Symbol {
         const size = type.size
-        const buffer = new Uint8Array(size)
-        const bytes = new ByteWriter(buffer, size)
-        const data = this.data
+        const address = this.offset + this.current
+        this.current += size
+        const symbol = new DataSymbol(type, new NumberConstSymbol(address))
         if (init) {
-            const simpleInit = init.simplify()
-            const g = gen()
-            simpleInit.load(g)
-            const expr = new ByteWriter()
-            g.write(expr)
-            const address = data.allocateActive(bytes, expr)
-            return new DataSymbol(type, new NumberConstSymbol(address))
-        } else {
-            const address = data.allocatePassive(bytes)
-            return new DataSymbol(type, new NumberConstSymbol(address))
+            const simplifiedInit = init.simplify()
+            const initBytes = new ByteWriter(size)
+            if (simplifiedInit.initMemory(initBytes)) {
+                check(initBytes.current == size, "Byte written and size disagree")
+                const data = this.data
+                const g = gen()
+                g.inst(Inst.i32_const)
+                g.index(address)
+                g.inst(Inst.End)
+                const expr = new ByteWriter()
+                g.write(expr)
+                data.allocateActive(initBytes, expr)
+            } else {
+                const assign = new AssignSymbol(symbol, simplifiedInit)
+                assign.load(this.init)
+            }
         }
+        return symbol
     }
 
     release(symbol: Symbol) { }
@@ -1582,9 +1804,13 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     const funcSection = new FunctionSection(importSection.funcsCount)
     const codeSection = new CodeSection()
     const dataSection = new DataSection()
-    const dataAllocator = new DataAllocator(dataSection)
+    const initGen = gen()
+    const dataAllocator = new DataAllocator(dataSection, 0, initGen)
     const exportSection = new ExportSection()
     const dataCountSection = new DataCountSection(dataSection)
+    const memorySection = new MemorySection(0)
+    let startSection: StartSection | undefined = undefined
+
     function typeOfType(type: Type | undefined): GenType {
         return genTypeOf(required(type), genTypes)
     }
@@ -1603,16 +1829,34 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
 
     statementsToSymbol(program, rootScopes)
 
-    function addSection(section: Section) {
-        if (!section.empty()) module.addSection(section)
+    // Allocate memory if necessary
+    if (dataAllocator.size > 0) {
+        memorySection.allocate({ min: dataAllocator.size })
+    }
+
+    // Aloocate an init function if necessary
+    if (initGen.size() > 0) {
+        const type = typeSection.funtionType({parameters: [], result: []})
+        const funcIndex = funcSection.allocate(type)
+        const bytes = new ByteWriter()
+        initGen.inst(Inst.End)
+        initGen.write(bytes)
+        codeSection.allocate(initGen.currentLocals(), bytes)
+        startSection = new StartSection(funcIndex)
+    }
+
+    function addSection(section: Section | undefined) {
+        if (section && !section.empty()) module.addSection(section)
     }
 
     addSection(typeSection)
     addSection(importSection)
     addSection(funcSection)
+    addSection(memorySection)
     addSection(exportSection)
-    if (!dataSection.empty())
-        addSection(dataCountSection)
+    addSection(startSection)
+    // if (!dataSection.empty())
+    //     addSection(dataCountSection)
     addSection(codeSection)
     addSection(dataSection)
 
