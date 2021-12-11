@@ -174,12 +174,8 @@ class Branch {
 
     writeTo(context: WriteContext) {
         const writer = context.writer
-        const expected = writer.current + this.size();
         writer.writeByte(this.inst);
         this.label.writeTo(context);
-        while (writer.current < expected) {
-            writer.writeByte(Inst.Nop)
-        }
     }
 }
 
