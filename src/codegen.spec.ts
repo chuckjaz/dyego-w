@@ -1,3 +1,4 @@
+import { writeFileSync } from "fs"
 import { Scope } from "./ast"
 import { codegen } from "./codegen"
 import { parse } from "./parser"
@@ -36,6 +37,21 @@ describe("codegen", () => {
             expect(exports.test()).toBeTruthy()
         })
     })
+    it("can generate a while loop", () => {
+        cg(`
+            export fun test(): Int {
+                var i: Int = 0;
+                var sum: Int = 0;
+                while (i < 10) {
+                    sum = sum + i;
+                    i = i + 1;
+                }
+                sum
+            }
+        `, exports => {
+            expect(exports.test()).toBe(45)
+        })
+    })
 })
 
 function cg(text: string, cb: (exports: any) => void): any {
@@ -50,5 +66,6 @@ function cg(text: string, cb: (exports: any) => void): any {
     expect(WebAssembly.validate(bytes)).toBeTrue();
     const mod = new WebAssembly.Module(bytes);
     const inst = new WebAssembly.Instance(mod);
+    writeFileSync("out/tmp.wasm", bytes)
     cb(inst.exports)
 }
