@@ -1,8 +1,3 @@
-import `host` {
-    fun printDouble(value: Double): Void as print
-    fun sqrt(value: Double): Double
-}
-
 let PI = 3.141592653589793;
 let SOLAR_MASS = 4.0 * PI * PI;
 let DAYS_PER_YEAR = 365.24;
@@ -18,12 +13,12 @@ type BodyValue = <
 >
 
 fun Body(
-    x: Double, 
-    y: Double, 
-    z: Double, 
-    vx: Double, 
-    vy: Double, 
-    vz: Double, 
+    x: Double,
+    y: Double,
+    z: Double,
+    vx: Double,
+    vy: Double,
+    vz: Double,
     mass: Double
 ): BodyValue = {
     x: x,
@@ -77,16 +72,16 @@ fun Neptune(): BodyValue = Body(
 
 fun Sun(): BodyValue = Body(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SOLAR_MASS)
 
-let bodies: BodyValue[] = [Sun(), Jupiter(), Saturn(), Uranus(), Neptune()];
+var bodies: BodyValue[] = [Sun(), Jupiter(), Saturn(), Uranus(), Neptune()];
 
-fun offsetMomentum(): Void {
+export fun offsetMomentum(): Void {
     let size = 5;
     var px = 0.0;
     var py = 0.0;
     var pz = 0.0;
     var i = 0;
     while (i < size) {
-        let mass = bodies[i].mass;
+        var mass = bodies[i].mass;
         px = px + bodies[i].vx * mass;
         py = py + bodies[i].vy * mass;
         pz = pz + bodies[i].vz * mass;
@@ -98,29 +93,29 @@ fun offsetMomentum(): Void {
     bodies[0].vz = -pz / SOLAR_MASS;
 }
 
-fun advance(dt: Double): Void {
+export fun advance(dt: Double): Void {
     let size = 5;
 
     var i = 0;
-    while (i < size) {    
+    while (i < size) {
         var vxi = bodies[i].vx;
         var vyi = bodies[i].vy;
         var vzi = bodies[i].vz;
         var j = i + 1;
         while (j < size) {
-            let dx = bodies[i].x - bodies[j].x;
-            let dy = bodies[i].y - bodies[j].y;
-            let dz = bodies[i].z - bodies[j].z;
+            var dx = bodies[i].x - bodies[j].x;
+            var dy = bodies[i].y - bodies[j].y;
+            var dz = bodies[i].z - bodies[j].z;
 
-            let d2 = dx * dx + dy * dy + dz * dz;
-            let mag = dt / (d2 * sqrt(d2));
+            var d2 = dx * dx + dy * dy + dz * dz;
+            var mag = dt / (d2 * d2.sqrt());
 
-            let massj = bodies[j].mass;
+            var massj = bodies[j].mass;
             vxi = vxi - dx * massj * mag;
             vyi = vyi - dy * massj * mag;
             vzi = vzi - dz * massj * mag;
 
-            let massi = bodies[i].mass;
+            var massi = bodies[i].mass;
             bodies[j].vx = bodies[j].vx + dx * massi * mag;
             bodies[j].vy = bodies[j].vy + dy * massi * mag;
             bodies[j].vz = bodies[j].vz + dz * massi * mag;
@@ -142,21 +137,21 @@ fun advance(dt: Double): Void {
     }
 }
 
-fun energy(): Double {
+export fun energy(): Double {
     let size = 5
 
     var e = 0.0;
     var i = 0
     while (i < size) {
-        e = e + (0.5 * bodies[i].mass * ( bodies[i].vx * bodies[i].vx + 
+        e = e + (0.5 * bodies[i].mass * ( bodies[i].vx * bodies[i].vx +
             bodies[i].vy * bodies[i].vy + bodies[i].vz * bodies[i].vz ));
         var j = i + 1;
         while (j < size) {
-            let dx = bodies[i].x - bodies[j].x;
-            let dy = bodies[i].y - bodies[j].y;
-            let dz = bodies[i].z - bodies[j].z;
+            var dx = bodies[i].x - bodies[j].x;
+            var dy = bodies[i].y - bodies[j].y;
+            var dz = bodies[i].z - bodies[j].z;
 
-            let distance = sqrt(dx * dx + dy * dy + dz * dz);
+            var distance = (dx * dx + dy * dy + dz * dz).sqrt();
             e = e -((bodies[i].mass * bodies[j].mass) / distance);
             j = j + 1
         }
@@ -166,17 +161,10 @@ fun energy(): Double {
     e;
 }
 
-fun main(): Void {
-    let n = 50000
-
-    offsetMomentum()
-    print(energy())
-
-    var i = 0;
+export fun mainLoop(n: Int): Void {
+    var i: Int = 0;
     while (i < n) {
         advance(0.01)
         i = i + 1
     }
-
-    print(energy())
 }

@@ -30,12 +30,8 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 const declaredTypeTree = tree.type
                 const type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
                 mustMatch(tree.value, exprType, type)
-                if (type.kind == TypeKind.Function) {
-                    type.name = tree.name
-                    enter(tree, tree.name, type, scope)
-                } else {
-                    enter(tree, tree.name, { kind: TypeKind.Location, type }, scope)
-                }
+                validateConst(tree.value, scope)
+                enter(tree, tree.name, type, scope)
                 return voidType
             }
             case NodeKind.Var: {
@@ -143,6 +139,35 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         const type = typeCheckExpr(target, scope);
         requireCapability(type, capabilities, node);
         return result ?? type;
+    }
+
+    function validateConst(tree: Tree, scope: Scope<Type>) {
+        switch (tree.kind) {
+            case NodeKind.Reference:
+                const type = required(scope.find(tree.name))
+                if (type.kind == TypeKind.Location) {
+                    error(tree, "Expected a constant expression")
+                }
+                break
+            case NodeKind.Add:
+            case NodeKind.Subtract:
+            case NodeKind.Multiply:
+            case NodeKind.Divide:
+            case NodeKind.Compare:
+            case NodeKind.And:
+            case NodeKind.Or:
+                validateConst(tree.left, scope)
+                validateConst(tree.right, scope)
+                break
+            case NodeKind.Negate:
+            case NodeKind.Not:
+                validateConst(tree.target, scope)
+                break
+            case NodeKind.Literal:
+                break
+            default:
+                error(tree, "Expected a constant expression")
+        }
     }
 
     function typeCheckExpr(tree: Tree, scope: Scope<Type>): Type {
