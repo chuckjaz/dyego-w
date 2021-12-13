@@ -31,6 +31,7 @@ export interface Generate {
     callIndirect(type: TypeIndex, index: TableIndex): void;
     return(): void;
 
+    parameter(type: ValueType): LocalIndex;
     local(type: ValueType): LocalIndex;
     release(index: LocalIndex): void;
     currentLocals(): ValueType[];
@@ -77,6 +78,10 @@ class LocalsDelegate {
 
     constructor(locals: Locals) {
         this.locals = locals;
+    }
+
+    parameter(type: ValueType): LocalIndex {
+        return this.locals.parameter(type);
     }
 
     local(type: ValueType): LocalIndex {
@@ -235,6 +240,11 @@ function bytesOf(value: number): number {
 class Locals {
     allocated: ValueType[] = []
     released: { type: ValueType, index: LocalIndex }[] = []
+    offset: number = 0
+
+    parameter(type: ValueType): LocalIndex {
+        return this.offset++
+    }
 
     local(type: ValueType): LocalIndex {
         const released = this.released
@@ -247,7 +257,7 @@ class Locals {
             }
         }
         const allocated = this.allocated
-        const result = allocated.length
+        const result = allocated.length + this.offset
         allocated.push(type)
         return result
     }

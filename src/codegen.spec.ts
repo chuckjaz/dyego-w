@@ -1,4 +1,4 @@
-import { writeFileSync } from "fs"
+import { readFileSync, writeFileSync } from "fs"
 import { Scope } from "./ast"
 import { codegen } from "./codegen"
 import { parse } from "./parser"
@@ -89,6 +89,12 @@ describe("codegen", () => {
             }
         `, exports => {
             expect(exports.test()).toBe(15)
+        })
+    })
+    it("can run the n-body benchmark", () => {
+        const text = readFileSync("examples/n-body.dgw", 'utf-8')
+        cg(text, ({offsetMomentum}) => {
+            offsetMomentum()
         })
     })
 })

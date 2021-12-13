@@ -1,5 +1,5 @@
-import { ArrayLit, Assign, Call, CompareOp, Index, Function, Let, LiteralKind, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, IfThenElse } from "./ast";
-import { booleanType, builtInMethodsOf, f64Type, i32Type, Type, TypeKind, voidType } from "./types";
+import { ArrayLit, Assign, Call, CompareOp, Index, Function, Let, LiteralKind, Locatable, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, IfThenElse, nameOfNodeKind } from "./ast";
+import { booleanType, f64Type, i32Type, Type, TypeKind, typeToString, voidType } from "./types";
 import { ByteWriter } from "./wasm/bytewriter";
 import { Generate, gen, Label, label } from "./wasm/codeblock";
 import { CodeSection } from "./wasm/codesection";
@@ -18,6 +18,7 @@ import { DataIndex, FuncIndex, Inst, LocalIndex, NumberType, ReferenceType, Valu
 
 interface Symbol {
     type: GenType
+    location?: Locatable
     load(g: Generate): void
     pop(g: Generate): void
     store(value: Symbol, g: Generate): void
@@ -91,7 +92,7 @@ class GenType {
         this.size = size ?? sizeOfParts(parts)
     }
 
-    loadData(g: Generate, addr: Symbol, offset: number) {
+    loadData(location: Locatable, g: Generate, addr: Symbol, offset: number) {
         const piece = this.parts.piece
         if (piece !== undefined) {
             switch (piece) {
@@ -120,7 +121,7 @@ class GenType {
                     g.index(offset)
                     return
                 default:
-                    unsupported()
+                    unsupported(location)
             }
         }
 
@@ -128,15 +129,15 @@ class GenType {
         if (fields) {
             let current = offset
             for (const field of fields) {
-                field.loadData(g, addr, current)
+                field.loadData(location, g, addr, current)
                 current += field.size
             }
             return
         }
-        unsupported()
+        unsupported(location, `load: ${typeToString(this.type)}`)
     }
 
-    storeData(g: Generate, addr: Symbol, value: Symbol, offset: number) {
+    storeData(location: Locatable, g: Generate, addr: Symbol, value: Symbol, offset: number) {
         const piece = this.parts.piece
         if (piece !== undefined) {
             switch (piece) {
@@ -169,24 +170,25 @@ class GenType {
                     g.index(offset)
                     return
                 default:
-                    unsupported()
-            }
+                    unsupported(location, `store: ${typeToString(this.type)}`)
+                }
         }
         const fields = this.parts.fields
         if (fields) {
             let current = 0
             for (let i = 0; i < fields.length; i++) {
                 const field = fields[i]
-                field.storeData(g, addr, value.select(i), current)
+                field.storeData(location, g, addr, value.select(i), current)
                 current += field.size
             }
             return
         }
-        unsupported()
+        unsupported(location, `store: ${typeToString(this.type)}`)
     }
 
-    popToData(g: Generate, addr: Symbol, offset: number) {
+    popToData(location: Locatable, g: Generate, addr: Symbol, offset: number) {
         const piece = this.parts.piece
+        const thisType = this.type
         let i32Local: LocalIndex | undefined
         let f32Local: LocalIndex | undefined
         let i64Local: LocalIndex | undefined
@@ -214,8 +216,8 @@ class GenType {
                         i64Local = g.local(type)
                     }
                 default:
-                    unsupported()
-            }
+                    unsupported(location, `pop: ${typeToString(thisType)}`)
+                }
         }
 
         function returnTmpLocals() {
@@ -253,20 +255,20 @@ class GenType {
                         store(piece, Inst.i64_store)
                         return
                     default:
-                        unsupported()
-                }
+                        unsupported(location, `pop: ${typeToString(thisType)}`)
+                    }
             }
             const fields = parts.fields
             if (fields) {
-                let current = 0
+                let current = offset
                 for (let i = fields.length - 1 ; i >= 0; i--) {
                     const field = fields[i]
-                    field.popToData(g, addr, current)
+                    field.popToData(location, g, addr, current)
                     current += field.size
                 }
                 return
             }
-            unsupported()
+            unsupported(location, `pop: ${typeToString(thisType)}`)
         }
 
         doStore(this.parts)
@@ -312,7 +314,7 @@ class GenType {
         }
     }
 
-    locals(): LocalTypes {
+    locals(location: Locatable): LocalTypes {
         const parts = this.parts
         const piece = parts.piece
         if (piece !== undefined) {
@@ -320,18 +322,19 @@ class GenType {
         }
         const fields = parts.fields
         if (fields !== undefined) {
-            return fields.map(t => t.locals())
+            return fields.map(t => t.locals(location))
         }
         if (parts.void) return []
-        unsupported()
+        unsupported(location, `locals: ${typeToString(this.type)}`)
     }
 
-    select(index: number | string): { type: GenType, offset: number, index: number } {
+    select(location: Locatable, index: number | string): { type: GenType, offset: number, index: number } {
         if (typeof index === "string") {
             const type = this.type
             if (type.kind == TypeKind.Struct) {
                 index = required(type.fields.order(index))
-            } else unsupported()
+            } else unsupported(location, `select: ${typeToString(this.type)}`)
+
         }
         const fields = required(this.parts.fields)
         check(index <= fields.length)
@@ -344,7 +347,7 @@ class GenType {
         return required(this.parts.element)
     }
 
-    op(kind: NodeKind, g: Generate) {
+    op(location: Locatable, kind: NodeKind, g: Generate) {
         switch (kind) {
             case NodeKind.Add:
                 switch (this.type.kind) {
@@ -445,11 +448,20 @@ class GenType {
                         return
                 }
                 break
+            case NodeKind.Negate:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_neg)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_neg)
+                        return
+                }
         }
-        unsupported()
+        unsupported(location, `op ${nameOfNodeKind(kind)} for ${typeToString(this.type)}`)
     }
 
-    compare(op: CompareOp, g: Generate) {
+    compare(location: Locatable, op: CompareOp, g: Generate) {
         switch (op) {
             case CompareOp.Equal:
                 switch (this.type.kind) {
@@ -604,7 +616,7 @@ class GenType {
                 }
                 break
         }
-        unsupported()
+        unsupported(location)
     }
 
     writeValue(bytes: ByteWriter, value: number | bigint): boolean {
@@ -661,9 +673,11 @@ class GenType {
 
 class LocalSymbol implements Symbol {
     type: GenType
+    location: Locatable
     locals: LocalIndexes
 
-    constructor(type: GenType, locals: LocalIndexes) {
+    constructor(location: Locatable, type: GenType, locals: LocalIndexes) {
+        this.location = location
         this.type = type
         this.locals = locals
     }
@@ -685,24 +699,24 @@ class LocalSymbol implements Symbol {
     }
 
     addr(g: Generate): void {
-        unsupported()
+        unsupported(this.location)
     }
 
     call(args: Symbol[]): Symbol {
-        unsupported()
+        unsupported(this.location)
     }
 
     select(index: number | string): Symbol {
         const locals = this.locals
         if (typeof locals === "number") {
-            unsupported()
+            unsupported(this.location)
         }
-        const {type, index: actualIndex} = this.type.select(index)
-        return new LocalSymbol(type, locals[actualIndex])
+        const {type, index: actualIndex} = this.type.select(this.location, index)
+        return new LocalSymbol(this.location, type, locals[actualIndex])
     }
 
     index(index: Symbol): Symbol {
-        unsupported()
+        unsupported(this.location)
     }
 
     simplify(): Symbol { return this }
@@ -718,16 +732,22 @@ class LocalSymbol implements Symbol {
     }
 }
 
-const i32GenType = genTypeOf(i32Type)
-const f64GenType = genTypeOf(f64Type)
-const voidGenType = genTypeOf(voidType)
-const booleanGenType = genTypeOf(booleanType)
+const i32GenType = genTypeOf(undefined, i32Type)
+const f64GenType = genTypeOf(undefined, f64Type)
+const voidGenType = genTypeOf(undefined, voidType)
+const booleanGenType = genTypeOf(undefined, booleanType)
 
 abstract class LoadonlySymbol {
+    location: Locatable | undefined
+
+    constructor(location: Locatable | undefined) {
+        this.location = location
+    }
+
     abstract load(g: Generate): void
 
     store(value: Symbol, g: Generate): void {
-        unsupported()
+        unsupported(this.location)
     }
 
     storeTo(symbol: Symbol, g: Generate): void {
@@ -735,23 +755,23 @@ abstract class LoadonlySymbol {
     }
 
     pop(g: Generate): void {
-        unsupported()
+        unsupported(this.location)
     }
 
     addr(g: Generate): void {
-        unsupported()
+        unsupported(this.location)
     }
 
     call(args: Symbol[]): Symbol {
-        unsupported()
+        unsupported(this.location)
     }
 
     select(index: number | string): Symbol {
-        unsupported()
+        unsupported(this.location)
     }
 
     index(index: Symbol): Symbol {
-        unsupported()
+        unsupported(this.location)
     }
 
     number(): number | undefined {
@@ -781,14 +801,15 @@ class EmptySymbol extends LoadonlySymbol implements Symbol {
     }
 }
 
-const emptySymbol = new EmptySymbol()
+const emptySymbol = new EmptySymbol(undefined)
 
 class NumberConstSymbol extends LoadonlySymbol implements Symbol {
     type = i32GenType
     value: number
 
-    constructor(value: number) {
-        super()
+    constructor(location: Locatable | undefined, value: number) {
+        super(location)
+        this.location = location
         this.value = value
     }
 
@@ -802,7 +823,7 @@ class NumberConstSymbol extends LoadonlySymbol implements Symbol {
     }
 
     tryNot(): Symbol {
-        return new NumberConstSymbol(this.value === 0 ? 1 : 0)
+        return new NumberConstSymbol(this.location, this.value === 0 ? 1 : 0)
     }
 
     initMemory(bytes: ByteWriter): boolean {
@@ -814,9 +835,14 @@ class DoubleConstSymbol extends LoadonlySymbol implements Symbol {
     type = f64GenType
     value: number
 
-    constructor(value: number) {
-        super()
+    constructor(location: Locatable, value: number) {
+        super(location)
+        this.location = location
         this.value = value
+    }
+
+    number(): number {
+        return this.value
     }
 
     load(g: Generate): void {
@@ -830,19 +856,24 @@ class DoubleConstSymbol extends LoadonlySymbol implements Symbol {
 }
 
 function simplified(symbols: Symbol[]): Symbol[] {
-    const simple = symbols.map(s => s.simplify())
-    for (let i = 0, len = simple.length; i < len; i++) {
-        if (simple[i] !== symbols[i]) return simple
+    const simple: Symbol[] = []
+    let changed = false
+    for (const symbol of symbols) {
+        const s = symbol.simplify()
+        changed = changed || s !== symbol
+        simple.push(s)
     }
-    return symbols
+    return changed ? simple : symbols
 }
 
 class StructLiteralSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     fields: Symbol[]
 
-    constructor(type: GenType, fields: Symbol[]) {
-        super()
+    constructor(location: Locatable, type: GenType, fields: Symbol[]) {
+        super(location)
+        this.location = location
         this.type = type
         this.fields = fields
     }
@@ -866,7 +897,7 @@ class StructLiteralSymbol extends LoadonlySymbol implements Symbol {
         const simpleFields = simplified(this.fields)
         if (simpleFields === this.fields)
             return this
-        return new StructLiteralSymbol(this.type, simpleFields)
+        return new StructLiteralSymbol(this.location, this.type, simpleFields)
     }
 
     initMemory(bytes: ByteWriter): boolean {
@@ -878,11 +909,13 @@ class StructLiteralSymbol extends LoadonlySymbol implements Symbol {
 }
 
 class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     elements: Symbol[]
 
-    constructor(type: GenType, elements: Symbol[]) {
-        super()
+    constructor(location: Locatable, type: GenType, elements: Symbol[]) {
+        super(location)
+        this.location = location
         this.type = type
         this.elements = elements
     }
@@ -898,7 +931,8 @@ class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
         const elements = this.elements
         const len = elements.length
         for (let i = 0; i < len; i++) {
-            elements[i].storeTo(symbol.index(new NumberConstSymbol(i)), g)
+            const addr = symbol.index(new NumberConstSymbol(this.location, i)).simplify()
+            elements[i].storeTo(addr, g)
         }
     }
 
@@ -907,7 +941,7 @@ class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
         const simple = simplified(elements)
         if (elements === simple)
             return this
-        return new ArrayLiteralSymbol(this.type, simple)
+        return new ArrayLiteralSymbol(this.location, this.type, simple)
     }
 
     initMemory(bytes: ByteWriter): boolean {
@@ -919,12 +953,14 @@ class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
 }
 
 class AssignSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type = voidGenType
     target: Symbol
     value: Symbol
 
-    constructor(target: Symbol, value: Symbol) {
-        super()
+    constructor(location: Locatable, target: Symbol, value: Symbol) {
+        super(location)
+        this.location = location
         this.target = target
         this.value = value
     }
@@ -941,17 +977,19 @@ class AssignSymbol extends LoadonlySymbol implements Symbol {
         if (target === simpleTarget && value === simpleValue) {
             return this
         }
-        return new AssignSymbol(simpleTarget, simpleValue)
+        return new AssignSymbol(this.location, simpleTarget, simpleValue)
     }
 }
 
 class UnaryOpSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     target: Symbol
     op: NodeKind
 
-    constructor(type: GenType, target: Symbol, op: NodeKind) {
-        super()
+    constructor(location: Locatable, type: GenType, target: Symbol, op: NodeKind) {
+        super(location)
+        this.location = location
         this.type = type
         this.target = target
         this.op = op
@@ -959,31 +997,47 @@ class UnaryOpSymbol extends LoadonlySymbol implements Symbol {
 
     load(g: Generate) {
         this.target.load(g)
-        this.type.op(this.op, g)
+        this.type.op(this.location, this.op, g)
     }
 
     simplify(): Symbol {
         const target = this.target
         const newTarget = target.simplify()
-        if (this.op == NodeKind.Not) {
-            const tryNot = newTarget.tryNot()
-            if (tryNot) return tryNot
+        switch(this.op) {
+            case NodeKind.Not:
+                const tryNot = newTarget.tryNot()
+                if (tryNot) return tryNot
+                break
+            case NodeKind.Negate:
+                const num = target.number()
+                if (num !== undefined) {
+                    switch (this.type.type.kind) {
+                        case TypeKind.F64:
+                        case TypeKind.F32:
+                            return new DoubleConstSymbol(this.location, -num)
+                    }
+                    return new NumberConstSymbol(this.location, -num)
+                }
+                break
+
         }
         if (newTarget !== target) {
-            return new UnaryOpSymbol(this.type, newTarget, this.op)
+            return new UnaryOpSymbol(this.location, this.type, newTarget, this.op)
         }
         return this
     }
 }
 
 class OpSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     left: Symbol
     right: Symbol
     op: NodeKind
 
-    constructor(type: GenType, left: Symbol, right: Symbol, op: NodeKind) {
-        super()
+    constructor(location: Locatable, type: GenType, left: Symbol, right: Symbol, op: NodeKind) {
+        super(location)
+        this.location = location
         this.type = type
         this.left = left
         this.right = right
@@ -993,10 +1047,11 @@ class OpSymbol extends LoadonlySymbol implements Symbol {
     load(g: Generate) {
         this.left.load(g)
         this.right.load(g)
-        this.type.op(this.op, g)
+        this.type.op(this.location, this.op, g)
     }
 
     simplify(): Symbol {
+        const type = this.type
         const left = this.left
         const leftSimple = left.simplify()
         const right = this.right
@@ -1042,22 +1097,29 @@ class OpSymbol extends LoadonlySymbol implements Symbol {
                     result = result | 0xFFFFFFFF
                     break
             }
-            return new NumberConstSymbol(result)
+            switch (type.type.kind) {
+                case TypeKind.F64:
+                case TypeKind.F32:
+                    return new DoubleConstSymbol(this.location, result)
+            }
+            return new NumberConstSymbol(this.location, result)
         }
         if (left === leftSimple && right === rightSimple) {
             return this
         }
-        return new OpSymbol(this.type, leftSimple, rightSimple, this.op)
+        return new OpSymbol(this.location, this.type, leftSimple, rightSimple, this.op)
     }
 }
 
 class InstSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     inst: Inst
     args: Symbol[]
 
-    constructor(type: GenType, inst: Inst, args: Symbol[]) {
-        super()
+    constructor(location: Locatable, type: GenType, inst: Inst, args: Symbol[]) {
+        super(location)
+        this.location = location
         this.type = type
         this.inst = inst
         this.args = args
@@ -1072,28 +1134,32 @@ class InstSymbol extends LoadonlySymbol implements Symbol {
 }
 
 class BuiltinsSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     inst: Inst
     target: Symbol
 
-    constructor(type: GenType, inst: Inst, target: Symbol) {
-        super()
+    constructor(location: Locatable, type: GenType, inst: Inst, target: Symbol) {
+        super(location)
+        this.location = location
         this.type = type
         this.inst = inst
         this.target = target
     }
 
     load(g: Generate) {
-        unsupported()
+        unsupported(this.location)
     }
 
     call(args: Symbol[]) {
-        return new InstSymbol(this.type, this.inst, [this.target, ...args])
+        return new InstSymbol(this.location, this.type, this.inst, [this.target, ...args])
     }
 }
 
-function builtinSymbolFor(type: Type, result: GenType, name: string, target: Symbol): Symbol {
+function builtinSymbolFor(location: Locatable, type: Type, result: GenType, name: string, target: Symbol): Symbol {
     let inst = Inst.Nop
+    if (type.kind == TypeKind.Location)
+        return builtinSymbolFor(location, type.type, result, name, target)
     switch (name) {
         case "countLeadingZeros":
             switch (type.kind) {
@@ -1234,21 +1300,23 @@ function builtinSymbolFor(type: Type, result: GenType, name: string, target: Sym
             }
             break
     }
-    if (inst == Inst.Nop) unsupported()
-    return new BuiltinsSymbol(result, inst, target)
+    if (inst == Inst.Nop) unsupported(location, `${name} for type ${typeToString(type)}`)
+    return new BuiltinsSymbol(location, result, inst, target)
 }
 
-const trueSymbol = new NumberConstSymbol(1)
-const falseSymbol = new NumberConstSymbol(0)
+const trueSymbol = new NumberConstSymbol(undefined, 1)
+const falseSymbol = new NumberConstSymbol(undefined, 0)
 
 class CompareSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type = booleanGenType
     left: Symbol
     right: Symbol
     op: CompareOp
 
-    constructor(left: Symbol, right: Symbol, op: CompareOp) {
-        super()
+    constructor(location: Locatable, left: Symbol, right: Symbol, op: CompareOp) {
+        super(location)
+        this.location = location
         this.left = left.simplify()
         this.right = right.simplify()
         this.op = op
@@ -1257,7 +1325,7 @@ class CompareSymbol extends LoadonlySymbol implements Symbol {
     load(g: Generate): void {
         this.left.load(g)
         this.right.load(g)
-        this.left.type.compare(this.op, g)
+        this.left.type.compare(this.location, this.op, g)
     }
 
     simplify(): Symbol {
@@ -1285,7 +1353,7 @@ class CompareSymbol extends LoadonlySymbol implements Symbol {
         }
         if (left === leftSimple && right === rightSimple)
             return this
-        return new CompareSymbol(leftSimple, rightSimple, this.op)
+        return new CompareSymbol(this.location, leftSimple, rightSimple, this.op)
     }
 
     tryNot(): Symbol | undefined {
@@ -1299,17 +1367,19 @@ class CompareSymbol extends LoadonlySymbol implements Symbol {
             case CompareOp.NotEqual: newOp = CompareOp.Equal; break
         }
         if (newOp !== undefined)
-            return new CompareSymbol(this.left, this.right, newOp)
+            return new CompareSymbol(this.location, this.left, this.right, newOp)
         return undefined
     }
 }
 
 class GotoSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type = voidGenType
     label: Label
 
-    constructor(label: Label) {
-        super()
+    constructor(location: Locatable, label: Label) {
+        super(location)
+        this.location = location
         this.label = label
     }
 
@@ -1319,11 +1389,13 @@ class GotoSymbol extends LoadonlySymbol implements Symbol {
 }
 
 class ReturnSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type = voidGenType
     expr: Symbol | undefined
 
-    constructor(expr?: Symbol) {
-        super()
+    constructor(location: Locatable, expr?: Symbol) {
+        super(location)
+        this.location = location
         this.expr = expr
     }
 
@@ -1337,12 +1409,14 @@ class ReturnSymbol extends LoadonlySymbol implements Symbol {
 }
 
 class CallSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     funcIndex: FuncIndex
     args: Symbol[]
 
-    constructor(type: GenType, index: FuncIndex, args: Symbol[]) {
-        super()
+    constructor(location: Locatable, type: GenType, index: FuncIndex, args: Symbol[]) {
+        super(location)
+        this.location = location
         this.type = type
         this.funcIndex = index
         this.args = args.map(it => it.simplify())
@@ -1357,23 +1431,30 @@ class CallSymbol extends LoadonlySymbol implements Symbol {
         g.index(this.funcIndex)
     }
 
+    storeTo(symbol: Symbol, g: Generate) {
+        this.load(g)
+        symbol.pop(g)
+    }
+
     simplify(): Symbol {
         const args = this.args
         const simpleArgs = simplified(args)
         if (args === simpleArgs)
             return this
-        return new CallSymbol(this.type, this.funcIndex, simpleArgs)
+        return new CallSymbol(this.location, this.type, this.funcIndex, simpleArgs)
     }
 }
 
 class IfThenSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     condition: Symbol
     then: Symbol
     else: Symbol | undefined
 
-    constructor(type: GenType, condition: Symbol, body: Symbol, e?: Symbol) {
-        super()
+    constructor(location: Locatable, type: GenType, condition: Symbol, body: Symbol, e?: Symbol) {
+        super(location)
+        this.location = location
         this.type = type
         this.condition = condition.simplify()
         this.then = body.simplify()
@@ -1409,18 +1490,20 @@ class IfThenSymbol extends LoadonlySymbol implements Symbol {
         if (elseSimple && conditionNumber === 0) return elseSimple
         if (condition === conditionSimple && then === thenSimple && e === elseSimple)
             return this
-        return new IfThenSymbol(this.type, conditionSimple, thenSimple, elseSimple)
+        return new IfThenSymbol(this.location, this.type, conditionSimple, thenSimple, elseSimple)
     }
 }
 
 class LoopSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType;
     symbols: Symbol[]
     breakLabel: Label
     continueLabel: Label
 
-    constructor(type: GenType, symbols: Symbol[], breakLabel: Label, continueLable: Label) {
-        super()
+    constructor(location: Locatable, type: GenType, symbols: Symbol[], breakLabel: Label, continueLable: Label) {
+        super(location)
+        this.location = location
         this.type = type
         this.symbols = symbols
         this.breakLabel = breakLabel
@@ -1441,16 +1524,18 @@ class LoopSymbol extends LoadonlySymbol implements Symbol {
         const simple = simplified(symbols)
         if (simple === symbols)
             return this
-        return new LoopSymbol(this.type, simple, this.breakLabel, this.continueLabel)
+        return new LoopSymbol(this.location, this.type, simple, this.breakLabel, this.continueLabel)
     }
 }
 
 class BodySymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type = voidGenType
     symbols: Symbol[]
 
-    constructor(symbols: Symbol[]) {
-        super()
+    constructor(location: Locatable, symbols: Symbol[]) {
+        super(location)
+        this.location = location
         this.symbols = symbols
     }
 
@@ -1466,17 +1551,19 @@ class BodySymbol extends LoadonlySymbol implements Symbol {
         if (simple.length == 1) return simple[0]
         if (symbols === simple)
             return this
-        return new BodySymbol(symbols)
+        return new BodySymbol(this.location, symbols)
     }
 }
 
 class BlockSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     symbols: Symbol[]
     label: Label
 
-    constructor(type: GenType, symbols: Symbol[], label: Label) {
-        super()
+    constructor(location: Locatable, type: GenType, symbols: Symbol[], label: Label) {
+        super(location)
+        this.location = location
         this.type = type
         this.symbols = symbols
         this.label = label
@@ -1497,22 +1584,24 @@ class BlockSymbol extends LoadonlySymbol implements Symbol {
         if (simple.length == 1) return simple[0]
         if (symbols === simple)
             return this
-        return new BlockSymbol(this.type, symbols, this.label)
+        return new BlockSymbol(this.location, this.type, symbols, this.label)
     }
 }
 
 class FunctionSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type: GenType
     funcIndex: FuncIndex
 
-    constructor(type: GenType, funcIndex: FuncIndex) {
-        super()
+    constructor(location: Locatable, type: GenType, funcIndex: FuncIndex) {
+        super(location)
+        this.location = location
         this.type = type
         this.funcIndex = funcIndex
     }
 
     load(g: Generate): void {
-        unsupported()
+        unsupported(this.location)
     }
 
     simplify(): Symbol {
@@ -1520,18 +1609,20 @@ class FunctionSymbol extends LoadonlySymbol implements Symbol {
     }
 
     call(args: Symbol[]): Symbol {
-        return new CallSymbol(this.type, this.funcIndex, args)
+        return new CallSymbol(this.location, this.type, this.funcIndex, args)
     }
 }
 
 class ScaledOffsetSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
     type = i32GenType
     base: Symbol
     i: Symbol
     scale: Symbol
 
-    constructor(base: Symbol, index: Symbol, scale: Symbol) {
-        super()
+    constructor(location: Locatable, base: Symbol, index: Symbol, scale: Symbol) {
+        super(location)
+        this.location = location
         this.base = base
         this.i = index
         this.scale = scale
@@ -1550,28 +1641,30 @@ class ScaledOffsetSymbol extends LoadonlySymbol implements Symbol {
         const i = this.i.simplify()
         const scale = this.scale.simplify()
 
-        const baseNumber = this.base.number()
-        const iNumber = this.i.number()
-        const scaleNumber = this.scale.number()
+        const baseNumber = base.number()
+        const iNumber = i.number()
+        const scaleNumber = scale.number()
         if (baseNumber !== undefined && iNumber !== undefined && scaleNumber != undefined) {
-            return new NumberConstSymbol(baseNumber + scaleNumber * iNumber)
+            return new NumberConstSymbol(this.location, baseNumber + scaleNumber * iNumber)
         }
         if (iNumber !== undefined && scaleNumber != undefined) {
-            return new OpSymbol(i32GenType, this.base, new NumberConstSymbol(scaleNumber * iNumber), NodeKind.Add)
+            return new OpSymbol(this.location, i32GenType, this.base, new NumberConstSymbol(this.location, scaleNumber * iNumber), NodeKind.Add)
         }
         if (this.base === base && this.i === i && this.scale === scale)
             return this
-        return new ScaledOffsetSymbol(base, i, scale)
+        return new ScaledOffsetSymbol(this.location, base, i, scale)
     }
 }
 
-const zeroSymbol = new NumberConstSymbol(0)
+const zeroSymbol = new NumberConstSymbol(undefined, 0)
 
 class DataSymbol implements Symbol {
+    location: Locatable
     type: GenType
     address: Symbol
 
-    constructor(type: GenType, address: Symbol) {
+    constructor(location: Locatable, type: GenType, address: Symbol) {
+        this.location = location
         this.type = type
         this.address = address
     }
@@ -1579,25 +1672,25 @@ class DataSymbol implements Symbol {
     load(g: Generate): void {
         const address = this.address.number()
         if (address !== undefined)
-            this.type.loadData(g, zeroSymbol, address)
+            this.type.loadData(this.location, g, zeroSymbol, address)
         else
-            this.type.loadData(g, this.address, 0)
+            this.type.loadData(this.location, g, this.address, 0)
     }
 
     pop(g: Generate): void {
         const address = this.address.number()
         if (address !== undefined)
-            this.type.popToData(g, zeroSymbol, address)
+            this.type.popToData(this.location, g, zeroSymbol, address)
         else
-            this.type.popToData(g, this.address, 0)
+            this.type.popToData(this.location, g, this.address, 0)
     }
 
     store(value: Symbol, g: Generate): void {
         const address = this.address.number()
         if (address !== undefined)
-            this.type.storeData(g, zeroSymbol, value, address)
+            this.type.storeData(this.location, g, zeroSymbol, value, address)
         else
-            this.type.storeData(g, this.address, value, 0)
+            this.type.storeData(this.location, g, this.address, value, 0)
     }
 
     storeTo(symbol: Symbol, g: Generate): void {
@@ -1609,24 +1702,29 @@ class DataSymbol implements Symbol {
     }
 
     call(args: Symbol[]): Symbol {
-        unsupported()
+        unsupported(this.location)
     }
 
     select(index: number): Symbol {
-        const {type, offset} = this.type.select(index)
-        const offsetAddress = new OpSymbol(i32GenType, this.address, new NumberConstSymbol(offset), NodeKind.And)
-        return new DataSymbol(type, offsetAddress)
+        const {type, offset} = this.type.select(this.location, index)
+        const offsetAddress = new OpSymbol(this.location, i32GenType, this.address, new NumberConstSymbol(this.location, offset), NodeKind.Add)
+        return new DataSymbol(this.location, type, offsetAddress)
     }
 
     index(index: Symbol): Symbol {
         const element = this.type.index()
         const size = element.size
-        const sizeSymbol = new NumberConstSymbol(size)
-        const offsetAddress = new ScaledOffsetSymbol(this.address, sizeSymbol, index)
-        return new DataSymbol(element, offsetAddress)
+        const sizeSymbol = new NumberConstSymbol(this.location, size)
+        const offsetAddress = new ScaledOffsetSymbol(this.location, this.address, index, sizeSymbol)
+        return new DataSymbol(this.location, element, offsetAddress)
     }
 
     simplify(): Symbol {
+        const address = this.address
+        const newAddress = address.simplify()
+        if (address !== newAddress) {
+            return new DataSymbol(this.location, this.type, newAddress)
+        }
         return this
     }
 
@@ -1643,7 +1741,7 @@ class DataSymbol implements Symbol {
     }
 }
 
-function genTypeOf(type: Type, cache?: Map<Type, GenType>): GenType {
+function genTypeOf(location: Locatable | undefined, type: Type, cache?: Map<Type, GenType>): GenType {
     const cached = cache?.get(type)
     if (cached) return cached
     switch (type.kind) {
@@ -1666,31 +1764,33 @@ function genTypeOf(type: Type, cache?: Map<Type, GenType>): GenType {
         case TypeKind.F64:
             return new GenType(type, { piece: NumberType.f64 })
         case TypeKind.Unknown:
-            unsupported()
+            unsupported(location)
         case TypeKind.Void:
             return new GenType(type, { void: true })
         case TypeKind.Array:
             return new GenType(type, {
-                element: genTypeOf(type.elements),
+                element: genTypeOf(location, type.elements),
                 size: type.size
             })
         case TypeKind.Struct:
-            const fields = type.fields.map((name, t) => genTypeOf(t, cached))
+            const fields = type.fields.map((name, t) => genTypeOf(location, t, cached))
             return new GenType(type, { fields })
         case TypeKind.Location:
-            return genTypeOf(type.type, cache)
+            return genTypeOf(location, type.type, cache)
         case TypeKind.Function:
-            return genTypeOf(type.result, cache)
+            return genTypeOf(location, type.result, cache)
     }
-    unsupported()
+    unsupported(location)
 }
 
 function none(): never {
     throw new Error("Internal code gen error")
 }
 
-function unsupported(): never {
-    throw new Error("Not supported yet")
+function unsupported(location: Locatable | undefined, message?: string): never {
+    const e = new Error(message ? "Not supported yet: " + message : "Not supported yet");
+    if (location) (e as any).position = location.start
+    throw e
 }
 
 function error(message: string): never {
@@ -1707,7 +1807,8 @@ function check(value: boolean, message?: string) {
 }
 
 interface SymbolAllocator {
-    allocate(type: GenType, init?: Symbol): Symbol
+    parameter(location: Locatable, type: GenType): Symbol
+    allocate(location: Locatable, type: GenType, init?: Symbol): Symbol
     release(symbol: Symbol): void
 }
 
@@ -1725,11 +1826,15 @@ class DataAllocator implements SymbolAllocator {
 
     get size() { return this.current }
 
-    allocate(type: GenType, init?: Symbol): Symbol {
+    parameter(location: Locatable, type: GenType): Symbol {
+        unsupported(location, "Parameters cannot be allocated in memory")
+    }
+
+    allocate(location: Locatable, type: GenType, init?: Symbol): Symbol {
         const size = type.size
         const address = this.offset + this.current
         this.current += size
-        const symbol = new DataSymbol(type, new NumberConstSymbol(address))
+        const symbol = new DataSymbol(location, type, new NumberConstSymbol(location, address))
         if (init) {
             const simplifiedInit = init.simplify()
             const initBytes = new ByteWriter(size)
@@ -1744,7 +1849,7 @@ class DataAllocator implements SymbolAllocator {
                 g.write(expr)
                 data.allocateActive(initBytes, expr)
             } else {
-                const assign = new AssignSymbol(symbol, simplifiedInit)
+                const assign = new AssignSymbol(location, symbol, simplifiedInit)
                 assign.load(this.init)
             }
         }
@@ -1761,7 +1866,19 @@ class LocalAllocator implements SymbolAllocator {
         this.g = g
     }
 
-    allocate(type: GenType, init?: Symbol): Symbol {
+    parameter(location: Locatable, type: GenType): Symbol {
+        const g = this.g
+        function localTypesToIndexes(parts: LocalTypes): LocalIndexes {
+            if (typeof parts == "number") {
+                return g.parameter(parts)
+            } else {
+                return parts.map(localTypesToIndexes)
+            }
+        }
+        return new LocalSymbol(location, type, localTypesToIndexes(type.locals(location)))
+    }
+
+    allocate(location: Locatable, type: GenType, init?: Symbol): Symbol {
         const g = this.g
         function localTypesToIndexes(parts: LocalTypes): LocalIndexes {
             if (typeof parts == "number") {
@@ -1770,7 +1887,7 @@ class LocalAllocator implements SymbolAllocator {
                 return parts.map(localTypesToIndexes)
             }
         }
-        return new LocalSymbol(type, localTypesToIndexes(type.locals()))
+        return new LocalSymbol(location, type, localTypesToIndexes(type.locals(location)))
     }
 
     release(symbol: Symbol) {
@@ -1811,12 +1928,12 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     const memorySection = new MemorySection(0)
     let startSection: StartSection | undefined = undefined
 
-    function typeOfType(type: Type | undefined): GenType {
-        return genTypeOf(required(type), genTypes)
+    function typeOfType(location: Locatable | undefined, type: Type | undefined): GenType {
+        return genTypeOf(location, required(type), genTypes)
     }
 
     function typeOf(tree: Tree): GenType {
-        return typeOfType(types.get(tree))
+        return typeOfType(tree, types.get(tree))
     }
 
     const rootScope = new Scope<Symbol>()
@@ -1865,7 +1982,8 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         for (const tree of trees) {
             statements.push(treeToSymbol(tree, scopes))
         }
-        return new BodySymbol(statements)
+        const location = { start: trees[0]?.start, end: trees[trees.length - 1]?.end }
+        return new BodySymbol(location, statements)
     }
 
     function statementsToSymbol(trees: Tree[], scopes: Scopes, l: Label = label()): BlockSymbol {
@@ -1875,7 +1993,8 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
             statements.push(treeToSymbol(tree, {...scopes, symbols: blockScope }))
         }
         const type = statements.length > 0 ? statements[statements.length - 1].type : voidGenType
-        return new BlockSymbol(type, statements, l)
+        const location = { start: trees[0]?.start, end: trees[trees.length - 1]?.end }
+        return new BlockSymbol(location, type, statements, l)
     }
 
     function treeToSymbol(tree: Tree, scopes: Scopes): Symbol {
@@ -1887,39 +2006,53 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 const left = treeToSymbol(tree.left, scopes)
                 const right = treeToSymbol(tree.right, scopes)
                 const type = typeOf(tree)
-                return new OpSymbol(type, left, right, tree.kind)
+                return new OpSymbol(tree, type, left, right, tree.kind)
             }
             case NodeKind.Not: {
                 const target = treeToSymbol(tree.target, scopes)
                 const type = typeOf(tree)
-                return new UnaryOpSymbol(type, target, tree.kind)
+                return new UnaryOpSymbol(tree, type, target, tree.kind)
+            }
+            case NodeKind.Negate: {
+                const target = treeToSymbol(tree.target, scopes)
+                const type = typeOf(tree)
+                switch (type.type.kind) {
+                    case TypeKind.F32:
+                    case TypeKind.F64:
+                        return new UnaryOpSymbol(tree, type, target, tree.kind)
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                        return new OpSymbol(tree, type, zeroSymbol, target, NodeKind.Subtract)
+                }
+                break
             }
             case NodeKind.Compare: {
                 const left = treeToSymbol(tree.left, scopes)
                 const right = treeToSymbol(tree.right, scopes)
-                return new CompareSymbol(left, right, tree.op)
+                return new CompareSymbol(tree, left, right, tree.op)
             }
             case NodeKind.BlockExpression:
                 return statementsToSymbol(tree.block, scopes)
             case NodeKind.Break: {
                 const l = required(scopes.breaks.find(tree.name ?? "$top"))
-                return new GotoSymbol(l)
+                return new GotoSymbol(tree, l)
             }
             case NodeKind.Continue: {
                 const l = required(scopes.continues.find(tree.name ?? "$top"))
-                return new GotoSymbol(l)
+                return new GotoSymbol(tree, l)
             }
             case NodeKind.Return: {
                 const value = tree.value
                 const expr = value ? treeToSymbol(value, scopes) : undefined
-                return new ReturnSymbol(expr)
+                return new ReturnSymbol(tree, expr)
             }
             case NodeKind.Literal:
                 switch (tree.literalKind) {
                     case LiteralKind.Int:
-                        return new NumberConstSymbol(tree.value)
+                        return new NumberConstSymbol(tree, tree.value)
                     case LiteralKind.Double:
-                        return new DoubleConstSymbol(tree.value)
+                        return new DoubleConstSymbol(tree, tree.value)
                 }
                 break
             case NodeKind.StructLit:
@@ -1935,9 +2068,9 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
             case NodeKind.Index:
                 return indexToSymbol(tree, scopes)
             case NodeKind.Spread:
-                unsupported()
+                unsupported(tree)
             case NodeKind.FieldRef:
-                unsupported()
+                unsupported(tree)
             case NodeKind.Assign:
                 return assignToSymbol(tree, scopes)
             case NodeKind.Function:
@@ -1959,19 +2092,19 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 return emptySymbol
         }
 
-        unsupported()
+        unsupported(tree)
     }
 
     function structLitToSymbol(tree: StructLit, scopes: Scopes): Symbol {
         const type = typeOf(tree)
         const fields = tree.body.map(f => treeToSymbol(f, scopes))
-        return new StructLiteralSymbol(type, fields)
+        return new StructLiteralSymbol(tree, type, fields)
     }
 
     function arrayLitToSymbol(tree: ArrayLit, scopes: Scopes): Symbol {
         const type = typeOf(tree)
         const elements = tree.values.map(e => treeToSymbol(e, scopes))
-        return new ArrayLiteralSymbol(type, elements)
+        return new ArrayLiteralSymbol(tree, type, elements)
     }
 
     function selectToSymbol(tree: Select, scopes: Scopes): Symbol {
@@ -1981,7 +2114,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
             return target.select(tree.name)
         else {
             const type = typeOf(tree)
-            return builtinSymbolFor(targetType, type, tree.name, target)
+            return builtinSymbolFor(tree, targetType, type, tree.name, target)
         }
     }
 
@@ -1994,7 +2127,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     function assignToSymbol(tree: Assign, scopes: Scopes): Symbol {
         const target = treeToSymbol(tree.target, scopes)
         const value = treeToSymbol(tree.value, scopes)
-        return new AssignSymbol(target, value)
+        return new AssignSymbol(tree, target, value)
     }
 
     function functionToSymbol(tree: Function, scopes: Scopes): Symbol {
@@ -2010,17 +2143,17 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         // Add parameters
         for (const parameter of tree.parameters) {
             const type = typeOf(parameter)
-            symbols.enter(parameter.name, alloc.allocate(type))
+            symbols.enter(parameter.name, alloc.parameter(parameter, type))
         }
 
         // Create the function type
         const parameters: ValueType[] = []
         for (const parameter of tree.parameters) {
             const type = typeOf(parameter)
-            parameters.push(...flattenTypes(type.locals()))
+            parameters.push(...flattenTypes(type.locals(parameter)))
         }
         const resultType = typeOf(tree)
-        const result = flattenTypes(resultType.locals())
+        const result = flattenTypes(resultType.locals(tree.result))
         const typeIndex = typeSection.funtionType({
             parameters,
             result
@@ -2028,12 +2161,12 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
 
         // Create the function index
         const funcIndex = funcSection.allocate(typeIndex)
-        const funcSymbol = new FunctionSymbol(resultType, funcIndex)
+        const funcSymbol = new FunctionSymbol(tree, resultType, funcIndex)
 
         // Allow the function to call itself if it is named
         const functionName = tree.name
         if (functionName)
-            symbols.enter(functionName, funcSymbol)
+            scopes.symbols.enter(functionName, funcSymbol)
 
         // Generate the body
         const body = statementsToBodySymbol(tree.body, functionScopes).simplify()
@@ -2060,9 +2193,9 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         const symbols = scopes.symbols
         const value = treeToSymbol(tree.value, scopes)
         const type = typeOf(tree)
-        const varSymbol = alloc.allocate(type, value)
+        const varSymbol = alloc.allocate(tree, type, value)
         symbols.enter(tree.name, varSymbol)
-        return new AssignSymbol(varSymbol, value)
+        return new AssignSymbol(tree, varSymbol, value)
     }
 
     function letToSymbol(tree: Let, scopes: Scopes): Symbol {
@@ -2076,7 +2209,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
         const then = treeToSymbol(tree.then, scopes)
         const elsePart = tree.else && treeToSymbol(tree.else, scopes)
 
-        return new IfThenSymbol(then.type, condition, then, elsePart)
+        return new IfThenSymbol(tree, then.type, condition, then, elsePart)
     }
 
     function loopToSymbol(tree: Loop, scopes: Scopes): Symbol {
@@ -2094,7 +2227,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
             continues.enter(name, continueLabel)
         }
         const body = statementsToSymbol(tree.body, { symbols, alloc, breaks, continues })
-        return new LoopSymbol(voidGenType, body.symbols, breakLabel, continueLabel)
+        return new LoopSymbol(tree, voidGenType, body.symbols, breakLabel, continueLabel)
     }
 
     function read(type: Type): Type {

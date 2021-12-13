@@ -1,6 +1,6 @@
 import { ByteWriter } from "./bytewriter";
 import { Section, writeSized } from "./section";
-import { DataIndex, MemIndex, SectionIndex } from "./wasm";
+import { MemIndex, SectionIndex } from "./wasm";
 
 export const enum DataMode {
     Active = 0x00,
@@ -47,10 +47,6 @@ export class DataSection implements Section {
 
     empty(): boolean {
         return this.datas.length === 0;
-    }
-
-    get size(): number {
-        return this.offset
     }
 
     get segments(): number {

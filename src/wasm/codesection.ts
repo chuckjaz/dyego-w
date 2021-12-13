@@ -11,7 +11,7 @@ export class CodeSection implements Section {
     private codes: Code[] = [];
 
     get index(): SectionIndex { return SectionIndex.Code }
-    
+
     allocate(locals: ValueType[], expr: ByteWriter) {
         this.codes.push({ locals, expr });
     }
@@ -34,12 +34,14 @@ export class CodeSection implements Section {
 
 function writeCode(writer: ByteWriter, code: Code) {
     const compressedVector: {local: ValueType, count: number}[] = [];
-    const last = -1;
-    const lastType: ValueType = -1;
+    let last = -1;
+    let lastType: ValueType = -1;
     for (const local of code.locals) {
         if (local == lastType) {
             compressedVector[last].count++
         } else {
+            last = compressedVector.length
+            lastType = local
             compressedVector.push({ local, count: 1 });
         }
     }
@@ -52,5 +54,5 @@ function writeCode(writer: ByteWriter, code: Code) {
     const size = compressedVectorBytes.current + code.expr.current;
     writer.write32u(size);
     writer.write(compressedVectorBytes);
-    writer.write(code.expr);   
+    writer.write(code.expr);
 }
