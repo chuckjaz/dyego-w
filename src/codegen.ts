@@ -14,7 +14,7 @@ import { Module } from "./wasm/module";
 import { Section } from "./wasm/section";
 import { StartSection } from "./wasm/startsection";
 import { TypeSection } from "./wasm/typesection";
-import { DataIndex, FuncIndex, Inst, LocalIndex, NumberType, ReferenceType, ValueType } from "./wasm/wasm";
+import { FuncIndex, Inst, LocalIndex, NumberType, ReferenceType, ValueType } from "./wasm/wasm";
 
 interface Symbol {
     type: GenType
@@ -99,25 +99,25 @@ class GenType {
                 case NumberType.f32:
                     addr.load(g)
                     g.inst(Inst.f32_load)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 case NumberType.f64:
                     addr.load(g)
                     g.inst(Inst.f64_load)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 case NumberType.i32:
                     addr.load(g)
                     g.inst(Inst.i32_load)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 case NumberType.i64:
                     addr.load(g)
                     g.inst(Inst.i64_load)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 default:
@@ -145,28 +145,28 @@ class GenType {
                     addr.load(g)
                     value.load(g)
                     g.inst(Inst.f32_store)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 case NumberType.f64:
                     addr.load(g)
                     value.load(g)
                     g.inst(Inst.f64_store)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 case NumberType.i32:
                     addr.load(g)
                     value.load(g)
                     g.inst(Inst.i32_store)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 case NumberType.i64:
                     addr.load(g)
                     value.load(g)
                     g.inst(Inst.i64_store)
-                    g.index(2)
+                    g.index(0)
                     g.index(offset)
                     return
                 default:
@@ -189,6 +189,7 @@ class GenType {
     popToData(location: Locatable, g: Generate, addr: Symbol, offset: number) {
         const piece = this.parts.piece
         const thisType = this.type
+        const size = this.size
         let i32Local: LocalIndex | undefined
         let f32Local: LocalIndex | undefined
         let i64Local: LocalIndex | undefined
@@ -235,7 +236,7 @@ class GenType {
             g.inst(Inst.Local_get)
             g.index(local)
             g.inst(inst)
-            g.index(2)
+            g.index(0)
             g.index(offset)
         }
 
@@ -260,11 +261,11 @@ class GenType {
             }
             const fields = parts.fields
             if (fields) {
-                let current = offset
+                let current = offset + size
                 for (let i = fields.length - 1 ; i >= 0; i--) {
                     const field = fields[i]
+                    current -= field.size
                     field.popToData(location, g, addr, current)
-                    current += field.size
                 }
                 return
             }
@@ -308,7 +309,7 @@ class GenType {
         } else {
             const fields = required(this.parts.fields)
             check(fields.length == localIndex.length)
-            for (let i =fields.length - 1; i >=0; i--) {
+            for (let i = 0; i < fields.length; i++) {
                 fields[i].storeLocal(g, value.select(i), localIndex[i])
             }
         }
@@ -339,7 +340,7 @@ class GenType {
         const fields = required(this.parts.fields)
         check(index <= fields.length)
         const type = fields[index]
-        const offset = fields.slice(0, index - 1).reduce((p, t) => p + t.size, 0)
+        const offset = fields.slice(0, index).reduce((p, t) => p + t.size, 0)
         return { type, offset, index }
     }
 
