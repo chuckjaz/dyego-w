@@ -6,7 +6,7 @@ import { Type } from './types'
 
 describe("typecheck", () => {
     it("can type check example", () => {
-        const text = fs.readFileSync('examples/n-body.dgi', 'utf-8')
+        const text = fs.readFileSync('examples/n-body.dgw', 'utf-8')
         const program = parse(text)
         expect(program).not.toBeUndefined()
         const scope = new Scope<Type>()

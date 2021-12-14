@@ -1,3 +1,4 @@
+import { type } from "os";
 import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse } from "./ast"
 import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f64Type, globals, i32Type, StructType, Type, TypeKind, typeToString, voidType } from "./types";
 
@@ -35,7 +36,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 return voidType
             }
             case NodeKind.Var: {
-                const exprType = typeCheckExpr(tree.value, scope)
+                const exprType = read(typeCheckExpr(tree.value, scope))
                 const declaredTypeTree = tree.type
                 let type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
                 if (exprType.kind == TypeKind.Array && type.kind == TypeKind.Array) {
@@ -312,13 +313,13 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case TypeKind.Struct:
                 const fieldType = targetType.fields.find(tree.name)
                 if (!fieldType) error(tree, `Type ${typeToString(targetType)} does not have member "${tree.name}"`)
-                if (originalTarget.kind == TypeKind.Location)
+                if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
                     return { kind: TypeKind.Location, type: fieldType }
                 return fieldType
             default:
                 const builtins = builtInMethodsOf(targetType)
                 const memberType = builtins.find(tree.name)
-                if (!memberType) error(tree, `Type ${typeToString(targetType)} does not ahve a member "${tree.name}"`)
+                if (!memberType) error(tree, `Type ${typeToString(targetType)} does not have a member "${tree.name}"`)
                 if (memberType.kind == TypeKind.Function) {
                     const thisParameter = memberType.parameters.find("this")
                     if (thisParameter != null) {

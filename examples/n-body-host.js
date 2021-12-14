@@ -8,6 +8,7 @@ const inst = new WebAssembly.Instance(mod);
 const {offsetMomentum, energy, mainLoop} = inst.exports
 
 offsetMomentum()
+
 console.log(energy().toFixed(9))
 mainLoop(count)
 console.log(energy().toFixed(9))
