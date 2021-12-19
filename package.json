@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
     "test": "jasmine"
   },
   "keywords": [],
@@ -13,9 +14,7 @@
     "@types/jasmine": "^3.10.2",
     "c8": "^7.10.0",
     "jasmine": "^3.10.0",
-    "typescript": "^4.5.2"
-  },
-  "dependencies": {
+    "typescript": "^4.5.2",
     "@types/node": "^16.11.10"
   }
 }
