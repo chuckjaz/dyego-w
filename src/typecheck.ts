@@ -1,15 +1,27 @@
-import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse, nameOfCompareOp } from "./ast"
+import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse, nameOfCompareOp, BreakIndexed, Switch, SwitchCase } from "./ast"
 import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f64Type, globals, i32Type, nameOfTypeKind, nullType, PointerType, StructType, Type, TypeKind, typeToString, UnknownType, voidType } from "./types";
 
 const builtins = new Scope<Type>(globals)
 
-export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> {
+interface Scopes {
+    scope: Scope<Type>,
+    continues: Scope<Tree>,
+    breaks: Scope<Tree>,
+    root: Scope<Type>
+}
+
+export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tree, Type> {
     const result = new Map<Tree, Type>()
     const fixups = new Map<UnknownType, ((final: Type) => void)[]>()
     const scanned = new Set<Type>()
-    const moduleScope = new Scope(builtins, scope)
+    const moduleScope = new Scope(builtins, incommingScope)
 
-    typeCheckStatements(program, moduleScope, true)
+    typeCheckStatements(program, {
+        scope: moduleScope,
+        continues: new Scope<Tree>(),
+        breaks: new Scope<Tree>(),
+        root: moduleScope
+    })
     return result;
 
     function bind(node: Tree, type: Type) {
@@ -71,86 +83,86 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         }
     }
 
-    function typeCheckStatements(trees: Tree[], scope: Scope<Type>, topLevel: boolean = false): Type {
+    function typeCheckStatements(trees: Tree[], scopes: Scopes): Type {
         let lastType = voidType
         for (const tree of trees) {
-            lastType = typeCheckStatement(tree, scope, topLevel)
+            lastType = typeCheckStatement(tree, scopes)
         }
         return lastType
     }
 
-    function enter(location: Locatable, name: string, type: Type, scope: Scope<Type>) {
+    function enter<T>(location: Locatable, name: string, item: T, scope: Scope<T>) {
         if (scope.has(name)) error(location, `Duplicate symbol ${name}`)
-        scope.enter(name, type)
+        scope.enter(name, item)
     }
 
-    function renter(location: Locatable, name: string, type: Type, scope: Scope<Type>) {
-        scope.renter(name, type)
+    function renter<T>(location: Locatable, name: string, item: T, scope: Scope<T>) {
+        scope.renter(name, item)
     }
 
-    function typeCheckStatement(tree: Tree, scope: Scope<Type>, topLevel: boolean = false): Type {
+    function typeCheckStatement(tree: Tree, scopes: Scopes): Type {
         switch (tree.kind) {
             case NodeKind.Let: {
-                const exprType = read(typeCheckExpr(tree.value, scope))
+                const exprType = read(typeCheckExpr(tree.value, scopes))
                 const declaredTypeTree = tree.type
-                const type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
+                const type = declaredTypeTree ? typeExpr(declaredTypeTree, scopes) : exprType
                 mustMatch(tree.value, exprType, type)
-                validateConst(tree.value, scope)
-                enter(tree, tree.name, type, scope)
+                validateConst(tree.value, scopes)
+                enter(tree, tree.name, type, scopes.scope)
                 return voidType
             }
             case NodeKind.Var: {
-                const exprType = read(typeCheckExpr(tree.value, scope))
+                const exprType = read(typeCheckExpr(tree.value, scopes))
                 const declaredTypeTree = tree.type
-                let type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
+                let type = declaredTypeTree ? typeExpr(declaredTypeTree, scopes) : exprType
                 if (exprType.kind == TypeKind.Array && type.kind == TypeKind.Array) {
                     if (exprType.size !== undefined) {
                         type = { ...type, size: exprType.size }
                     }
                 }
                 mustMatch(tree.value, exprType, type)
-                var treeType: Type = { kind: TypeKind.Location, type, addressable: topLevel }
-                enter(tree, tree.name, treeType, scope)
+                var treeType: Type = { kind: TypeKind.Location, type, addressable: scopes.scope == scopes.root }
+                enter(tree, tree.name, treeType, scopes.scope)
                 bind(tree, treeType)
                 return voidType
             }
             case NodeKind.Type: {
                 const preenteredType: Type = { kind: TypeKind.Unknown, name: tree.name };
-                enter(tree, tree.name, preenteredType, scope);
-                const type = typeExpr(tree.type, scope);
+                enter(tree, tree.name, preenteredType, scopes.scope);
+                const type = typeExpr(tree.type, scopes);
                 if (type.kind == TypeKind.Struct) {
                     type.name = tree.name;
                 }
                 bind(tree, type);
-                renter(tree, tree.name, type, scope);
+                renter(tree, tree.name, type, scopes.scope);
                 fixup(preenteredType, type);
                 return voidType;
             }
             case NodeKind.Function: {
-                const type = typeCheckExpr(tree, scope)
-                enter(tree, tree.name, type, scope)
+                const type = typeCheckExpr(tree, scopes)
+                enter(tree, tree.name, type, scopes.scope)
                 return type
             }
             case NodeKind.Import: {
-                typeCheckImport(tree, scope)
+                typeCheckImport(tree, scopes)
                 return voidType
             }
             default:
-                return typeCheckExpr(tree, scope)
+                return typeCheckExpr(tree, scopes)
         }
     }
 
-    function typeCheckImport(tree: Import, scope: Scope<Type>) {
+    function typeCheckImport(tree: Import, scopes: Scopes) {
         for (const imp of tree.imports) {
             switch (imp.kind) {
                 case NodeKind.ImportFunction: {
                     const parameterNodes = imp.parameters
-                    const parameters = funcParameters(parameterNodes, scope)
-                    const funcResult = typeExpr(imp.result, scope)
+                    const parameters = funcParameters(parameterNodes, scopes)
+                    const funcResult = typeExpr(imp.result, scopes)
                     const name = imp.name
                     const type: Type = { kind: TypeKind.Function, parameters, result: funcResult, name }
                     bind(imp, type)
-                    enter(imp, imp.as ?? name, type, scope)
+                    enter(imp, imp.as ?? name, type, scopes.scope)
                     break
                 }
                 default:
@@ -193,17 +205,17 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         left: Tree,
         right: Tree,
         capabilities: Capabilities,
-        scope: Scope<Type>,
+        scopes: Scopes,
         result?: Type
     ): Type {
-        const leftType = read(typeCheckExpr(left, scope));
+        const leftType = read(typeCheckExpr(left, scopes));
         if (leftType.kind == TypeKind.Pointer) {
-            const rightType = read(typeCheckExpr(right, scope));
+            const rightType = read(typeCheckExpr(right, scopes));
             mustMatch(node, rightType, i32Type);
             requireCapability(leftType, Capabilities.Pointer, node);
             return leftType;
         } else {
-            return binary(node, left, right, capabilities, scope, result, leftType);
+            return binary(node, left, right, capabilities, scopes, result, leftType);
         }
     }
 
@@ -212,12 +224,12 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         left: Tree,
         right: Tree,
         capabilities: Capabilities,
-        scope: Scope<Type>,
+        scopes: Scopes,
         result?: Type,
         precalculatedLeftType?: Type
     ): Type {
-        const leftType = precalculatedLeftType ?? typeCheckExpr(left, scope);
-        const rightType = typeCheckExpr(right, scope);
+        const leftType = precalculatedLeftType ?? typeCheckExpr(left, scopes);
+        const rightType = typeCheckExpr(right, scopes);
         const type = mustMatch(node, leftType, rightType);
         requireCapability(leftType, capabilities, node);
         return result ?? type
@@ -227,10 +239,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         node: Tree,
         target: Tree,
         capabilities: Capabilities,
-        scope: Scope<Type>,
+        scopes: Scopes,
         result?: Type
     ): Type {
-        const type = typeCheckExpr(target, scope);
+        const type = typeCheckExpr(target, scopes);
         requireCapability(type, capabilities, node);
         return result ?? type;
     }
@@ -238,9 +250,9 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
     function dereference(
         node: Tree,
         target: Tree,
-        scope: Scope<Type>
+        scopes: Scopes
     ): Type {
-        const type = read(typeCheckExpr(target, scope));
+        const type = read(typeCheckExpr(target, scopes));
         if (type.kind == TypeKind.Pointer) {
             return { kind: TypeKind.Location, type: type.target }
         }
@@ -250,19 +262,19 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
     function addressOf(
         node: Tree,
         target: Tree,
-        scope: Scope<Type>
+        scopes: Scopes
     ): Type {
-        const type = typeCheckExpr(target, scope)
+        const type = typeCheckExpr(target, scopes)
         if (type.kind == TypeKind.Location && type.addressable) {
             return { kind: TypeKind.Pointer, target: type }
         }
         error(node, "The value does not have an address")
     }
 
-    function validateConst(tree: Tree, scope: Scope<Type>) {
+    function validateConst(tree: Tree, scopes: Scopes) {
         switch (tree.kind) {
             case NodeKind.Reference:
-                const type = required(scope.find(tree.name))
+                const type = required(scopes.scope.find(tree.name))
                 if (type.kind == TypeKind.Location) {
                     error(tree, "Expected a constant expression")
                 }
@@ -274,12 +286,12 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case NodeKind.Compare:
             case NodeKind.And:
             case NodeKind.Or:
-                validateConst(tree.left, scope)
-                validateConst(tree.right, scope)
+                validateConst(tree.left, scopes)
+                validateConst(tree.right, scopes)
                 break
             case NodeKind.Negate:
             case NodeKind.Not:
-                validateConst(tree.target, scope)
+                validateConst(tree.target, scopes)
                 break
             case NodeKind.Literal:
                 break
@@ -288,65 +300,82 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         }
     }
 
-    function typeCheckExpr(tree: Tree, scope: Scope<Type>): Type {
+    function typeCheckExpr(tree: Tree, scopes: Scopes): Type {
         if (result.has(tree)) {
             return result.get(tree)!!
         }
         let type: Type = { kind: TypeKind.Void }
         switch (tree.kind) {
             case NodeKind.Reference:
-                type = reference(tree, scope)
+                type = reference(tree, scopes)
                 break
             case NodeKind.Add:
-                type = pointerBinary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
+                type = pointerBinary(tree, tree.left, tree.right, Capabilities.Numeric, scopes)
                 break
             case NodeKind.Subtract:
-                type = pointerBinary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
+                type = pointerBinary(tree, tree.left, tree.right, Capabilities.Numeric, scopes)
                 break
             case NodeKind.Multiply:
-                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scopes)
                 break
             case NodeKind.Divide:
-                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scopes)
                 break
             case NodeKind.Negate:
-                type = unary(tree, tree.target, Capabilities.Negatable, scope)
+                type = unary(tree, tree.target, Capabilities.Negatable, scopes)
                 break
             case NodeKind.Not:
-                type = unary(tree, tree.target, Capabilities.Logical, scope)
+                type = unary(tree, tree.target, Capabilities.Logical, scopes)
                 break
             case NodeKind.AddressOf:
-                type = addressOf(tree, tree.target, scope)
+                type = addressOf(tree, tree.target, scopes)
                 break
             case NodeKind.Dereference:
-                type = dereference(tree, tree.target, scope)
+                type = dereference(tree, tree.target, scopes)
                 break
             case NodeKind.Compare:
-                type = binary(tree, tree.left, tree.right, Capabilities.Comparable, scope, booleanType)
+                type = binary(tree, tree.left, tree.right, Capabilities.Comparable, scopes, booleanType)
                 break
             case NodeKind.And:
-                type = binary(tree, tree.left, tree.right, Capabilities.Logical, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Logical, scopes)
                 break
             case NodeKind.Or:
-                type = binary(tree, tree.left, tree.right, Capabilities.Logical, scope)
+                type = binary(tree, tree.left, tree.right, Capabilities.Logical, scopes)
                 break
             case NodeKind.BlockExpression:
-                type = blockExpression(tree, scope)
+                type = blockExpression(tree, scopes)
                 break
             case NodeKind.IfThenElse:
-                type = ifThenElseExpresssion(tree, scope)
+                type = ifThenElseExpresssion(tree, scopes)
                 break
             case NodeKind.Loop:
-                type = loopStatement(tree, scope)
+                type = loopStatement(tree, scopes)
                 break
-            case NodeKind.Break:
+            case NodeKind.Switch:
+                type = switchStatement(tree, scopes)
+                break
+            case NodeKind.Break: {
+                const name = tree.name ?? '$$top';
+                if (scopes.breaks.find(name) === undefined) {
+                    error(tree, tree.name === undefined ? "Not in a block" : `Label ${name} not found`)
+                }
                 type = voidType
                 break
-            case NodeKind.Continue:
+            }
+            case NodeKind.BreakIndexed: {
+                type = breakIndexed(tree, scopes)
+                break
+            }
+            case NodeKind.Continue: {
+                const name = tree.name ?? `$$top`
+                if (scopes.continues.find(name) === undefined){
+                    error(tree, tree.name === undefined ? "Not in a block" : `Label ${name} not found`)
+                }
                 type = voidType
                 break
+            }
             case NodeKind.Return:
-                type = returnStatement(tree, scope)
+                type = returnStatement(tree, scopes)
                 break
             case NodeKind.Literal:
                 switch (tree.literalKind) {
@@ -365,30 +394,30 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 }
                 break
             case NodeKind.Function:
-                type = func(tree, scope)
+                type = func(tree, scopes)
                 break
             case NodeKind.StructLit:
-                type = structLit(tree, scope)
+                type = structLit(tree, scopes)
                 break
             case NodeKind.ArrayLit:
-                type = arrayLiteral(tree, scope)
+                type = arrayLiteral(tree, scopes)
                 break
             case NodeKind.Call:
-                type = call(tree, scope)
+                type = call(tree, scopes)
                 break
             case NodeKind.Select:
-                type = select(tree, scope)
+                type = select(tree, scopes)
                 break
             case NodeKind.Index:
-                type = index(tree, scope)
+                type = index(tree, scopes)
                 break
             case NodeKind.Assign:
-                type = assign(tree, scope)
+                type = assign(tree, scopes)
                 break
             case NodeKind.As: {
-                const leftType = typeCheckExpr(tree.left, scope)
+                const leftType = typeCheckExpr(tree.left, scopes)
                 expectPointer(tree.left, leftType)
-                const rightType = typeExpr(tree.right, scope)
+                const rightType = typeExpr(tree.right, scopes)
                 type = expectPointer(tree.right, rightType)
                 break
             }
@@ -399,25 +428,25 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return type
     }
 
-    function func(tree: Function, scope: Scope<Type>): Type {
-        const parameters = funcParameters(tree.parameters, scope)
-        const resultType = typeExpr(tree.result, scope)
-        const bodyScope = new Scope(parameters, scope)
+    function func(tree: Function, scopes: Scopes): Type {
+        const parameters = funcParameters(tree.parameters, scopes)
+        const resultType = typeExpr(tree.result, scopes)
+        const bodyScope = new Scope(parameters, scopes.scope)
         bodyScope.enter("$$result", resultType)
         const funcType: Type = { kind: TypeKind.Function, parameters, result: resultType }
         bodyScope.enter(tree.name, funcType)
-        const bodyResult = typeCheckStatements(tree.body, bodyScope)
+        const bodyResult = typeCheckStatements(tree.body, {...scopes,  scope: bodyScope })
         if (bodyResult.kind != TypeKind.Void) {
             mustMatch(tree, bodyResult, resultType)
         }
         return funcType;
     }
 
-    function funcParameters(parameterNodes: Parameter[], scope: Scope<Type>): Scope<Type> {
+    function funcParameters(parameterNodes: Parameter[], scopes: Scopes): Scope<Type> {
         const parameters = new Scope<Type>()
         for (const parameter of parameterNodes) {
             if (parameters.has(parameter.name)) error(parameter, `Duplicate parameter name`)
-            const type = typeExpr(parameter.type, scope)
+            const type = typeExpr(parameter.type, scopes)
             const parameterType: Type = { kind: TypeKind.Location, type }
             bind(parameter, parameterType)
             parameters.enter(parameter.name, parameterType)
@@ -425,8 +454,8 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return parameters
     }
 
-    function call(tree: Call, scope: Scope<Type>): Type {
-        const callType = typeCheckExpr(tree.target, scope)
+    function call(tree: Call, scopes: Scopes): Type {
+        const callType = typeCheckExpr(tree.target, scopes)
         requireCapability(callType, Capabilities.Callable, tree.target)
         if (callType.kind != TypeKind.Function) error(tree.target, `Expected a function reference`)
         if (tree.arguments.length != callType.parameters.size) {
@@ -435,14 +464,14 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         let index = 0
         callType.parameters.forEach((name, type) => {
             const arg = tree.arguments[index++]
-            const argType = typeCheckExpr(arg, scope)
+            const argType = typeCheckExpr(arg, scopes)
             mustMatch(arg, argType, type)
         })
         return callType.result
     }
 
-    function select(tree: Select, scope: Scope<Type>): Type {
-        const originalTarget = typeCheckExpr(tree.target, scope)
+    function select(tree: Select, scopes: Scopes): Type {
+        const originalTarget = typeCheckExpr(tree.target, scopes)
         const targetType = read(originalTarget)
         function fieldTypeOf(type: StructType): Type {
             const fieldType = type.fields.find(tree.name)
@@ -483,8 +512,8 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return type
     }
 
-    function index(tree: Index, scope: Scope<Type>): Type {
-        const targetType = typeCheckExpr(tree.target, scope)
+    function index(tree: Index, scopes: Scopes): Type {
+        const targetType = typeCheckExpr(tree.target, scopes)
         requireCapability(targetType, Capabilities.Indexable, tree)
         const array = expectArray(targetType, tree)
         const elementType = array.elements
@@ -493,21 +522,21 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return elementType
     }
 
-    function assign(tree: Assign, scope: Scope<Type>): Type {
-        const targetType = typeCheckExpr(tree.target, scope)
+    function assign(tree: Assign, scopes: Scopes): Type {
+        const targetType = typeCheckExpr(tree.target, scopes)
         if (targetType.kind != TypeKind.Location) error(tree, `Expected a lvalue`)
         const type = targetType.type
-        const valueType = typeCheckExpr(tree.value, scope)
+        const valueType = typeCheckExpr(tree.value, scopes)
         mustMatch(tree, valueType, type)
         return voidType
     }
 
-    function structLit(tree: StructLit, scope: Scope<Type>): Type {
+    function structLit(tree: StructLit, scopes: Scopes): Type {
         const fields = new Scope<Type>()
         for (const item of tree.body) {
             switch (item.kind) {
                 case NodeKind.Field: {
-                    const fieldType = typeCheckExpr(item.value, scope)
+                    const fieldType = typeCheckExpr(item.value, scopes)
                     if (fields.has(item.name)) error(item, `Duplicate field name`)
                     fields.enter(item.name, { kind: TypeKind.Location, type: fieldType })
                     break
@@ -517,45 +546,76 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return { kind: TypeKind.Struct, fields }
     }
 
-    function reference(ref: Reference, scope: Scope<Type>): Type {
-        const result = scope.find(ref.name)
+    function reference(ref: Reference, scopes: Scopes): Type {
+        const result = scopes.scope.find(ref.name)
         if (!result) {
             error(ref, `Symbol "${ref.name}" not found`)
         }
         return result
     }
 
-    function blockExpression(block: BlockExpression, scope: Scope<Type>): Type {
-        return typeCheckStatements(block.block, scope)
+    function blockExpression(block: BlockExpression, scopes: Scopes): Type {
+        const breaks = new Scope<Tree>(scopes.breaks)
+        const name = block.name
+        if (name) {
+            enter(block, name, block, breaks)
+        }
+        enter(block, '$$top', block, breaks)
+        return typeCheckStatements(block.block, {...scopes, breaks })
     }
 
-    function ifThenElseExpresssion(tree: IfThenElse, scope: Scope<Type>): Type {
-        const conditionType = typeCheckExpr(tree.condition, scope)
+    function ifThenElseExpresssion(tree: IfThenElse, scopes: Scopes): Type {
+        const conditionType = typeCheckExpr(tree.condition, scopes)
         mustMatch(tree.condition, conditionType, booleanType)
-        const thenType = typeCheckExpr(tree.then, scope)
+        const thenType = typeCheckExpr(tree.then, scopes)
         const elseNode = tree.else
         var ifType: Type
         if (!elseNode) {
             ifType = voidType
         } else {
-            const elseType = typeCheckExpr(elseNode, scope)
+            const elseType = typeCheckExpr(elseNode, scopes)
             mustMatch(tree, elseType, thenType)
             ifType = thenType
         }
         return ifType
     }
 
-    function loopStatement(loop: Loop, scope: Scope<Type>): Type {
-        typeCheckStatements(loop.body, scope)
+    function loopStatement(loop: Loop, scopes: Scopes): Type {
+        const continues = new Scope<Tree>(scopes.continues)
+        const breaks = new Scope<Tree>(scopes.breaks)
+        const name = loop.name
+        if (name) {
+            enter(loop, name, loop, continues)
+            enter(loop, name, loop, breaks)
+        }
+        enter(loop, '$$top', loop, continues)
+        enter(loop, '$$top', loop, breaks)
+        typeCheckStatements(loop.body, {...scopes, continues, breaks })
         return voidType
     }
 
-    function returnStatement(ret: Return, scope: Scope<Type>): Type {
+    function breakIndexed(tree: BreakIndexed, scopes: Scopes): Type {
+        const expressionType = typeCheckExpr(tree.expression, scopes)
+        mustMatch(tree, i32Type, expressionType)
+        for (const name of tree.labels) {
+            if (!scopes.breaks.find(name)) {
+                error(tree, `Could not find block with name ${name}`)
+            }
+        }
+        if (tree.else) {
+            if (!scopes.breaks.find(tree.else)) {
+                error(tree, `Could not find block with name ${tree.else}`)
+            }
+        }
+        return voidType
+    }
+
+    function returnStatement(ret: Return, scopes: Scopes): Type {
         const value = ret.value
-        const expectType = scope.find("$$result")
+        const expectType = scopes.scope.find("$$result")
         if (value) {
             if (!expectType) error(ret, "No result expected of a void type")
-            const valueType = typeCheckExpr(value, scope)
+            const valueType = typeCheckExpr(value, scopes)
             mustMatch(value, expectType, valueType)
         } else {
             if (expectType) error(ret, `Result value of type ${typeToString(expectType)}`)
@@ -563,14 +623,31 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return voidType
     }
 
-    function arrayLiteral(tree: ArrayLit, scope: Scope<Type>): Type {
+    function switchStatement(tree: Switch, scopes: Scopes): Type {
+        const expressionType = typeCheckExpr(tree.target, scopes)
+        mustMatch(tree.target, expressionType, i32Type)
+        for (const cs of tree.cases) {
+            switchCase(cs, scopes)
+        }
+        return voidType
+    }
+
+    function switchCase(tree: SwitchCase, scopes: Scopes) {
+        for (const expression of tree.expressions) {
+            const exprType = typeCheckExpr(expression, scopes)
+            mustMatch(expression, exprType, i32Type)
+        }
+        typeCheckStatements(tree.body, scopes)
+    }
+
+    function arrayLiteral(tree: ArrayLit, scopes: Scopes): Type {
         const elements = tree.values
         const len = elements.length
         if (len > 0) {
-            const elementType = typeCheckExpr(elements[0], scope)
+            const elementType = typeCheckExpr(elements[0], scopes)
             for (let i = 1; i < len; i++) {
                 const element = elements[i]
-                const type = typeCheckExpr(element, scope)
+                const type = typeCheckExpr(element, scopes)
                 mustMatch(element, elementType, type)
             }
             return { kind: TypeKind.Array, elements: elementType, size: elements.length }
@@ -578,10 +655,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return { kind: TypeKind.Unknown }
     }
 
-    function typeExpr(tree: Tree, scope: Scope<Type>): Type {
+    function typeExpr(tree: Tree, scopes: Scopes): Type {
         switch (tree.kind) {
             case NodeKind.Reference: {
-                const result = scope.find(tree.name)
+                const result = scopes.scope.find(tree.name)
                 if (!result) error(tree, `Type ${tree.name} not found.`)
                 if (result.kind == TypeKind.Location) error(tree, "Expected a type reference")
                 return result
@@ -589,15 +666,15 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case NodeKind.Select:
                 error(tree, "Nested scopes not yet supported")
             case NodeKind.ArrayCtor: {
-                const elements = typeExpr(tree.element, scope)
+                const elements = typeExpr(tree.element, scopes)
                 return { kind: TypeKind.Array, elements, size: tree.size }
             }
             case NodeKind.PointerCtor: {
-                const target = typeExpr(tree.target, scope)
+                const target = typeExpr(tree.target, scopes)
                 return { kind: TypeKind.Pointer, target }
             }
             case NodeKind.StructTypeLit:
-                return structTypeLiteral(tree, scope)
+                return structTypeLiteral(tree, scopes)
             default:
                 error(tree, `Unsupported node in type expression: ${nameOfNodeKind(tree.kind)}`)
         }
@@ -615,11 +692,11 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         return undefined
     }
 
-    function structTypeLiteral(tree: StructTypeLit, scope: Scope<Type>): Type {
+    function structTypeLiteral(tree: StructTypeLit, scopes: Scopes): Type {
         const fields = new Scope<Type>()
         for (const field of tree.fields) {
             if (fields.has(field.name)) error(field, `Dupicate symbol`)
-            const fieldType = typeExpr(field.type, scope)
+            const fieldType = typeExpr(field.type, scopes)
             const unknown = hasUnknown(fieldType)
             if (unknown) {
                 error(field.type, `Fields cannot be of an incomplete or recursive type ${unknown.name}`);
@@ -755,6 +832,7 @@ function error(location: Locatable, message: string): never {
 }
 
 function required<T>(value: T | undefined): T {
-    if (!value) throw new Error("Required a value")
+    if (!value)
+        throw new Error("Required a value")
     return value
 }

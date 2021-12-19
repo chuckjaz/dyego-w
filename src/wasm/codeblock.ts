@@ -3,6 +3,9 @@ import { BlockType, FuncIndex, Inst, LabelIndex, LocalIndex, TableIndex, TypeInd
 
 export abstract class Label {
     private _brand: undefined;
+
+    abstract readonly referenced: boolean
+    abstract reference(): void
 }
 
 export interface Generate {
@@ -44,24 +47,27 @@ interface WriteContext {
     controlStack: GeneratedBlock[]
 }
 
+let labelId = 0
+
 class LabelImpl extends Label {
+    private id = labelId++
     index: LabelIndex | undefined;
-    bound: GeneratedBlock | undefined
+    bound: GeneratedBlock | undefined;
+    referenced: boolean = false;
 
     constructor() {
         super();
     }
 
-    size(): number {
-        const index = this.index;
-        if (index === undefined)
-            return 4;
-        else return bytesOf(index);
-    }
+    size(): number { return 1 }
 
     bind(bound: GeneratedBlock) {
         if (this.bound) error("Label was bound twice")
         this.bound = bound
+    }
+
+    reference() {
+        this.referenced = true
     }
 
     writeTo(context: WriteContext) {
@@ -69,6 +75,7 @@ class LabelImpl extends Label {
         if (!bound) error("Label was not bound")
         const index = context.controlStack.indexOf(bound)
         if (index < 0) error("Label was not in context")
+        if (!this.referenced) error("Label written but was not marked as referenced")
         context.writer.write32u(index);
     }
 }
@@ -274,7 +281,10 @@ class Locals {
 
 type GeneratedBlock = GenerateImpl | BasicBlock | Branch | BranchTable | End;
 
+let genId = 0
+
 class GenerateImpl extends LocalsDelegate implements Generate {
+    private id = genId++
     private current: BasicBlock;
     private blocks: GeneratedBlock[] = [];
     private tail: GeneratedBlock | undefined;

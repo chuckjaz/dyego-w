@@ -1,4 +1,4 @@
-import { CompareOp, Let, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Function, Reference, Scope, StructField, Tree, Var, ImportItem, ImportFunction } from "./ast";
+import { CompareOp, Let, LiteralBoolean, LiteralKind, Locatable, NodeKind, Parameter, Function, Reference, Scope, StructField, Tree, Var, ImportItem, ImportFunction, SwitchCase } from "./ast";
 import { Scanner } from "./scanner";
 import { Token } from "./tokens";
 
@@ -105,6 +105,8 @@ export function parse(text: string): Tree[] {
                 case Token.When:
                 case Token.While:
                 case Token.Loop:
+                case Token.Block:
+                case Token.Switch:
                 case Token.Break:
                 case Token.Continue:
                 case Token.Return:
@@ -451,12 +453,30 @@ export function parse(text: string): Tree[] {
                 }
                 case Token.If: return ifExpr()
                 case Token.Loop: return loop()
+                case Token.Block: return blockExplicit()
                 case Token.While: return whileExpr()
+                case Token.Switch: return switchStatement()
                 case Token.Break: {
                     next()
                     let name: string | undefined = undefined
-                    if (token as any == Token.Identifier) {
-                        name == expectName()
+                    switch (token as any) {
+                        case Token.Identifier:
+                            name = expectName()
+                            break
+                        case Token.LBrack:
+                            next()
+                            const expr = expression()
+                            expect(Token.RBrack)
+                            expect(Token.Colon)
+                            const labels = expectNames()
+                            expect(Token.Else)
+                            const elseBlock = expectName()
+                            return {
+                                kind: NodeKind.BreakIndexed,
+                                expression: expr,
+                                labels,
+                                else: elseBlock
+                            };
                     }
                     return { kind: NodeKind.Break, name }
                 }
@@ -581,25 +601,34 @@ export function parse(text: string): Tree[] {
         })
     }
 
+    function optionalName(): string | undefined {
+        if (token == Token.Identifier) {
+            return expectName()
+        }
+    }
+
     function loop(): Tree {
         return l<Tree>(() => {
             expect(Token.Loop)
-            let name: string | undefined = undefined
-            if (token == Token.Identifier) {
-                name = expectName()
-            }
+            let name = optionalName()
             const body = block()
             return { kind: NodeKind.Loop, name, body }
+        })
+    }
+
+    function blockExplicit(): Tree {
+        return l<Tree>(() => {
+            expect(Token.Block)
+            const name = optionalName()
+            const body = block()
+            return { kind: NodeKind.BlockExpression, block: body, name }
         })
     }
 
     function whileExpr(): Tree {
         return l<Tree>(() => {
             expect(Token.While)
-            let name: string | undefined = undefined
-            if (token == Token.Identifier) {
-                name = expectName()
-            }
+            let name = optionalName()
             expect(Token.LParen)
             const condition = expression()
             expect(Token.RParen)
@@ -616,6 +645,66 @@ export function parse(text: string): Tree[] {
             const body = [test, ...block()]
             return { kind: NodeKind.Loop, body }
         })
+    }
+
+    function switchStatement(): Tree {
+        return l<Tree>(() => {
+            expect(Token.Switch)
+            const name = optionalName()
+            expect(Token.LParen)
+            const target = expression()
+            expect(Token.RParen)
+            expect(Token.LBrace)
+            const cases: SwitchCase[] = []
+            while(true) {
+                switch (token) {
+                    case Token.Case:
+                        cases.push(switchCase())
+                        semi()
+                        continue
+                    case Token.Default:
+                        cases.push(switchDefault())
+                        semi()
+                        continue
+                }
+                break
+            }
+            expect(Token.RBrace)
+            return { kind: NodeKind.Switch, name, target, cases }
+        })
+    }
+
+    function switchCase(): SwitchCase {
+        return l<SwitchCase>(() => {
+            expect(Token.Case)
+            const expressions = expressionList()
+            expect(Token.Colon)
+            const body = sequence()
+            return { kind: NodeKind.SwitchCase, expressions, body }
+        })
+    }
+
+    function switchDefault(): SwitchCase {
+        return l<SwitchCase>(() => {
+            expect(Token.Default)
+            expect(Token.Colon)
+            const body = sequence()
+            return { kind: NodeKind.SwitchCase, expressions: [], default: true, body }
+        })
+    }
+
+    function expressionList(): Tree[] {
+        const result: Tree[] = []
+        while (true) {
+            switch (token) {
+                case Token.Colon:
+                case Token.EOF:
+                case Token.RBrace:
+                    return result
+            }
+            result.push(expression())
+            comma()
+        }
     }
 
     function exportedFunc(): Tree {
@@ -786,6 +875,15 @@ export function parse(text: string): Tree[] {
         return result
     }
 
+    function expectNames(): string[] {
+        const result: string[] = []
+        while (token == Token.Identifier) {
+            result.push(expectName())
+            comma()
+        }
+        return result
+    }
+
     function tokenText(token: Token): string {
         switch (token) {
             case Token.Identifier: return "an identifier"
@@ -809,7 +907,12 @@ export function parse(text: string): Tree[] {
             case Token.Export: return `export`
             case Token.Import: return `import`
             case Token.As: return `as`
+            case Token.Block: return `block`
             case Token.Loop: return `loop`
+            case Token.Switch: return `switch`
+            case Token.Case: return `case`
+            case Token.Fallthrough: return `fallthrough`
+            case Token.Default: return `default`
             case Token.Break: return `break`
             case Token.Continue: return `continue`
             case Token.Return: return `return`
