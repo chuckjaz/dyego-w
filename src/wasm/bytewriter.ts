@@ -96,6 +96,13 @@ export class ByteWriter {
         this._current += size;
     }
 
+    writeU32LittleEndian(value: number) {
+        const b = new Uint8Array(4)
+        const u = new Uint32Array(b.buffer)
+        u[0] = value
+        this.writeByteArray(b)
+    }
+
     extract(): Uint8Array {
         return this.bytes.slice(0, this._current)
     }
@@ -106,7 +113,7 @@ export class ByteWriter {
         const bytes = this.bytes;
         const size = bytes.length;
         const needed = this.current + count;
-        if (needed < size) return
+        if (needed <= size) return
         let newSize = size * 2;
         while (newSize < needed) {
             newSize *= 2;

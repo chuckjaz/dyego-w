@@ -90,6 +90,7 @@ export class Scanner {
                             case "export": result = Token.Export; break
                             case "import": result = Token.Import; break
                             case "as": result = Token.As; break
+                            case "null": result = Token.Null; break
                         }
                         break
                     }

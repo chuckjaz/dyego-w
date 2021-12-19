@@ -91,26 +91,65 @@ describe("codegen", () => {
             expect(exports.test()).toBe(15)
         })
     })
-    it("can run the n-body benchmark", () => {
-        const text = readFileSync("examples/n-body.dgw", 'utf-8')
-        cg(text, ({offsetMomentum}) => {
-            offsetMomentum()
+    describe("examples", () => {
+        it("can run the n-body benchmark", () => {
+            cgf('n-body.dgw', ({offsetMomentum}) => {
+                offsetMomentum()
+            })
+        })
+        it("can run the binary-tree benchmark", () => {
+            cgf('binary-trees.dgw', ({work}) => {
+                work(1, 10);
+            })
         })
     })
 })
 
-function cg(text: string, cb: (exports: any) => void): any {
-    const program = parse(text)
-    const scope = new Scope<Type>()
-    const types = typeCheck(scope, program)
-    const module = new Module()
-    codegen(program, types, module)
-    const writer = new ByteWriter()
-    module.write(writer)
+function cg(text: string, cb: (exports: any) => void, name: string = "<text>"): any {
+    let writer: ByteWriter
+    try {
+        const program = parse(text)
+        const scope = new Scope<Type>()
+        const types = typeCheck(scope, program)
+        const module = new Module()
+        codegen(program, types, module)
+        writer = new ByteWriter()
+        module.write(writer)
+    } catch(e: any) {
+        const position = e.position ?? e.start
+        if (position !== undefined) {
+            const { line, column } = lcOf(text, position);
+            throw Error(`${name}:${line}:${column}: ${e.message}\n${e.stack}`);
+        }
+        throw e
+    }
     const bytes = writer.extract()
     writeFileSync("out/tmp.wasm", bytes)
     expect(WebAssembly.validate(bytes)).toBeTrue();
     const mod = new WebAssembly.Module(bytes);
     const inst = new WebAssembly.Instance(mod);
     cb(inst.exports)
+}
+
+function cgf(name: string, cb: (exports: any) => void): any {
+    const text = readFileSync(`examples/${name}`, 'utf-8')
+    cg(text, cb, name)
+}
+
+
+function lcOf(text: string, position: number): { line: number, column: number} {
+    let line = 1;
+    let start = 0;
+    let index = 0;
+    for (; index < position; index++) {
+        switch(text[index]) {
+            case `\r`:
+                if (text[index + 1] == `\n`) index++
+            case '\n':
+                start = index + 1;
+                line++
+                break;
+        }
+    }
+    return { line, column: index - start + 1 }
 }

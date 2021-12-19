@@ -1,15 +1,74 @@
-import { type } from "os";
 import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse } from "./ast"
-import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f64Type, globals, i32Type, StructType, Type, TypeKind, typeToString, voidType } from "./types";
+import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f64Type, globals, i32Type, nameOfTypeKind, nullType, PointerType, StructType, Type, TypeKind, typeToString, UnknownType, voidType } from "./types";
 
 const builtins = new Scope<Type>(globals)
 
 export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> {
     const result = new Map<Tree, Type>()
+    const fixups = new Map<UnknownType, ((final: Type) => void)[]>()
+    const scanned = new Set<Type>()
     const moduleScope = new Scope(builtins, scope)
 
     typeCheckStatements(program, moduleScope)
     return result;
+
+    function bind(node: Tree, type: Type) {
+        result.set(node, type)
+        if (type.kind == TypeKind.Unknown) {
+            addFixup(type, final => result.set(node, final))
+        }
+        scanForFixes(type)
+    }
+
+    function addFixup(type: UnknownType, fixup: (final: Type) => void) {
+        const list = fixups.get(type) ?? []
+        list.push(fixup);
+        fixups.set(type, list);
+    }
+
+    function fixup(type: UnknownType, finalType: Type) {
+        const fixupsList = fixups.get(type) ?? [];
+        for (const fixup of fixupsList) {
+            fixup(finalType)
+        }
+        fixups.delete(type);
+    }
+
+    function scanForFixes(type: Type) {
+        scan(type, () => { })
+
+        function scan(type: Type, fixup: (final: Type) => void) {
+            if (type.kind <= TypeKind.Boolean) return
+            if (scanned.has(type)) return
+            if (type.kind == TypeKind.Unknown) {
+                addFixup(type, fixup)
+                return
+            }
+            scanned.add(type)
+            switch (type.kind) {
+                case TypeKind.Array:
+                    scan(type.elements, final => type.elements = final);
+                    break
+                case TypeKind.Function:
+                    scan(type.result, final => type.result = final);
+                    type.parameters.forEach((name, typeToFix) => {
+                        scan(typeToFix, final => type.parameters.renter(name, final))
+                    });
+                    break
+                case TypeKind.Location:
+                    scan(type.type, final => type.type = final);
+                    break;
+                case TypeKind.Pointer:
+                    scan(type.target, final => type.target = final);
+                    break;
+                case TypeKind.Struct:
+                    type.fields.forEach((name, typeToFix) => {
+                        scan(typeToFix, final => type.fields.renter(name, final))
+                    })
+                    break
+            }
+        }
+    }
 
     function typeCheckStatements(trees: Tree[], scope: Scope<Type>): Type {
         let lastType = voidType
@@ -24,10 +83,14 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         scope.enter(name, type)
     }
 
+    function renter(location: Locatable, name: string, type: Type, scope: Scope<Type>) {
+        scope.renter(name, type)
+    }
+
     function typeCheckStatement(tree: Tree, scope: Scope<Type>): Type {
         switch (tree.kind) {
             case NodeKind.Let: {
-                const exprType = typeCheckExpr(tree.value, scope)
+                const exprType = read(typeCheckExpr(tree.value, scope))
                 const declaredTypeTree = tree.type
                 const type = declaredTypeTree ? typeExpr(declaredTypeTree, scope) : exprType
                 mustMatch(tree.value, exprType, type)
@@ -47,16 +110,20 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 mustMatch(tree.value, exprType, type)
                 var treeType: Type = { kind: TypeKind.Location, type }
                 enter(tree, tree.name, treeType, scope)
-                result.set(tree, treeType)
+                bind(tree, treeType)
                 return voidType
             }
             case NodeKind.Type: {
-                const type = typeExpr(tree.type, scope)
+                const preenteredType: Type = { kind: TypeKind.Unknown, name: tree.name };
+                enter(tree, tree.name, preenteredType, scope);
+                const type = typeExpr(tree.type, scope);
                 if (type.kind == TypeKind.Struct) {
-                    type.name = tree.name
+                    type.name = tree.name;
                 }
-                enter(tree, tree.name, type, scope)
-                return voidType
+                bind(tree, type);
+                renter(tree, tree.name, type, scope);
+                fixup(preenteredType, type);
+                return voidType;
             }
             case NodeKind.Function: {
                 const type = typeCheckExpr(tree, scope)
@@ -81,7 +148,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                     const funcResult = typeExpr(imp.result, scope)
                     const name = imp.name
                     const type: Type = { kind: TypeKind.Function, parameters, result: funcResult, name }
-                    result.set(imp, type)
+                    bind(imp, type)
                     enter(imp, imp.as ?? name, type, scope)
                     break
                 }
@@ -115,7 +182,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         }
     }
 
-    function binary(
+    function pointerBinary(
         node: Tree,
         left: Tree,
         right: Tree,
@@ -123,7 +190,27 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         scope: Scope<Type>,
         result?: Type
     ): Type {
-        const leftType = typeCheckExpr(left, scope);
+        const leftType = read(typeCheckExpr(left, scope));
+        if (leftType.kind == TypeKind.Pointer) {
+            const rightType = read(typeCheckExpr(right, scope));
+            mustMatch(node, rightType, i32Type);
+            requireCapability(leftType, Capabilities.Pointer, node);
+            return leftType;
+        } else {
+            return binary(node, left, right, capabilities, scope, result, leftType);
+        }
+    }
+
+    function binary(
+        node: Tree,
+        left: Tree,
+        right: Tree,
+        capabilities: Capabilities,
+        scope: Scope<Type>,
+        result?: Type,
+        precalculatedLeftType?: Type
+    ): Type {
+        const leftType = precalculatedLeftType ?? typeCheckExpr(left, scope);
         const rightType = typeCheckExpr(right, scope);
         const type = mustMatch(node, leftType, rightType);
         requireCapability(leftType, capabilities, node);
@@ -181,10 +268,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 type = reference(tree, scope)
                 break
             case NodeKind.Add:
-                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
+                type = pointerBinary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
                 break
             case NodeKind.Subtract:
-                type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
+                type = pointerBinary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
                 break
             case NodeKind.Multiply:
                 type = binary(tree, tree.left, tree.right, Capabilities.Numeric, scope)
@@ -236,6 +323,9 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                     case LiteralKind.Int:
                         type = i32Type
                         break
+                    case LiteralKind.Null:
+                        type = nullType
+                        break
                 }
                 break
             case NodeKind.Function:
@@ -259,10 +349,17 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             case NodeKind.Assign:
                 type = assign(tree, scope)
                 break
+            case NodeKind.As: {
+                const leftType = typeCheckExpr(tree.left, scope)
+                expectPointer(tree.left, leftType)
+                const rightType = typeExpr(tree.right, scope)
+                type = expectPointer(tree.right, rightType)
+                break
+            }
             default:
                 error(tree, `Unsupported node ${nameOfNodeKind(tree.kind)}`)
         }
-        result.set(tree, type);
+        bind(tree, type);
         return type
     }
 
@@ -271,11 +368,13 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         const resultType = typeExpr(tree.result, scope)
         const bodyScope = new Scope(parameters, scope)
         bodyScope.enter("$$result", resultType)
+        const funcType: Type = { kind: TypeKind.Function, parameters, result: resultType }
+        bodyScope.enter(tree.name, funcType)
         const bodyResult = typeCheckStatements(tree.body, bodyScope)
         if (bodyResult.kind != TypeKind.Void) {
             mustMatch(tree, bodyResult, resultType)
         }
-        return { kind: TypeKind.Function, parameters, result: resultType }
+        return funcType;
     }
 
     function funcParameters(parameterNodes: Parameter[], scope: Scope<Type>): Scope<Type> {
@@ -284,7 +383,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             if (parameters.has(parameter.name)) error(parameter, `Duplicate parameter name`)
             const type = typeExpr(parameter.type, scope)
             const parameterType: Type = { kind: TypeKind.Location, type }
-            result.set(parameter, parameterType)
+            bind(parameter, parameterType)
             parameters.enter(parameter.name, parameterType)
         }
         return parameters
@@ -309,13 +408,20 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
     function select(tree: Select, scope: Scope<Type>): Type {
         const originalTarget = typeCheckExpr(tree.target, scope)
         const targetType = read(originalTarget)
+        function fieldTypeOf(type: StructType): Type {
+            const fieldType = type.fields.find(tree.name)
+            if (!fieldType) error(tree, `Type ${typeToString(targetType)} does not have member "${tree.name}"`)
+            if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
+                return { kind: TypeKind.Location, type: fieldType }
+            return fieldType
+
+        }
         switch (targetType.kind) {
             case TypeKind.Struct:
-                const fieldType = targetType.fields.find(tree.name)
-                if (!fieldType) error(tree, `Type ${typeToString(targetType)} does not have member "${tree.name}"`)
-                if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
-                    return { kind: TypeKind.Location, type: fieldType }
-                return fieldType
+                return fieldTypeOf(targetType);
+            case TypeKind.Pointer:
+                const refType = expectStruct(targetType.target, tree.target);
+                return fieldTypeOf(refType);
             default:
                 const builtins = builtInMethodsOf(targetType)
                 const memberType = builtins.find(tree.name)
@@ -450,6 +556,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 const elements = typeExpr(tree.element, scope)
                 return { kind: TypeKind.Array, elements, size: tree.size }
             }
+            case NodeKind.PointerCtor: {
+                const target = typeExpr(tree.target, scope)
+                return { kind: TypeKind.Pointer, target }
+            }
             case NodeKind.StructTypeLit:
                 return structTypeLiteral(tree, scope)
             default:
@@ -457,11 +567,27 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         }
     }
 
+    function hasUnknown(type: Type): UnknownType | undefined {
+        switch (type.kind) {
+            case TypeKind.Array:
+                return hasUnknown(type.elements);
+            case TypeKind.Unknown:
+                return type;
+            case TypeKind.Struct:
+                return type.fields.first((name, type) => hasUnknown(type));
+        }
+        return undefined
+    }
+
     function structTypeLiteral(tree: StructTypeLit, scope: Scope<Type>): Type {
         const fields = new Scope<Type>()
         for (const field of tree.fields) {
             if (fields.has(field.name)) error(field, `Dupicate symbol`)
             const fieldType = typeExpr(field.type, scope)
+            const unknown = hasUnknown(fieldType)
+            if (unknown) {
+                error(field.type, `Fields cannot be of an incomplete or recursive type ${unknown.name}`);
+            }
             fields.enter(field.name, fieldType)
         }
         return { kind: TypeKind.Struct, fields }
@@ -484,6 +610,8 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 case TypeKind.Struct:
                 case TypeKind.Function:
                     return false;
+                case TypeKind.Pointer:
+                    return equivilent(from.target, (to as PointerType).target)
                 case TypeKind.Array:
                     return equivilent(from.elements, (to as ArrayType).elements)
             }
@@ -558,9 +686,28 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
             if (from.kind == TypeKind.Struct && to.kind == TypeKind.Struct) {
                 return unify(location, from, to)
             }
+            if (from.kind == TypeKind.Null || to.kind == TypeKind.Null) {
+                return nullTypeMatch(location, from, to)
+            }
             error(location, `Expected type ${typeToString(from)}, received ${typeToString(to)}`);
         }
         return to
+    }
+
+    function nullTypeMatch(location: Locatable, from: Type, to: Type): Type {
+        from = read(from)
+        to = read(to)
+        if (from.kind == TypeKind.Null) {
+            return expectPointer(location, to)
+        }
+        return expectPointer(location, from);
+    }
+
+    function expectPointer(location: Locatable, type: Type): PointerType {
+        if (type.kind != TypeKind.Pointer) {
+            error(location, `Expected type ${typeToString(type)} be a pointer was ${nameOfTypeKind(type.kind)}`)
+        }
+        return type
     }
 }
 

@@ -8,6 +8,7 @@ export const enum NodeKind {
     Compare,
     And,
     Or,
+    As,
     BlockExpression,
     IfThenElse,
     Loop,
@@ -33,6 +34,7 @@ export const enum NodeKind {
     StructTypeLit,
     StructField,
     ArrayCtor,
+    PointerCtor,
     Import,
     ImportFunction
 }
@@ -48,6 +50,7 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.Compare: return "Compare"
         case NodeKind.And: return "And"
         case NodeKind.Or: return "Or"
+        case NodeKind.As: return "As"
         case NodeKind.BlockExpression: return "BlockExpression"
         case NodeKind.IfThenElse: return "IfThenElse"
         case NodeKind.Loop: return "Loop"
@@ -73,12 +76,13 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.StructTypeLit: return "StructTypeLit"
         case NodeKind.StructField: return "StructField"
         case NodeKind.ArrayCtor: return "ArrayCtor"
+        case NodeKind.PointerCtor: return "PointerCtor"
         case NodeKind.Import: return "Import"
         case NodeKind.ImportFunction: return "ImportItem"
     }
 }
 
-export type Tree = 
+export type Tree =
     Add |
     Subtract |
     Multiply |
@@ -86,6 +90,7 @@ export type Tree =
     Compare |
     And |
     Or |
+    As |
     Negate |
     Not |
     BlockExpression |
@@ -113,8 +118,9 @@ export type Tree =
     StructTypeLit |
     StructField |
     ArrayCtor |
+    PointerCtor |
     Import |
-    ImportItem 
+    ImportItem
 
 export interface Locatable {
     start?: number
@@ -184,6 +190,12 @@ export interface Or extends Locatable {
     right: Tree
 }
 
+export interface As extends Locatable {
+    kind: NodeKind.As
+    left: Tree
+    right: Tree
+}
+
 export interface BlockExpression extends Locatable {
     kind: NodeKind.BlockExpression
     block: Tree[]
@@ -221,6 +233,7 @@ export const enum LiteralKind {
     Int,
     Double,
     Boolean,
+    Null,
 }
 
 export function nameOfLiteralKind(kind: LiteralKind): string {
@@ -228,13 +241,15 @@ export function nameOfLiteralKind(kind: LiteralKind): string {
         case LiteralKind.Boolean: return "Boolean";
         case LiteralKind.Int: return "Int";
         case LiteralKind.Double: return "Double";
-    }    
+        case LiteralKind.Null: return "Null";
+    }
 }
 
 export type Literal =
     LiteralInt |
     LiteralDouble |
-    LiteralBoolean
+    LiteralBoolean |
+    LiteralNull
 
 export interface LiteralInt extends Locatable {
     kind: NodeKind.Literal
@@ -252,6 +267,12 @@ export interface LiteralBoolean extends Locatable {
     kind: NodeKind.Literal
     literalKind: LiteralKind.Boolean
     value: boolean
+}
+
+export interface LiteralNull extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.Null
+    value: null
 }
 
 export interface StructLit extends Locatable {
@@ -363,6 +384,11 @@ export interface ArrayCtor extends Locatable {
     size?: number
 }
 
+export interface PointerCtor extends Locatable {
+    kind: NodeKind.PointerCtor
+    target: Tree
+}
+
 export interface Import extends Locatable {
     kind: NodeKind.Import
     imports: ImportItem[]
@@ -407,12 +433,23 @@ export class Scope<T> {
         this.entries.set(name, value)
     }
 
+    renter(name: string, value: T) {
+        if (!this.entries.has(name)) {
+            throw new Error(`Cannot reenter a symbol that has not be entered: ${name}`)
+        }
+        this.entries.set(name, value)
+    }
+
     has(name: string) {
         return this.entries.has(name)
     }
 
     forEach(callback: (name: string, value: T) => void) {
-        this.internalForEach(new Set(), callback)
+        this.internalForEach(new Set(), callback);
+    }
+
+    first<R>(callback: (name: string, value: T) => R | undefined): R | undefined {
+        return this.internalFirst(new Set(), callback);
     }
 
     without(name: string): Scope<T> {
@@ -441,6 +478,24 @@ export class Scope<T> {
         for (const parent of this.parents) {
             parent.internalForEach(emitted, callback)
         }
+    }
+
+    private internalFirst<R>(
+        emitted: Set<string>,
+        callback: (name: string, value: T) => R | undefined
+    ): R | undefined {
+        for (const entry of this.entries.entries()) {
+            if (!emitted.has(entry[0])) {
+                emitted.add(entry[0])
+                const result = callback(entry[0], entry[1]);
+                if (result !== undefined) return result;
+            }
+        }
+        for (const parent of this.parents) {
+            const result = parent.internalFirst(emitted, callback);
+            if (result !== undefined) return result;
+        }
+        return undefined;
     }
 
     private findInParent(name: string): T | undefined {
