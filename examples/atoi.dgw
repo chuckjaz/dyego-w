@@ -1,0 +1,43 @@
+fun atoi(len: Int, bytes: Int[]^): Int {
+    var i = 0;
+    var value = 0;
+    while (i < len) {
+        var c = bytes^[i];
+        switch (c) {
+            case 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59:
+                value = value * 10 + (c - 48);
+                continue;
+            default:
+                return -1;
+        }
+        i = i + 1;
+    }
+    return value
+}
+
+fun atoi_raw(len: Int, bytes: Int[]^): Int {
+    var i = 0;
+    var value = 0;
+    loop {
+        if (i >= len) break;
+        var c = bytes^[i]
+        block a {
+            block b {
+                block c {
+                    break [c - 48]: c, c, c, c, c, c, c, c, c, c else b
+                }
+                value = value * 10 + (c - 48);
+                break a;
+            }
+            return -1;
+        }
+        i = i + 1;
+    }
+    value;
+}
+
+var b30 = [ 51, 49 ];
+var b12 = [ 49, 49 ];
+
+export fun test(): Int = atoi(2, &b30) + atoi(2, &b12)
+export fun test_raw(): Int = atoi_raw(2, &b30) + atoi_raw(2, &b12)

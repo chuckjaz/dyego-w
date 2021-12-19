@@ -17,6 +17,10 @@ describe("typecheck", () => {
         it("can type check address.dgw", () => {
             tcf("address.dgw")
         })
+
+        it("can type check atoi.dgw", () => {
+            tcf("atoi.dgw")
+        })
     })
 
     it("can type check a simple expression", () => {

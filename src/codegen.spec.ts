@@ -97,11 +97,13 @@ describe("codegen", () => {
                 offsetMomentum()
             })
         })
+
         it("can run the binary-tree benchmark", () => {
             cgf('binary-trees.dgw', ({work}) => {
                 work(1, 10);
             })
         })
+
         it("can run the address example", () => {
             cgf("address.dgw", ({test1, test2, test3}) => {
                 expect(test1()).toEqual(1 + 2 + 3 + 4 + 5 + 6)
@@ -114,6 +116,12 @@ describe("codegen", () => {
                                     5 + 6 +
                                         6
                 )
+            })
+        })
+
+        it("can run the atoi example", () => {
+            cgf("atoi.dgw", ({test_raw}) => {
+                expect(test_raw()).toEqual(42)
             })
         })
     })

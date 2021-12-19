@@ -91,6 +91,11 @@ export class Scanner {
                             case "import": result = Token.Import; break
                             case "as": result = Token.As; break
                             case "null": result = Token.Null; break
+                            case "switch":  result = Token.Switch; break
+                            case "case": result = Token.Case; break
+                            case "fallthrough": result = Token.Fallthrough; break
+                            case "default": result = Token.Default; break
+                            case "block": result = Token.Block; break
                         }
                         break
                     }
@@ -130,6 +135,10 @@ export class Scanner {
                                 break
                             case "`":
                                 i++
+                                break
+                            case "\0":
+                                i--
+                                result = Token.Error
                                 break
                             default:
                                 i++
@@ -180,6 +189,40 @@ export class Scanner {
                     result = Token.Star
                     break
                 case "/":
+                    switch (text[i]) {
+                        case "*":  {
+                            i++
+                            while(true) {
+                                switch (text[i++]) {
+                                    case "*":
+                                        if (text[i] == "/") {
+                                            i++
+                                            continue loop
+                                        }
+                                        break
+                                    case "\0":
+                                        i--
+                                        result = Token.Error
+                                        break loop
+                                }
+                            }
+                        }
+                        case "/": {
+                            i++
+                            while(true) {
+                                switch(text[i++]) {
+                                    case "\r":
+                                        if (text[i] == "\n") i++
+                                    case "\n":
+                                        continue loop
+                                    case "\0":
+                                        i--
+                                        result = Token.Error
+                                        break loop
+                                }
+                            }
+                        }
+                    }
                     result = Token.Slash
                     break
                 case ";":

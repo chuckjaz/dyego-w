@@ -9,6 +9,7 @@ import { ExportKind, ExportSection } from "./wasm/exportsection";
 import { FunctionSection } from "./wasm/functionSection";
 import { GlobalSection } from "./wasm/globalsection";
 import { ImportSection } from "./wasm/importSection";
+import { lowerSwitch } from "./wasm/lower";
 import { MemorySection } from "./wasm/memorySection";
 import { Module } from "./wasm/module";
 import { Section } from "./wasm/section";
@@ -1550,6 +1551,7 @@ class GotoSymbol extends LoadonlySymbol implements Symbol {
         super(location)
         this.location = location
         this.label = label
+        label.reference()
     }
 
     load(g: Generate) {
@@ -1557,6 +1559,37 @@ class GotoSymbol extends LoadonlySymbol implements Symbol {
     }
 
     simplify(): Symbol {
+        return this
+    }
+}
+
+class BranchTableSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
+    type = voidGenType
+    expression: Symbol
+    labels: Label[]
+    elseLabel: Label
+
+    constructor(location: Locatable, expression: Symbol, labels: Label[], elseLabel: Label) {
+        super(location)
+        this.location = location
+        this.expression = expression
+        this.labels = labels
+        this.elseLabel = elseLabel
+        labels.forEach(label => label.reference())
+        elseLabel.reference()
+    }
+
+    load(g: Generate) {
+        this.expression.load(g)
+        g.table(this.labels, this.elseLabel)
+    }
+
+    simplify(): Symbol {
+        const expression = this.expression.simplify()
+        if (expression !== this.expression) {
+            return new BranchTableSymbol(this.location, expression, this.labels, this.elseLabel)
+        }
         return this
     }
 }
@@ -1749,7 +1782,7 @@ class BlockSymbol extends LoadonlySymbol implements Symbol {
     load(g: Generate): void {
         const type = this.type
         const blockType = type.parts.piece ?? 0x40
-        const body = g.block(blockType)
+        const body = g.block(blockType, this.label)
         for (const symbol of this.symbols) {
             symbol.load(body)
         }
@@ -1758,7 +1791,7 @@ class BlockSymbol extends LoadonlySymbol implements Symbol {
     simplify(): Symbol {
         const symbols = this.symbols
         const simple = simplified(symbols)
-        if (simple.length == 1) return simple[0]
+        if (simple.length == 1 && !this.label.referenced) return simple[0]
         if (symbols === simple)
             return this
         return new BlockSymbol(this.location, this.type, simple, this.label)
@@ -2149,12 +2182,15 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     const memorySection = new MemorySection(0)
     let startSection: StartSection | undefined = undefined
 
+    let {program: p, types: t} = lowerSwitch(program, types)
+    program = p
+    types = t
 
     // Allocate the top-of-memory variable.
     dataAllocator.allocate({ start: 0 }, voidPointerGenType)
 
     function typeOfType(location: Locatable | undefined, type: Type | undefined): GenType {
-        return genTypeOf(location, required(type), genTypes)
+        return genTypeOf(location, required(type, location), genTypes)
     }
 
     function typeOf(tree: Tree): GenType {
@@ -2306,11 +2342,29 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 const referencedType = typeOfType(tree.target, targetType.target)
                 return new DataSymbol(tree, referencedType, targetSymbol)
             }
-            case NodeKind.BlockExpression:
-                return statementsToSymbol(tree, tree.block, scopes)
+            case NodeKind.BlockExpression: {
+                const name = tree.name
+                let blockScopes = scopes
+                let blockLabel: Label | undefined = undefined
+                if (name) {
+                    const breaks = new Scope<Label>(scopes.breaks)
+                    blockLabel = label()
+                    breaks.enter(name, blockLabel)
+                    blockScopes = {...scopes, breaks }
+                }
+                return statementsToSymbol(tree, tree.block, blockScopes, blockLabel)
+            }
             case NodeKind.Break: {
                 const l = required(scopes.breaks.find(tree.name ?? "$top"))
                 return new GotoSymbol(tree, l)
+            }
+            case NodeKind.BreakIndexed: {
+                const expression = treeToSymbol(tree.expression, scopes);
+                const labels = tree.labels.map(
+                    name => required(scopes.breaks.find(name))
+                )
+                const elseLabel = required(scopes.breaks.find(tree.else))
+                return new BranchTableSymbol(tree, expression, labels, elseLabel)
             }
             case NodeKind.Continue: {
                 const l = required(scopes.continues.find(tree.name ?? "$top"))
@@ -2499,6 +2553,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     function loopToSymbol(tree: Loop, scopes: Scopes): Symbol {
         const breakLabel = label()
         const continueLabel = label()
+        continueLabel.reference() // Implicitly referenced
         const name = tree.name
         const symbols = scopes.symbols
         const alloc = scopes.alloc

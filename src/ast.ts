@@ -14,7 +14,10 @@ export const enum NodeKind {
     BlockExpression,
     IfThenElse,
     Loop,
+    Switch,
+    SwitchCase,
     Break,
+    BreakIndexed,
     Continue,
     Return,
     Literal,
@@ -58,7 +61,10 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.BlockExpression: return "BlockExpression"
         case NodeKind.IfThenElse: return "IfThenElse"
         case NodeKind.Loop: return "Loop"
+        case NodeKind.Switch: return "Switch"
+        case NodeKind.SwitchCase: return "SwitchCase"
         case NodeKind.Break: return "Break"
+        case NodeKind.BreakIndexed: return 'BreakIndexed'
         case NodeKind.Continue: return "Continue"
         case NodeKind.Return: return "Return"
         case NodeKind.Literal: return "Literal"
@@ -102,7 +108,10 @@ export type Tree =
     BlockExpression |
     IfThenElse |
     Loop |
+    Switch |
+    SwitchCase |
     Break |
+    BreakIndexed |
     Continue |
     Return |
     Literal |
@@ -226,6 +235,7 @@ export interface Dereference extends Locatable {
 
 export interface BlockExpression extends Locatable {
     kind: NodeKind.BlockExpression
+    name?: string
     block: Tree[]
 }
 
@@ -242,9 +252,30 @@ export interface Loop extends Locatable {
     body: Tree[]
 }
 
+export interface Switch extends Locatable {
+    kind: NodeKind.Switch
+    target: Tree
+    name?: string
+    cases: SwitchCase[]
+}
+
+export interface SwitchCase extends Locatable {
+    kind: NodeKind.SwitchCase
+    expressions: Tree[]
+    default?: boolean
+    body: Tree[]
+}
+
 export interface Break extends Locatable {
     kind: NodeKind.Break
     name?: string
+}
+
+export interface BreakIndexed extends Locatable {
+    kind: NodeKind.BreakIndexed
+    expression: Tree
+    labels: string[]
+    else: string
 }
 
 export interface Continue extends Locatable {
@@ -431,6 +462,125 @@ export interface ImportFunction extends Locatable {
     parameters: Parameter[]
     result: Tree
     as?: string
+}
+
+export function * childrenOf(tree: Tree): Iterable<Tree> {
+    switch (tree.kind) {
+        case NodeKind.Add:
+        case NodeKind.Subtract:
+        case NodeKind.Multiply:
+        case NodeKind.Divide:
+        case NodeKind.Compare:
+        case NodeKind.And:
+        case NodeKind.Or:
+        case NodeKind.As:
+            yield tree.left
+            yield tree.right
+            return
+        case NodeKind.Negate:
+        case NodeKind.Not:
+        case NodeKind.AddressOf:
+        case NodeKind.Dereference:
+            yield tree.target
+            return
+        case NodeKind.BlockExpression:
+            yield * tree.block
+            return
+        case NodeKind.IfThenElse:
+            yield tree.condition
+            yield tree.then
+            if (tree.else) yield tree.else
+            return
+        case NodeKind.Loop:
+            yield * tree.body
+            return
+        case NodeKind.Switch:
+            yield tree.target
+            yield * tree.cases
+            return
+        case NodeKind.SwitchCase:
+            yield * tree.expressions
+            yield * tree.body
+            return
+        case NodeKind.Break:
+        case NodeKind.BreakIndexed:
+        case NodeKind.Continue:
+            return
+        case NodeKind.Return:
+            if (tree.value) yield tree.value
+            return
+        case NodeKind.Literal:
+            return
+        case NodeKind.StructLit:
+            yield * tree.body
+            return
+        case NodeKind.ArrayLit:
+            yield * tree.values
+            return
+        case NodeKind.Field:
+            yield tree.value
+            return
+        case NodeKind.Reference:
+            return
+        case NodeKind.Select:
+        case NodeKind.Spread:
+            yield tree.target
+            return
+        case NodeKind.Index:
+            yield tree.target
+            yield tree.index
+            return
+        case NodeKind.FieldRef:
+            yield tree.target
+            return
+        case NodeKind.Assign:
+            yield tree.target
+            yield tree.value
+            return
+        case NodeKind.Function:
+            yield * tree.parameters
+            yield tree.result
+            yield * tree.body
+            return
+        case NodeKind.Parameter:
+            yield tree.type
+            return
+        case NodeKind.Call:
+            yield tree.target
+            yield * tree.arguments
+            return
+        case NodeKind.Let:
+        case NodeKind.Var:
+            if (tree.type) yield tree.type
+            yield tree.value
+            return
+        case NodeKind.Type:
+            yield tree.type
+            return
+        case NodeKind.StructTypeLit:
+            yield * tree.fields
+            return
+        case NodeKind.StructField:
+            yield tree.type
+            return
+        case NodeKind.ArrayCtor:
+            yield tree.element
+            return
+        case NodeKind.PointerCtor:
+            yield tree.target
+            return
+        case NodeKind.Import:
+            yield * tree.imports
+            return
+        case NodeKind.ImportFunction:
+            yield * tree.parameters
+            yield tree.result
+            return
+    }
+}
+
+export function copy<T extends Tree>(original: T, overrides: Partial<T> = {}): T {
+    return { ...original, ...overrides }
 }
 
 export class Scope<T> {

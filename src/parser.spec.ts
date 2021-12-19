@@ -15,6 +15,10 @@ describe("parser", () => {
             p("address.dgw")
         })
 
+        it("can parse atoi", () => {
+            p("atoi.dgw")
+        })
+
         function p(name: string) {
             const text = fs.readFileSync(`examples/${name}`, 'utf-8')
             try {
