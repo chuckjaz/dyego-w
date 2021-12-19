@@ -14,10 +14,38 @@ export const enum TypeKind {
     Boolean,
     Array,
     Struct,
+    Pointer,
+    Null,
     Void,
     Function,
     Location,
-    Unknown
+    Memory,
+    Unknown,
+}
+
+export function nameOfTypeKind(kind: TypeKind): string {
+    switch (kind) {
+        case TypeKind.I8: return "I8";
+        case TypeKind.I16: return "I16";
+        case TypeKind.I32: return "I32";
+        case TypeKind.I64: return "I64";
+        case TypeKind.U8: return "U8";
+        case TypeKind.U16: return "U16";
+        case TypeKind.U32: return "U32";
+        case TypeKind.U64: return "U64";
+        case TypeKind.F32: return "F32";
+        case TypeKind.F64: return "F64";
+        case TypeKind.Boolean: return "Boolean";
+        case TypeKind.Array: return "Array";
+        case TypeKind.Struct: return "Struct";
+        case TypeKind.Pointer: return "Pointer";
+        case TypeKind.Null: return "Null";
+        case TypeKind.Void: return "Void";
+        case TypeKind.Function: return "Function";
+        case TypeKind.Location: return "Location";
+        case TypeKind.Memory: return "Memory";
+        case TypeKind.Unknown: return "Unknown";
+    }
 }
 
 export type Type =
@@ -27,9 +55,12 @@ export type Type =
     BooleanType |
     ArrayType |
     StructType |
+    PointerType |
+    NullType |
     VoidType |
     FunctionType |
     LocationType |
+    MemoryType |
     UnknownType
 
 
@@ -41,10 +72,11 @@ export const enum Capabilities {
     Comparable = 1 << 4,
     Logical = 1 << 5,
     Indexable = 1 << 6,
-    Callable = 1 << 7,
-    Loadable = 1 << 8,
-    Storeable = 1 << 9,
-    Builtins = 1 << 10,
+    Pointer = 1 << 7,
+    Callable = 1 << 8,
+    Loadable = 1 << 9,
+    Storeable = 1 << 10,
+    Builtins = 1 << 11,
 }
 
 export interface I8 {
@@ -93,6 +125,7 @@ export interface BooleanType {
 
 export interface UnknownType {
     kind: TypeKind.Unknown
+    name?: string
 }
 
 export interface ArrayType {
@@ -105,6 +138,15 @@ export interface StructType {
     kind: TypeKind.Struct
     fields: Scope<Type>
     name?: string
+}
+
+export interface PointerType {
+    kind: TypeKind.Pointer
+    target: Type
+}
+
+export interface NullType {
+    kind: TypeKind.Null
 }
 
 export interface VoidType {
@@ -123,6 +165,10 @@ export interface LocationType {
     type: Type
 }
 
+export interface MemoryType {
+    kind: TypeKind.Memory
+}
+
 export const booleanType: Type = { kind: TypeKind.Boolean }
 export const voidType: Type = { kind: TypeKind.Void }
 export const i8Type: Type = { kind: TypeKind.I8 }
@@ -135,6 +181,9 @@ export const u32Type: Type = { kind: TypeKind.U32 }
 export const u64Type: Type = { kind: TypeKind.U64 }
 export const f32Type: Type = { kind: TypeKind.F32 }
 export const f64Type: Type = { kind: TypeKind.F64 }
+export const nullType: Type = { kind: TypeKind.Null }
+export const voidPointerType: Type = { kind: TypeKind.Pointer, target: voidType }
+export const memoryType: Type = { kind: TypeKind.Memory }
 
 export const globals: Scope<Type> = new Scope();
 globals.enter("Double", f64Type)
@@ -151,7 +200,7 @@ globals.enter("Uint32", u32Type)
 globals.enter("Uint64", u64Type)
 globals.enter("Int", i32Type)
 globals.enter("Void", voidType)
-
+globals.enter("memory", { kind: TypeKind.Location, type: memoryType });
 function nameTypeToString(name: string, type: Type): string {
     return `${name}: ${typeToString(type)}`
 }
@@ -167,25 +216,32 @@ export function capabilitesOf(type: Type): Capabilities {
         case TypeKind.U32:
         case TypeKind.U64:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
-                Capabilities.Bitwizeable
+                Capabilities.Bitwizeable;
         case TypeKind.F32:
         case TypeKind.F64:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
-                Capabilities.Floatable
+                Capabilities.Floatable;
         case TypeKind.Boolean:
-            return Capabilities.Logical
+            return Capabilities.Logical;
         case TypeKind.Array:
-            return Capabilities.Indexable
+            return Capabilities.Indexable;
         case TypeKind.Function:
-            return Capabilities.Callable
+            return Capabilities.Callable;
         case TypeKind.Location:
-            return Capabilities.Loadable | Capabilities.Storeable | capabilitesOf(type.type)
+            return Capabilities.Loadable | Capabilities.Storeable | capabilitesOf(type.type);
+        case TypeKind.Pointer:
+            return Capabilities.Pointer | Capabilities.Comparable | Capabilities.Loadable |
+                Capabilities.Storeable;
+        case TypeKind.Null:
+            return Capabilities.Comparable;
         case TypeKind.Struct:
-            return 0
+            return 0;
         case TypeKind.Void:
-            return 0
+            return 0;
         case TypeKind.Unknown:
-            return 0
+            return 0;
+        case TypeKind.Memory:
+            return Capabilities.Builtins;
     }
 }
 
@@ -221,8 +277,14 @@ export function typeToString(type: Type): string {
             return typeToString(type.type)
         case TypeKind.Struct:
             return type.name ?? `<${type.fields.map(nameTypeToString).join(", ")}>`
+        case TypeKind.Pointer:
+            return `${typeToString(type.target)}*`
+        case TypeKind.Null:
+            return `null`;
         case TypeKind.Void:
             return `Void`
+        case TypeKind.Memory:
+            return `Memory`
         case TypeKind.Unknown:
             return `Unknown`
     }
@@ -350,6 +412,14 @@ function conversionMethods(type: Type, scope: Scope<Type>) {
         }
         case TypeKind.Boolean:
             enter(scope, "toInt", thisP, i32Type)
+            break
+        case TypeKind.Memory:
+            enter(scope, "grow", scopeOf(
+                { name: "this", type },
+                { name: "amount", type: i32Type }
+            ), i32Type);
+            enter(scope, "top", thisP, voidPointerType);
+            enter(scope, "limit", thisP, voidPointerType)
             break
     }
 }

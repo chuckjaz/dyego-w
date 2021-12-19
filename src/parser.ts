@@ -336,6 +336,9 @@ export function parse(text: string): Tree[] {
             let result = primitiveExpression()
             while (true) {
                 switch (token) {
+                    case Token.As:
+                        result = asExpr(result)
+                        continue
                     case Token.LParen:
                         result = call(result)
                         continue
@@ -377,6 +380,14 @@ export function parse(text: string): Tree[] {
         })
     }
 
+    function asExpr(left: Tree): Tree {
+        return l<Tree>(() => {
+            expect(Token.As)
+            const right = typeExpression()
+            return { kind: NodeKind.As, left, right }
+        })
+    }
+
     function primitiveExpression(): Tree {
         return l<Tree>(() => {
             switch (token) {
@@ -395,6 +406,10 @@ export function parse(text: string): Tree[] {
                     const value = scanner.value
                     next()
                     return { kind: NodeKind.Literal, literalKind: LiteralKind.Boolean, value }
+                }
+                case Token.Null: {
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Null, value: null }
                 }
                 case Token.Identifier: {
                     const name = scanner.value as string
@@ -673,6 +688,11 @@ export function parse(text: string): Tree[] {
                         result = loc<Tree>(start, { kind: NodeKind.Select, target: result, name })
                         continue
                     }
+                    case Token.Star: {
+                        next()
+                        result = loc<Tree>(start, {kind: NodeKind.PointerCtor, target: result })
+                        continue
+                    }
                     case Token.LBrack: {
                         next()
                         if (token as any == Token.Int) {
@@ -762,6 +782,7 @@ export function parse(text: string): Tree[] {
             case Token.Type: return `type`
             case Token.True: return `true`
             case Token.False: return `false`
+            case Token.Null: return `null`
             case Token.When: return `when`
             case Token.While: return `while`
             case Token.If: return `if`
@@ -804,7 +825,7 @@ export function parse(text: string): Tree[] {
         if (token != expected) {
             if (expected != Token.EOF)
                 error(`Expected ${tokenText(expected)}`)
-            else error(`The token ${tokenText(token)} was not expected here`)
+            else error(`The token "${tokenText(token)}" was not expected here`)
         }
         const result = scanner.value
         next()

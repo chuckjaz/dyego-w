@@ -1,0 +1,49 @@
+type Node = <left: Node*, right: Node*>;
+
+var freeList: Node* = null;
+var top: Node* = memory.top() as Node*;
+
+fun newNode(left: Node*, right: Node*): Node* {
+    var node = freeList;
+    if (node != null) {
+        freeList = node.left
+    } else {
+        node = top;
+        var newTop = top + 1;
+        if (newTop >= memory.limit() as Node*) {
+            memory.grow(1);
+        }
+        top = newTop;
+    }
+    node.left = left;
+    node.right = right;
+    node;
+}
+
+export fun freeTree(tree: Node*): Void {
+    if (tree != null) {
+        freeTree(tree.left);
+        freeTree(tree.right);
+        tree.left = freeList;
+        freeList = tree;
+    }
+}
+
+export fun itemCheck(node: Node*): Int =
+    if (node.left == null) 1 else 1 + itemCheck(node.left) + itemCheck(node.right)
+
+export fun bottomUpTree(depth: Int): Node* =
+    if (depth > 0) newNode(bottomUpTree(depth - 1), bottomUpTree(depth - 1))
+    else newNode(null, null);
+
+export fun work(iterations: Int, depth: Int): Int {
+    var check = 0;
+    var i = 0;
+    while (i < iterations) {
+        var tree = bottomUpTree(depth);
+        check = check + itemCheck(tree);
+        freeTree(tree);
+        i = i + 1;
+    }
+    check;
+}

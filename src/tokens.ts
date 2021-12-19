@@ -14,6 +14,7 @@ export const enum Token {
     Export,
     Import,
     As,
+    Null,
     Loop,
     While,
     Break,
