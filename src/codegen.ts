@@ -2161,7 +2161,8 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
 
     // Allocate memory if necessary
     if (dataAllocator.size > 4) {
-        memorySection.allocate({ min: dataAllocator.size, max: 65536 })
+        const min = (dataAllocator.size + 0xFFFF) >> 16
+        memorySection.allocate({ min })
         const topValue = new ByteWriter(4)
         topValue.writeU32LittleEndian(dataAllocator.size)
         const g = gen()
