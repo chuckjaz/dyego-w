@@ -11,6 +11,10 @@ describe("parser", () => {
             p("binary-trees.dgw")
         })
 
+        it("can parse address", () => {
+            p("address.dgw")
+        })
+
         function p(name: string) {
             const text = fs.readFileSync(`examples/${name}`, 'utf-8')
             try {

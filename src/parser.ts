@@ -309,7 +309,7 @@ export function parse(text: string): Tree[] {
 
     function multiplyExpression(): Tree {
         const start = scanner.start
-        let result = simpleExpression()
+        let result = asLevelExpression()
         while (true) {
             switch (token) {
                 case Token.Star: {
@@ -330,15 +330,25 @@ export function parse(text: string): Tree[] {
         return result
     }
 
+    function asLevelExpression(): Tree {
+        const start = scanner.start
+        return l<Tree>(() => {
+            let result = simpleExpression()
+            switch (token) {
+                case Token.As:
+                    result = asExpr(result)
+                    break
+            }
+            return result
+        })
+    }
+
     function simpleExpression(): Tree {
         const start = scanner.start
         return l(() => {
             let result = primitiveExpression()
             while (true) {
                 switch (token) {
-                    case Token.As:
-                        result = asExpr(result)
-                        continue
                     case Token.LParen:
                         result = call(result)
                         continue
@@ -351,6 +361,10 @@ export function parse(text: string): Tree[] {
                         result = loc<Tree>(start, { kind: NodeKind.Select, target: result, name })
                         continue
                     }
+                    case Token.Circumflex:
+                        next()
+                        result = loc<Tree>(start, { kind: NodeKind.Dereference, target: result })
+                        continue
                 }
                 break
             }
@@ -429,6 +443,11 @@ export function parse(text: string): Tree[] {
                     next()
                     const target = primitiveExpression()
                     return { kind: NodeKind.Not, target }
+                }
+                case Token.Amp: {
+                    next()
+                    const target = simpleExpression()
+                    return { kind: NodeKind.AddressOf, target }
                 }
                 case Token.If: return ifExpr()
                 case Token.Loop: return loop()
@@ -688,7 +707,7 @@ export function parse(text: string): Tree[] {
                         result = loc<Tree>(start, { kind: NodeKind.Select, target: result, name })
                         continue
                     }
-                    case Token.Star: {
+                    case Token.Circumflex: {
                         next()
                         result = loc<Tree>(start, {kind: NodeKind.PointerCtor, target: result })
                         continue
@@ -805,11 +824,13 @@ export function parse(text: string): Tree[] {
             case Token.Comma: return `","`
             case Token.Colon: return `":"`
             case Token.Bang: return `"!"`
+            case Token.Circumflex: return `"^"`
             case Token.LBrack: return `"["`
             case Token.RBrack: return `"]"`
             case Token.Spread: return `"..."`
             case Token.Arrow: return `"->"`
             case Token.And: return `"&&"`
+            case Token.Amp: return `"&"`
             case Token.Or: return `"||"`
             case Token.EqualEqual: return `"=="`
             case Token.NotEqual: return `"!="`

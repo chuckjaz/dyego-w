@@ -154,7 +154,7 @@ export class Scanner {
                         i++
                         result = Token.And
                     } else {
-                        result = Token.Error
+                        result = Token.Amp
                     }
                     break
                 case "|":
@@ -206,6 +206,9 @@ export class Scanner {
                     } else {
                         result = Token.Bang
                     }
+                    break
+                case "^":
+                    result = Token.Circumflex
                     break
                 case "(":
                     result = Token.LParen

@@ -27,6 +27,7 @@ interface Symbol {
     call(args: Symbol[]): Symbol
     select(index: number | string): Symbol
     index(index: Symbol): Symbol
+    addressOf(): Symbol
     simplify(): Symbol
     number(): number | undefined
     tryNot(): Symbol | undefined
@@ -345,8 +346,8 @@ class GenType {
         return { type, offset, index }
     }
 
-    index(): GenType {
-        return required(this.parts.element)
+    index(location: Locatable): GenType {
+        return required(this.parts.element, location)
     }
 
     op(location: Locatable, kind: NodeKind, g: Generate) {
@@ -754,6 +755,10 @@ class LocalSymbol implements Symbol {
         unsupported(this.location)
     }
 
+    addressOf(): Symbol {
+        unsupported(this.location, "addressOf is not supported on this symbol")
+    }
+
     simplify(): Symbol { return this }
 
     tryNot(): Symbol | undefined { return undefined }
@@ -809,6 +814,10 @@ abstract class LoadonlySymbol {
 
     index(index: Symbol): Symbol {
         unsupported(this.location)
+    }
+
+    addressOf(): Symbol {
+        unsupported(this.location, "addressOf is not supported on this symbol")
     }
 
     number(): number | undefined {
@@ -1880,11 +1889,15 @@ class DataSymbol implements Symbol {
     }
 
     index(index: Symbol): Symbol {
-        const element = this.type.index()
+        const element = this.type.index(this.location)
         const size = element.size
         const sizeSymbol = new NumberConstSymbol(this.location, size)
         const offsetAddress = new ScaledOffsetSymbol(this.location, this.address, index, sizeSymbol)
         return new DataSymbol(this.location, element, offsetAddress)
+    }
+
+    addressOf(): Symbol {
+        return this.address
     }
 
     simplify(): Symbol {
@@ -2279,6 +2292,19 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 const left = treeToSymbol(tree.left, scopes)
                 const right = treeToSymbol(tree.right, scopes)
                 return new CompareSymbol(tree, left, right, tree.op)
+            }
+            case NodeKind.AddressOf: {
+                const target = treeToSymbol(tree.target, scopes)
+                return target.addressOf()
+            }
+            case NodeKind.Dereference: {
+                const targetSymbol = treeToSymbol(tree.target, scopes)
+                const targetType = typeOf(tree.target).type
+                if (targetType.kind != TypeKind.Pointer) {
+                    error("Expected a pointer type", tree.target)
+                }
+                const referencedType = typeOfType(tree.target, targetType.target)
+                return new DataSymbol(tree, referencedType, targetSymbol)
             }
             case NodeKind.BlockExpression:
                 return statementsToSymbol(tree, tree.block, scopes)

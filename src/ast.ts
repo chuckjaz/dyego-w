@@ -9,6 +9,8 @@ export const enum NodeKind {
     And,
     Or,
     As,
+    AddressOf,
+    Dereference,
     BlockExpression,
     IfThenElse,
     Loop,
@@ -51,6 +53,8 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.And: return "And"
         case NodeKind.Or: return "Or"
         case NodeKind.As: return "As"
+        case NodeKind.AddressOf: return "AddressOf"
+        case NodeKind.Dereference: return "Dereference"
         case NodeKind.BlockExpression: return "BlockExpression"
         case NodeKind.IfThenElse: return "IfThenElse"
         case NodeKind.Loop: return "Loop"
@@ -93,6 +97,8 @@ export type Tree =
     As |
     Negate |
     Not |
+    AddressOf |
+    Dereference |
     BlockExpression |
     IfThenElse |
     Loop |
@@ -171,6 +177,18 @@ export const enum CompareOp {
     Unknown,
 }
 
+export function nameOfCompareOp(op: CompareOp): string {
+    switch (op) {
+        case CompareOp.Equal: return "Equal"
+        case CompareOp.NotEqual: return "NotEqual"
+        case CompareOp.LessThan: return "LessThan"
+        case CompareOp.LessThanEqual: return "LessThanEqual"
+        case CompareOp.GreaterThan: return "GreaterThan"
+        case CompareOp.GreaterThanEqual: return "GreaterThanEqual"
+        case CompareOp.Unknown: return "Unknown"
+    }
+}
+
 export interface Compare extends Locatable {
     kind: NodeKind.Compare
     op: CompareOp
@@ -194,6 +212,16 @@ export interface As extends Locatable {
     kind: NodeKind.As
     left: Tree
     right: Tree
+}
+
+export interface AddressOf extends Locatable {
+    kind: NodeKind.AddressOf
+    target: Tree
+}
+
+export interface Dereference extends Locatable {
+    kind: NodeKind.Dereference
+    target: Tree
 }
 
 export interface BlockExpression extends Locatable {
@@ -409,6 +437,7 @@ export class Scope<T> {
     private parents: Scope<T>[]
     private entries: Map<string, T> = new Map()
     private orders: Map<string, number> = new Map()
+
     constructor(...parents: (Scope<T> | undefined)[]) {
         this.parents = parents.filter(it => it) as Scope<T>[]
     }

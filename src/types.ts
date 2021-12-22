@@ -163,6 +163,7 @@ export interface FunctionType {
 export interface LocationType {
     kind: TypeKind.Location
     type: Type
+    addressable?: boolean
 }
 
 export interface MemoryType {
@@ -278,7 +279,7 @@ export function typeToString(type: Type): string {
         case TypeKind.Struct:
             return type.name ?? `<${type.fields.map(nameTypeToString).join(", ")}>`
         case TypeKind.Pointer:
-            return `${typeToString(type.target)}*`
+            return `${typeToString(type.target)}^`
         case TypeKind.Null:
             return `null`;
         case TypeKind.Void:

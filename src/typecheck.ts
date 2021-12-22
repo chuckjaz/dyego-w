@@ -1,4 +1,4 @@
-import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse } from "./ast"
+import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse, nameOfCompareOp } from "./ast"
 import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f64Type, globals, i32Type, nameOfTypeKind, nullType, PointerType, StructType, Type, TypeKind, typeToString, UnknownType, voidType } from "./types";
 
 const builtins = new Scope<Type>(globals)
@@ -9,10 +9,11 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
     const scanned = new Set<Type>()
     const moduleScope = new Scope(builtins, scope)
 
-    typeCheckStatements(program, moduleScope)
+    typeCheckStatements(program, moduleScope, true)
     return result;
 
     function bind(node: Tree, type: Type) {
+        required(result.get(node) === undefined)
         result.set(node, type)
         if (type.kind == TypeKind.Unknown) {
             addFixup(type, final => result.set(node, final))
@@ -70,10 +71,10 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         }
     }
 
-    function typeCheckStatements(trees: Tree[], scope: Scope<Type>): Type {
+    function typeCheckStatements(trees: Tree[], scope: Scope<Type>, topLevel: boolean = false): Type {
         let lastType = voidType
         for (const tree of trees) {
-            lastType = typeCheckStatement(tree, scope)
+            lastType = typeCheckStatement(tree, scope, topLevel)
         }
         return lastType
     }
@@ -87,7 +88,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         scope.renter(name, type)
     }
 
-    function typeCheckStatement(tree: Tree, scope: Scope<Type>): Type {
+    function typeCheckStatement(tree: Tree, scope: Scope<Type>, topLevel: boolean = false): Type {
         switch (tree.kind) {
             case NodeKind.Let: {
                 const exprType = read(typeCheckExpr(tree.value, scope))
@@ -108,7 +109,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                     }
                 }
                 mustMatch(tree.value, exprType, type)
-                var treeType: Type = { kind: TypeKind.Location, type }
+                var treeType: Type = { kind: TypeKind.Location, type, addressable: topLevel }
                 enter(tree, tree.name, treeType, scope)
                 bind(tree, treeType)
                 return voidType
@@ -162,21 +163,26 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         if ((capabilitesOf(type) & required) != required) {
             let name = "operator";
             switch (node.kind) {
-                case NodeKind.Add: name = ` "+"`; break;
-                case NodeKind.Subtract: name = ` "-"`; break;
-                case NodeKind.Multiply: name = ` "*"`; break;
-                case NodeKind.Divide: name = ` "/"`; break;
-                case NodeKind.And: name = ` "&&"`; break;
-                case NodeKind.Or: name = ` "||"`; break;
+                case NodeKind.Add: name = `"+"`; break;
+                case NodeKind.Subtract: name = `"-"`; break;
+                case NodeKind.Multiply: name = `"*"`; break;
+                case NodeKind.Divide: name = `"/"`; break;
+                case NodeKind.And: name = `"&&"`; break;
+                case NodeKind.Or: name = `"||"`; break;
+                case NodeKind.Index: name = `"[]"`; break;
+                case NodeKind.AddressOf: name = `"&"`; break;
+                case NodeKind.Dereference: name = `"^"`; break;
                 case NodeKind.Compare:
                     switch (node.op) {
-                        case CompareOp.Equal: name = ` "=="`; break;
-                        case CompareOp.GreaterThan: name = ` ">"`; break;
-                        case CompareOp.GreaterThanEqual: name = ` ">="`; break;
-                        case CompareOp.LessThan: name = ` "<"`; break;
-                        case CompareOp.LessThanEqual: name = ` "<="`; break;
-                        case CompareOp.NotEqual: name = ` "!="`; break;
+                        case CompareOp.Equal: name = `"=="`; break;
+                        case CompareOp.GreaterThan: name = `">"`; break;
+                        case CompareOp.GreaterThanEqual: name = `">="`; break;
+                        case CompareOp.LessThan: name = `"<"`; break;
+                        case CompareOp.LessThanEqual: name = `"<="`; break;
+                        case CompareOp.NotEqual: name = `"!="`; break;
+                        default: name = nameOfCompareOp(node.op)
                     }
+                default: name = nameOfNodeKind(node.kind)
             }
             error(node, `Operator ${name} not support for type ${typeToString(type)}`);
         }
@@ -227,6 +233,30 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         const type = typeCheckExpr(target, scope);
         requireCapability(type, capabilities, node);
         return result ?? type;
+    }
+
+    function dereference(
+        node: Tree,
+        target: Tree,
+        scope: Scope<Type>
+    ): Type {
+        const type = read(typeCheckExpr(target, scope));
+        if (type.kind == TypeKind.Pointer) {
+            return { kind: TypeKind.Location, type: type.target }
+        }
+        error(node, "Expected a pointer type")
+    }
+
+    function addressOf(
+        node: Tree,
+        target: Tree,
+        scope: Scope<Type>
+    ): Type {
+        const type = typeCheckExpr(target, scope)
+        if (type.kind == TypeKind.Location && type.addressable) {
+            return { kind: TypeKind.Pointer, target: type }
+        }
+        error(node, "The value does not have an address")
     }
 
     function validateConst(tree: Tree, scope: Scope<Type>) {
@@ -284,6 +314,12 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
                 break
             case NodeKind.Not:
                 type = unary(tree, tree.target, Capabilities.Logical, scope)
+                break
+            case NodeKind.AddressOf:
+                type = addressOf(tree, tree.target, scope)
+                break
+            case NodeKind.Dereference:
+                type = dereference(tree, tree.target, scope)
                 break
             case NodeKind.Compare:
                 type = binary(tree, tree.left, tree.right, Capabilities.Comparable, scope, booleanType)
@@ -453,7 +489,7 @@ export function typeCheck(scope: Scope<Type>, program: Tree[]): Map<Tree, Type> 
         const array = expectArray(targetType, tree)
         const elementType = array.elements
         if (targetType.kind == TypeKind.Location)
-            return { kind: TypeKind.Location, type: elementType }
+            return { kind: TypeKind.Location, type: elementType, addressable: targetType.addressable }
         return elementType
     }
 
