@@ -9,8 +9,13 @@ describe("typecheck", () => {
         it("can type check n-body", () => {
             tcf("n-body.dgw")
         })
+
         it("can type check binary-trees", () => {
             tcf("binary-trees.dgw")
+        })
+
+        it("can type check address.dgw", () => {
+            tcf("address.dgw")
         })
     })
 

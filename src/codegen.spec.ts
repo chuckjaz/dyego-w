@@ -102,6 +102,20 @@ describe("codegen", () => {
                 work(1, 10);
             })
         })
+        it("can run the address example", () => {
+            cgf("address.dgw", ({test1, test2, test3}) => {
+                expect(test1()).toEqual(1 + 2 + 3 + 4 + 5 + 6)
+                expect(test2()).toEqual(4 + 5 + 6)
+                expect(test3()).toEqual(
+                    1 + 2 + 3 + 4 + 5 + 6 + 
+                        2 + 3 + 4 + 5 + 6 +
+                            3 + 4 + 5 + 6 +
+                                4 + 5 + 6 +
+                                    5 + 6 +
+                                        6
+                )
+            })
+        })
     })
 })
 
