@@ -1,5 +1,5 @@
-import { BlockExpression, Break, BreakIndexed, childrenOf, ImportFunction, LiteralInt, LiteralKind,Locatable,NodeKind, Parameter, Scope, StructField, Subtract, SwitchCase, Tree } from "../ast";
-import { i32Type, Type, voidType } from "../types";
+import { BlockExpression, Break, BreakIndexed, childrenOf, ImportFunction, LiteralInt, LiteralKind,Locatable,NodeKind, Parameter, Scope, StructField, Subtract, SwitchCase, Tree } from "./ast";
+import { i32Type, Type, voidType } from "./types";
 
 export function lowerSwitch(program: Tree[], types: Map<Tree, Type>): { program: Tree[], types: Map<Tree, Type> } {
     const lets = new Scope<Tree>()
@@ -50,10 +50,10 @@ function switchLowering(tree: Tree, context: TransformContext): Tree {
                 const name = unique("switch")
                 target = { kind: NodeKind.Reference, name }
                 prefix.push(
-                    record({ 
-                        kind: NodeKind.Assign, 
+                    record({
+                        kind: NodeKind.Assign,
                         target,
-                        value: switchStmt.target 
+                        value: switchStmt.target
                     })
                 )
             }
@@ -223,20 +223,20 @@ function copy<T extends Tree>(tree: T, newChildren: Tree[]): T {
     switch (tree.kind) {
         case NodeKind.Add:
         case NodeKind.Subtract:
-        case NodeKind.Multiply: 
+        case NodeKind.Multiply:
         case NodeKind.Divide:
         case NodeKind.Compare:
-        case NodeKind.And: 
-        case NodeKind.Or: 
+        case NodeKind.And:
+        case NodeKind.Or:
         case NodeKind.As:
             return {
                 ...tree,
                 left: newChildren[0],
                 right: newChildren[1]
             }
-        case NodeKind.Negate: 
-        case NodeKind.Not: 
-        case NodeKind.AddressOf: 
+        case NodeKind.Negate:
+        case NodeKind.Not:
+        case NodeKind.AddressOf:
         case NodeKind.Dereference:
             return {
                 ...tree,
@@ -274,7 +274,7 @@ function copy<T extends Tree>(tree: T, newChildren: Tree[]): T {
             }
         }
         case NodeKind.Break:
-        case NodeKind.BreakIndexed: 
+        case NodeKind.BreakIndexed:
         case NodeKind.Continue:
             return { ...tree }
         case NodeKind.Return:
@@ -310,13 +310,13 @@ function copy<T extends Tree>(tree: T, newChildren: Tree[]): T {
         case NodeKind.Parameter:
             return { ...tree, type: newChildren[0] }
         case NodeKind.Call:
-            return { 
-                ...tree, 
+            return {
+                ...tree,
                 target: newChildren[0],
                 arguments: newChildren.slice(1)
             }
         case NodeKind.Let:
-        case NodeKind.Var: 
+        case NodeKind.Var:
             return {
                 ...tree,
                 type: tree.type ? newChildren[0] : undefined,
