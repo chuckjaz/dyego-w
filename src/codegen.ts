@@ -9,7 +9,7 @@ import { ExportKind, ExportSection } from "./wasm/exportsection";
 import { FunctionSection } from "./wasm/functionSection";
 import { GlobalSection } from "./wasm/globalsection";
 import { ImportSection } from "./wasm/importSection";
-import { lowerSwitch } from "./wasm/lower";
+import { lowerSwitch } from "./lower";
 import { MemorySection } from "./wasm/memorySection";
 import { Module } from "./wasm/module";
 import { Section } from "./wasm/section";
