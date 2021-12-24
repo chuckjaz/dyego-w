@@ -21,6 +21,9 @@ export function parse(text: string): Tree[] {
 
     function next() {
         token = scanner.next()
+        if (token == Token.Error) {
+            error("Invalid token")
+        }
     }
 
     function program(): Tree[] {
@@ -95,8 +98,8 @@ export function parse(text: string): Tree[] {
         while (token != Token.EOF) {
             switch(token) {
                 case Token.Identifier:
-                case Token.Int:
-                case Token.Double:
+                case Token.Int32:
+                case Token.Float64:
                 case Token.True:
                 case Token.False:
                 case Token.Dash:
@@ -407,15 +410,55 @@ export function parse(text: string): Tree[] {
     function primitiveExpression(): Tree {
         return l<Tree>(() => {
             switch (token) {
-                case Token.Int: {
+                case Token.Int8: {
                     const value = scanner.value
                     next()
-                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Int, value }
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Int8, value }
                 }
-                case Token.Double: {
+                case Token.Int16: {
                     const value = scanner.value
                     next()
-                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Double, value }
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Int16, value }
+                }
+                case Token.Int32: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Int32, value }
+                }
+                case Token.Int64: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Int64, value }
+                }
+                case Token.UInt8: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.UInt8, value }
+                }
+                case Token.UInt16: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.UInt16, value }
+                }
+                case Token.UInt32: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.UInt32, value }
+                }
+                case Token.UInt64: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.UInt64, value }
+                }
+                case Token.Float32: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Float32, value }
+                }
+                case Token.Float64: {
+                    const value = scanner.value
+                    next()
+                    return { kind: NodeKind.Literal, literalKind: LiteralKind.Float64, value }
                 }
                 case Token.True:
                 case Token.False: {
@@ -493,8 +536,8 @@ export function parse(text: string): Tree[] {
                     let value: Tree | undefined = undefined
                     switch (token as any) {
                         case Token.Identifier:
-                        case Token.Int:
-                        case Token.Double:
+                        case Token.Int32:
+                        case Token.Float64:
                         case Token.True:
                         case Token.False:
                         case Token.Dash:
@@ -803,7 +846,7 @@ export function parse(text: string): Tree[] {
                     }
                     case Token.LBrack: {
                         next()
-                        if (token as any == Token.Int) {
+                        if (token as any == Token.Int32) {
                             const size = scanner.value as number
                             expect(Token.RBrack)
                             result = loc<Tree>(start, { kind: NodeKind.ArrayCtor, element: result, size })
@@ -916,8 +959,16 @@ export function parse(text: string): Tree[] {
             case Token.Break: return `break`
             case Token.Continue: return `continue`
             case Token.Return: return `return`
-            case Token.Int: return `an int`
-            case Token.Double: return `a double`
+            case Token.Int8: return `an Int8 litearl`
+            case Token.Int16: return `an Int16 literal`
+            case Token.Int32: return `an Int32 literal`
+            case Token.Int64: return `an int64 literal`
+            case Token.UInt8: return `an UInt8 litearl`
+            case Token.UInt16: return `an UInt16 literal`
+            case Token.UInt32: return `an UInt32 literal`
+            case Token.UInt64: return `an Uint64 literal`
+            case Token.Float32: return `a Float32 literal`
+            case Token.Float64: return `a Float64 literal`
             case Token.Plus: return `"+"`
             case Token.RBrace: return `"}"`
             case Token.RParen: return `")"`
