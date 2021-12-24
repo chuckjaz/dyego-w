@@ -289,36 +289,108 @@ export interface Return extends Locatable {
 }
 
 export const enum LiteralKind {
-    Int,
-    Double,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    Float32,
+    Float64,
     Boolean,
     Null,
 }
 
 export function nameOfLiteralKind(kind: LiteralKind): string {
     switch (kind) {
+        case LiteralKind.Int8: return "Int8";
+        case LiteralKind.Int16: return "Int16";
+        case LiteralKind.Int32: return "Int32";
+        case LiteralKind.Int64: return "Int64";
+        case LiteralKind.UInt8: return "UInt8";
+        case LiteralKind.UInt16: return "UInt16";
+        case LiteralKind.UInt32: return "UInt32";
+        case LiteralKind.UInt64: return "UInt64";
+        case LiteralKind.Float32: return "Float32";
+        case LiteralKind.Float64: return "Float64";
         case LiteralKind.Boolean: return "Boolean";
-        case LiteralKind.Int: return "Int";
-        case LiteralKind.Double: return "Double";
         case LiteralKind.Null: return "Null";
     }
 }
 
 export type Literal =
-    LiteralInt |
-    LiteralDouble |
+    LiteralInt8 |
+    LiteralInt16 |
+    LiteralInt32 |
+    LiteralInt64 |
+    LiteralUInt8 |
+    LiteralUInt16 |
+    LiteralUInt32 |
+    LiteralUInt64 |
+    LiteralFloat32 |
+    LiteralFloat64 |
     LiteralBoolean |
     LiteralNull
 
-export interface LiteralInt extends Locatable {
+export interface LiteralInt8 extends Locatable {
     kind: NodeKind.Literal
-    literalKind: LiteralKind.Int
+    literalKind: LiteralKind.Int8
     value: number
 }
 
-export interface LiteralDouble extends Locatable {
+export interface LiteralInt16 extends Locatable {
     kind: NodeKind.Literal
-    literalKind: LiteralKind.Double
+    literalKind: LiteralKind.Int16
+    value: number
+}
+
+export interface LiteralInt32 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.Int32
+    value: number
+}
+
+export interface LiteralInt64 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.Int64
+    value: bigint
+}
+
+export interface LiteralUInt8 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.UInt8
+    value: number
+}
+
+export interface LiteralUInt16 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.UInt16
+    value: number
+}
+
+export interface LiteralUInt32 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.UInt32
+    value: number
+}
+
+export interface LiteralUInt64 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.UInt64
+    value: bigint
+}
+
+export interface LiteralFloat32 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.Float32
+    value: number
+}
+
+export interface LiteralFloat64 extends Locatable {
+    kind: NodeKind.Literal
+    literalKind: LiteralKind.Float64
     value: number
 }
 

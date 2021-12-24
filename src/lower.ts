@@ -1,4 +1,4 @@
-import { BlockExpression, Break, BreakIndexed, childrenOf, ImportFunction, LiteralInt, LiteralKind,Locatable,NodeKind, Parameter, Scope, StructField, Subtract, SwitchCase, Tree } from "./ast";
+import { BlockExpression, Break, BreakIndexed, childrenOf, ImportFunction, LiteralInt32, LiteralKind,Locatable,NodeKind, Parameter, Scope, StructField, Subtract, SwitchCase, Tree } from "./ast";
 import { i32Type, Type, voidType } from "./types";
 
 export function lowerSwitch(program: Tree[], types: Map<Tree, Type>): { program: Tree[], types: Map<Tree, Type> } {
@@ -110,9 +110,9 @@ function switchLowering(tree: Tree, context: TransformContext): Tree {
                     const expression = record<Subtract>({
                         kind: NodeKind.Subtract,
                         left: target,
-                        right: record<LiteralInt>({
+                        right: record<LiteralInt32>({
                             kind: NodeKind.Literal,
-                            literalKind: LiteralKind.Int,
+                            literalKind: LiteralKind.Int32,
                             value: first
                         }, i32Type)
                     }, i32Type)
@@ -204,7 +204,7 @@ function foldNumber(tree: Tree, context: TransformContext): number {
                 return fold(value)
             }
             case NodeKind.Literal:
-                if (tree.literalKind == LiteralKind.Int)
+                if (tree.literalKind == LiteralKind.Int32)
                     return tree.value
             default:
                 error(tree, "Expected a constant expression")

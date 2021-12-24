@@ -1,5 +1,5 @@
 import { ArrayLit, Assign, Call, CompareOp, Index, Function, Let, LiteralKind, Locatable, Loop, NodeKind, Scope, Select, StructLit, Tree, Var, IfThenElse, nameOfNodeKind } from "./ast";
-import { booleanType, f64Type, i32Type, memoryType, Type, TypeKind, typeToString, voidPointerType, voidType } from "./types";
+import { booleanType, f64Type, i32Type, i64Type, memoryType, Type, TypeKind, typeToString, voidPointerType, voidType } from "./types";
 import { ByteWriter } from "./wasm/bytewriter";
 import { Generate, gen, Label, label } from "./wasm/codeblock";
 import { CodeSection } from "./wasm/codesection";
@@ -432,7 +432,7 @@ class GenType {
                     case TypeKind.U16:
                     case TypeKind.U32:
                         g.inst(Inst.i32_div_u)
-                        break
+                        return
                     case TypeKind.I64:
                         g.inst(Inst.i64_div_s)
                         return
@@ -488,6 +488,38 @@ class GenType {
             // Nothing to drop
         } else {
             unsupported(location)
+        }
+    }
+
+    needsClamp(): boolean {
+        switch(this.type.kind) {
+            case TypeKind.I8:
+            case TypeKind.I16:
+            case TypeKind.U8:
+            case TypeKind.U16:
+                return true
+        }
+        return false
+    }
+
+    clamp(location: Locatable, g: Generate) {
+        switch (this.type.kind) {
+            case TypeKind.I8:
+                g.inst(Inst.i32_extend8_s)
+                break
+            case TypeKind.I16:
+                g.inst(Inst.i32_extend16_s)
+                break
+            case TypeKind.U8:
+                g.inst(Inst.i32_const)
+                g.snumber(0xFFn)
+                g.inst(Inst.i32_and)
+                break
+            case TypeKind.U16:
+                g.inst(Inst.i32_const)
+                g.snumber(0xFFFFn)
+                g.inst(Inst.i32_and)
+                break
         }
     }
 
@@ -774,7 +806,6 @@ class LocalSymbol implements Symbol {
 }
 
 const i32GenType = genTypeOf(undefined, i32Type)
-const f64GenType = genTypeOf(undefined, f64Type)
 const voidGenType = genTypeOf(undefined, voidType)
 const voidPointerGenType = genTypeOf(undefined, voidPointerType)
 const booleanGenType = genTypeOf(undefined, booleanType)
@@ -848,21 +879,50 @@ class EmptySymbol extends LoadonlySymbol implements Symbol {
     }
 }
 
+class ClampSymbol extends LoadonlySymbol implements Symbol {
+    location: Locatable
+    type: GenType
+    target: Symbol
+
+    constructor(location: Locatable, target: Symbol) {
+        super(location)
+        this.location = location
+        this.type = target.type
+        this.target = target
+    }
+
+    load(g: Generate): void {
+        this.target.load(g)
+        this.type.clamp(this.location, g)
+    }
+
+    simplify(): Symbol {
+        if (!this.type.needsClamp()) return this.target
+        return this
+    }
+}
+
 const emptySymbol = new EmptySymbol(undefined)
 
 class NumberConstSymbol extends LoadonlySymbol implements Symbol {
-    type = i32GenType
+    type: GenType
     value: number
 
-    constructor(location: Locatable | undefined, value: number) {
+    constructor(location: Locatable | undefined, type: GenType, value: number) {
         super(location)
         this.location = location
+        this.type = type
         this.value = value
     }
 
     load(g: Generate): void {
         g.inst(Inst.i32_const)
-        g.index(this.value)
+        let value = this.value
+        if (value > 0x7FFFFFFF) {
+            // U32 values > 2^31-1 are written as negative numbers with the same bit pattern
+            value = value | 0
+        }
+        g.snumber(BigInt(value))
     }
 
     simplify(): Symbol {
@@ -874,7 +934,7 @@ class NumberConstSymbol extends LoadonlySymbol implements Symbol {
     }
 
     tryNot(): Symbol {
-        return new NumberConstSymbol(this.location, this.value === 0 ? 1 : 0)
+        return new NumberConstSymbol(this.location, this.type, this.value === 0 ? 1 : 0)
     }
 
     initMemory(bytes: ByteWriter): boolean {
@@ -882,13 +942,37 @@ class NumberConstSymbol extends LoadonlySymbol implements Symbol {
     }
 }
 
+class BigIntConstSymbol extends LoadonlySymbol implements Symbol {
+    type: GenType
+    value: bigint
+
+    constructor(location: Locatable | undefined, type: GenType,  value: bigint) {
+        super(location)
+        this.type = type
+        this.location = location
+        this.value = value
+    }
+
+    load(g: Generate): void {
+        g.inst(Inst.i64_const)
+        g.snumber(this.value)
+    }
+
+    simplify(): Symbol { return this }
+
+    initMemory(bytes: ByteWriter): boolean {
+        return this.type.writeValue(bytes, this.value)
+    }
+}
+
 class DoubleConstSymbol extends LoadonlySymbol implements Symbol {
-    type = f64GenType
+    type: GenType
     value: number
 
-    constructor(location: Locatable, value: number) {
+    constructor(location: Locatable, type: GenType, value: number) {
         super(location)
         this.location = location
+        this.type = type
         this.value = value
     }
 
@@ -986,7 +1070,7 @@ class ArrayLiteralSymbol extends LoadonlySymbol implements Symbol {
         const elements = this.elements
         const len = elements.length
         for (let i = 0; i < len; i++) {
-            const addr = symbol.index(new NumberConstSymbol(this.location, i)).simplify()
+            const addr = symbol.index(new NumberConstSymbol(this.location, i32GenType, i)).simplify()
             elements[i].storeTo(addr, g)
         }
     }
@@ -1069,9 +1153,9 @@ class UnaryOpSymbol extends LoadonlySymbol implements Symbol {
                     switch (this.type.type.kind) {
                         case TypeKind.F64:
                         case TypeKind.F32:
-                            return new DoubleConstSymbol(this.location, -num)
+                            return new DoubleConstSymbol(this.location, this.type, -num)
                     }
-                    return new NumberConstSymbol(this.location, -num)
+                    return new NumberConstSymbol(this.location, this.type, -num)
                 }
                 break
 
@@ -1156,9 +1240,9 @@ class OpSymbol extends LoadonlySymbol implements Symbol {
             switch (type.type.kind) {
                 case TypeKind.F64:
                 case TypeKind.F32:
-                    return new DoubleConstSymbol(this.location, result)
+                    return new DoubleConstSymbol(this.location, this.type, result)
             }
-            return new NumberConstSymbol(this.location, result)
+            return new NumberConstSymbol(this.location, this.type, result)
         }
         if (leftNumber === 0 || rightNumber === 0) {
             switch (this.op) {
@@ -1474,8 +1558,8 @@ function builtinSymbolFor(location: Locatable, type: Type, result: GenType, name
     return new BuiltinsSymbol(location, result, inst, target)
 }
 
-const trueSymbol = new NumberConstSymbol(undefined, 1)
-const falseSymbol = new NumberConstSymbol(undefined, 0)
+const trueSymbol = new NumberConstSymbol(undefined, booleanGenType, 1)
+const falseSymbol = new NumberConstSymbol(undefined, booleanGenType, 0)
 
 class CompareSymbol extends LoadonlySymbol implements Symbol {
     location: Locatable
@@ -1602,6 +1686,9 @@ class ReturnSymbol extends LoadonlySymbol implements Symbol {
     constructor(location: Locatable, expr?: Symbol) {
         super(location)
         this.location = location
+        if (expr && expr.type.needsClamp()) {
+            expr = new ClampSymbol(location, expr)
+        }
         this.expr = expr
     }
 
@@ -1855,10 +1942,15 @@ class ScaledOffsetSymbol extends LoadonlySymbol implements Symbol {
         const iNumber = i.number()
         const scaleNumber = scale.number()
         if (baseNumber !== undefined && iNumber !== undefined && scaleNumber != undefined) {
-            return new NumberConstSymbol(this.location, baseNumber + scaleNumber * iNumber)
+            return new NumberConstSymbol(this.location, i32GenType, baseNumber + scaleNumber * iNumber)
         }
         if (iNumber !== undefined && scaleNumber != undefined) {
-            return new OpSymbol(this.location, i32GenType, this.base, new NumberConstSymbol(this.location, scaleNumber * iNumber), NodeKind.Add)
+            return new OpSymbol(
+                this.location, i32GenType,
+                this.base,
+                new NumberConstSymbol(this.location, i32GenType, scaleNumber * iNumber),
+                NodeKind.Add
+            )
         }
         if (this.base === base && this.i === i && this.scale === scale)
             return this
@@ -1866,7 +1958,7 @@ class ScaledOffsetSymbol extends LoadonlySymbol implements Symbol {
     }
 }
 
-const zeroSymbol = new NumberConstSymbol(undefined, 0)
+const zeroSymbol = new NumberConstSymbol(undefined, i32GenType, 0)
 
 class DataSymbol implements Symbol {
     location: Locatable
@@ -1917,14 +2009,20 @@ class DataSymbol implements Symbol {
 
     select(index: number): Symbol {
         const {type, offset} = this.type.select(this.location, index)
-        const offsetAddress = new OpSymbol(this.location, i32GenType, this.address, new NumberConstSymbol(this.location, offset), NodeKind.Add)
+        const offsetAddress = new OpSymbol(
+            this.location,
+            i32GenType,
+            this.address,
+            new NumberConstSymbol(this.location, i32GenType, offset),
+            NodeKind.Add
+        )
         return new DataSymbol(this.location, type, offsetAddress)
     }
 
     index(index: Symbol): Symbol {
         const element = this.type.index(this.location)
         const size = element.size
-        const sizeSymbol = new NumberConstSymbol(this.location, size)
+        const sizeSymbol = new NumberConstSymbol(this.location, i32GenType, size)
         const offsetAddress = new ScaledOffsetSymbol(this.location, this.address, index, sizeSymbol)
         return new DataSymbol(this.location, element, offsetAddress)
     }
@@ -2062,7 +2160,11 @@ class DataAllocator implements SymbolAllocator {
         const size = type.size
         const address = this.offset + this.current
         this.current += size
-        const symbol = new DataSymbol(location, type, new NumberConstSymbol(location, address))
+        const symbol = new DataSymbol(
+            location,
+            type,
+            new NumberConstSymbol(location, i32GenType, address)
+        )
         if (init) {
             const simplifiedInit = init.simplify()
             const initBytes = new ByteWriter(size)
@@ -2301,7 +2403,12 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
                 if (tcType.kind == TypeKind.Pointer) {
                     const pointerTarget = tcType.target
                     const pointerGenType = typeOfType(tree, pointerTarget)
-                    right = new OpSymbol(tree, i32GenType, right, new NumberConstSymbol(tree, pointerGenType.size), NodeKind.Multiply)
+                    right = new OpSymbol(
+                        tree, i32GenType,
+                        right,
+                        new NumberConstSymbol(tree, i32GenType, pointerGenType.size),
+                        NodeKind.Multiply
+                    )
                 }
                 return new OpSymbol(tree, type, left, right, tree.kind)
             }
@@ -2377,10 +2484,19 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
             }
             case NodeKind.Literal:
                 switch (tree.literalKind) {
-                    case LiteralKind.Int:
-                        return new NumberConstSymbol(tree, tree.value)
-                    case LiteralKind.Double:
-                        return new DoubleConstSymbol(tree, tree.value)
+                    case LiteralKind.Int8:
+                    case LiteralKind.Int16:
+                    case LiteralKind.Int32:
+                    case LiteralKind.UInt8:
+                    case LiteralKind.UInt16:
+                    case LiteralKind.UInt32:
+                        return new NumberConstSymbol(tree, typeOf(tree), tree.value)
+                    case LiteralKind.Int64:
+                    case LiteralKind.UInt64:
+                        return new BigIntConstSymbol(tree, typeOf(tree), tree.value)
+                    case LiteralKind.Float32:
+                    case LiteralKind.Float64:
+                        return new DoubleConstSymbol(tree, typeOf(tree), tree.value)
                     case LiteralKind.Null:
                         return zeroSymbol
                 }
@@ -2505,7 +2621,10 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
             scopes.symbols.enter(functionName, funcSymbol)
 
         // Generate the body
-        const body = statementsToBodySymbol(resultType, tree.body, functionScopes).simplify()
+        let body = statementsToBodySymbol(resultType, tree.body, functionScopes).simplify()
+        if (body.type.needsClamp()) {
+            body = new ClampSymbol(tree, body)
+        }
         body.load(g)
         g.inst(Inst.End)
         const bytes = new ByteWriter()

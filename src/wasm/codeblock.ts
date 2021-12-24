@@ -16,6 +16,7 @@ export interface Generate {
 
     index(index: number): void;
     number(value: bigint): void;
+    snumber(value: bigint): void;
     float32(value: number): void;
     float64(value: number): void
     memarg(align: number, offset: number): void;
@@ -138,6 +139,10 @@ class BasicBlock extends LocalsDelegate {
 
     number(value: bigint): void {
         this.block.write128u(value);
+    }
+
+    snumber(value: bigint): void {
+        this.block.write128s(value);
     }
 
     float32(value: number): void {
@@ -320,6 +325,10 @@ class GenerateImpl extends LocalsDelegate implements Generate {
 
     number(value: bigint): void {
         this.current.number(value);
+    }
+
+    snumber(value: bigint): void {
+        this.current.snumber(value)
     }
 
     float32(value: number): void {

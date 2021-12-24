@@ -27,7 +27,7 @@ export class Scanner {
             const c = text[i]
             this.start = i++
             switch (c) {
-                case "\0": 
+                case "\0":
                     i--
                     break loop
                 case " ": case "\t": case "\n": case "\r":
@@ -69,11 +69,11 @@ export class Scanner {
                         switch (ident) {
                             case "let": result = Token.Let; break
                             case "fun": result = Token.Fun; break
-                            case "true": 
+                            case "true":
                                 result = Token.True
                                 this.value = true
                                 break
-                            case "false": 
+                            case "false":
                                 result = Token.False
                                 this.value = false
                                 break
@@ -101,6 +101,22 @@ export class Scanner {
                     }
                     break
                 }
+                case "-":
+                    result = Token.Dash
+                    switch (text[i]) {
+                        case ">":
+                            i++
+                            result = Token.Arrow
+                            break
+                        case "0": case "1": case "2": case "3": case "4":
+                        case "5": case "6": case "7": case "8": case "9":
+                            result = Token.Int32
+                            break
+                    }
+                    if (result != Token.Int32) break
+
+                    // Intentional fallthrough
+
                 case "0": case "1": case "2": case "3": case "4":
                 case "5": case "6": case "7": case "8": case "9": {
                     let isInt = true;
@@ -116,14 +132,80 @@ export class Scanner {
                         }
                         break
                     }
-                    if (isInt) {
-                        result = Token.Int
-                        this.value = parseInt(text.substring(this.start, i))
-                    } else {
-                        result = Token.Double
-                        this.value = parseFloat(text.substring(this.start, i))
+                    let isUnsigned = false
+                    let size = Token.Int32
+                    let floatSize = Token.Float64
+                    const last = i
+                    switch (text[i]) {
+                        case "u":
+                            i++
+                            isUnsigned = true
+                            break
                     }
-                    break                
+                    switch (text[i]) {
+                        case "t": i++; size = Token.Int8; break
+                        case "s": i++; size = Token.Int16; break
+                        case "l": i++; size = Token.Int64; break
+                        case "f": i++; isInt = false; floatSize = Token.Float32; break
+                        case "d": i++; isInt = false; break
+                    }
+                    if (isInt) {
+                        result = isUnsigned ? size + 4 : size
+                        if (size == Token.Int64) {
+                            this.value = BigInt(text.substring(this.start, last))
+                            if (isUnsigned && this.value < 0n) {
+                                result = Token.Error
+                                break loop
+                            }
+                        } else {
+                            let value = parseInt(text.substring(this.start, last))
+                            if (isUnsigned && value < 0) {
+                                result = Token.Error
+                                break loop
+                            }
+                            const originalValue = value
+                            switch (result) {
+                                case Token.Int8:
+                                    if (value >= 0) value = value & 0x7F
+                                    else value = -(-value & 0xFF)
+                                    break
+                                case Token.Int16:
+                                    if (value >= 0) value = value & 0x7FFF
+                                    else value = -(-value & 0xFFFF)
+                                    break
+                                case Token.Int32:
+                                    if (value > 0x7FFFFFFF || value < -0x80000000) {
+                                        result = Token.Error
+                                        break loop
+                                    }
+                                    break
+                                case Token.UInt8:
+                                    value = value & 0xFF
+                                    break
+                                case Token.UInt16:
+                                    value = value & 0xFFFF
+                                    break
+                                case Token.UInt32:
+                                    if (value < 0 || value > 0xFFFFFFFF) {
+                                        result = Token.Error
+                                        break loop
+                                    }
+                                    break
+                            }
+                            if (value != originalValue) {
+                                result = Token.Error
+                            }
+                            this.value = value
+                        }
+                    } else {
+                        result = floatSize
+                        this.value = parseFloat(text.substring(this.start, last))
+                        if (isUnsigned) {
+                            result = Token.Error
+                            break loop
+                        }
+                    }
+                    break
                 }
                 case "`": {
                     result = Token.Identifier
@@ -176,14 +258,6 @@ export class Scanner {
                     break
                 case "+":
                     result = Token.Plus
-                    break
-                case "-":
-                    if (text[i] == ">") {
-                        i++
-                        result = Token.Arrow
-                    } else {
-                        result = Token.Dash
-                    }
                     break
                 case "*":
                     result = Token.Star

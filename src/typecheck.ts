@@ -1,5 +1,5 @@
 import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse, nameOfCompareOp, BreakIndexed, Switch, SwitchCase } from "./ast"
-import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f64Type, globals, i32Type, nameOfTypeKind, nullType, PointerType, StructType, Type, TypeKind, typeToString, UnknownType, voidType } from "./types";
+import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f32Type, f64Type, globals, i16Type, i32Type, i64Type, i8Type, nameOfTypeKind, nullType, PointerType, StructType, Type, TypeKind, typeToString, u16Type, u32Type, u64Type, u8Type, UnknownType, voidType } from "./types";
 
 const builtins = new Scope<Type>(globals)
 
@@ -378,20 +378,7 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
                 type = returnStatement(tree, scopes)
                 break
             case NodeKind.Literal:
-                switch (tree.literalKind) {
-                    case LiteralKind.Boolean:
-                        type = booleanType
-                        break
-                    case LiteralKind.Double:
-                        type = f64Type
-                        break
-                    case LiteralKind.Int:
-                        type = i32Type
-                        break
-                    case LiteralKind.Null:
-                        type = nullType
-                        break
-                }
+                type = literalType(tree.literalKind)
                 break
             case NodeKind.Function:
                 type = func(tree, scopes)
@@ -514,8 +501,10 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
 
     function index(tree: Index, scopes: Scopes): Type {
         const targetType = typeCheckExpr(tree.target, scopes)
+        const indexType = typeCheckExpr(tree.index, scopes)
         requireCapability(targetType, Capabilities.Indexable, tree)
         const array = expectArray(targetType, tree)
+        mustMatch(tree, indexType, i32Type)
         const elementType = array.elements
         if (targetType.kind == TypeKind.Location)
             return { kind: TypeKind.Location, type: elementType, addressable: targetType.addressable }
@@ -821,6 +810,23 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
             error(location, `Expected type ${typeToString(type)} be a pointer was ${nameOfTypeKind(type.kind)}`)
         }
         return type
+    }
+}
+
+function literalType(literalKind: LiteralKind): Type {
+    switch(literalKind) {
+        case LiteralKind.Int8: return i8Type
+        case LiteralKind.Int16: return i16Type
+        case LiteralKind.Int32: return i32Type
+        case LiteralKind.Int64: return i64Type
+        case LiteralKind.UInt8: return u8Type
+        case LiteralKind.UInt16: return u16Type
+        case LiteralKind.UInt32: return u32Type
+        case LiteralKind.UInt64: return u64Type
+        case LiteralKind.Float32: return f32Type
+        case LiteralKind.Float64: return f64Type
+        case LiteralKind.Boolean: return booleanType
+        case LiteralKind.Null: return nullType
     }
 }
 
