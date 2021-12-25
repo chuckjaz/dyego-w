@@ -146,6 +146,27 @@ describe("codegen", () => {
                         expect(test()).toEqual(-128)
                     })
                 })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: Int8): Int = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(7)
+                            expect(test(5)).toEqual(5)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: Int8): Int = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(0)
+                            expect(test(2)).toEqual(1)
+                            expect(test(32)).toEqual(5)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: Int8): Int = a.countNonZeros()", ({test}) => {
+                            expect(test(1)).toEqual(1)
+                            expect(test(5 * 16 + 5)).toEqual(4)
+                        })
+                    })
+                })
             })
             describe("u8", () => {
                 it("can add", () => {
@@ -198,6 +219,27 @@ describe("codegen", () => {
                 it("can return 0", () => {
                     cg("export fun test(): UInt8 = 0ut", ({test}) => {
                         expect(test()).toEqual(0)
+                    })
+                })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: UInt8): Int = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(7)
+                            expect(test(5)).toEqual(5)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: UInt8): Int = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(0)
+                            expect(test(2)).toEqual(1)
+                            expect(test(32)).toEqual(5)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: UInt8): Int = a.countNonZeros()", ({test}) => {
+                            expect(test(1)).toEqual(1)
+                            expect(test(5 * 16 + 5)).toEqual(4)
+                        })
                     })
                 })
             })
@@ -254,6 +296,28 @@ describe("codegen", () => {
                         expect(test()).toEqual(-32768)
                     })
                 })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: Int16): Int = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(15)
+                            expect(test(5)).toEqual(13)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: Int16): Int = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(0)
+                            expect(test(2)).toEqual(1)
+                            expect(test(32)).toEqual(5)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: Int16): Int = a.countNonZeros()", ({test}) => {
+                            expect(test(1)).toEqual(1)
+                            expect(test(5 * 16 + 5)).toEqual(4)
+                        })
+                    })
+                })
+
             })
             describe("u16", () => {
                 it("can add", () => {
@@ -308,6 +372,28 @@ describe("codegen", () => {
                         expect(test()).toEqual(0)
                     })
                 })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: UInt16): Int = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(15)
+                            expect(test(5)).toEqual(13)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: UInt16): Int = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(0)
+                            expect(test(2)).toEqual(1)
+                            expect(test(32)).toEqual(5)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: UInt16): Int = a.countNonZeros()", ({test}) => {
+                            expect(test(1)).toEqual(1)
+                            expect(test(5 * 16 + 5)).toEqual(4)
+                        })
+                    })
+                })
+
             })
             describe("i32", () => {
                 it("can add", () => {
@@ -360,6 +446,27 @@ describe("codegen", () => {
                 it("can return -2147483648", () => {
                     cg("export fun test(): Int32 = -2147483648", ({test}) => {
                         expect(test()).toEqual(-2147483648)
+                    })
+                })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: Int32): Int = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(31)
+                            expect(test(5)).toEqual(29)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: Int32): Int = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(0)
+                            expect(test(2)).toEqual(1)
+                            expect(test(32)).toEqual(5)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: Int32): Int = a.countNonZeros()", ({test}) => {
+                            expect(test(1)).toEqual(1)
+                            expect(test(5 * 16 + 5)).toEqual(4)
+                        })
                     })
                 })
             })
@@ -416,6 +523,27 @@ describe("codegen", () => {
                         expect(test()).toEqual(0)
                     })
                 })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: UInt32): Int = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(31)
+                            expect(test(5)).toEqual(29)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: UInt32): Int = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1)).toEqual(0)
+                            expect(test(2)).toEqual(1)
+                            expect(test(32)).toEqual(5)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: UInt32): Int = a.countNonZeros()", ({test}) => {
+                            expect(test(1)).toEqual(1)
+                            expect(test(5 * 16 + 5)).toEqual(4)
+                        })
+                    })
+                })
             })
             describe("i64", () => {
                 it("can add", () => {
@@ -470,6 +598,27 @@ describe("codegen", () => {
                         expect(test()).toEqual(-9223372036854775808n)
                     })
                 })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: Int64): Int64 = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1n)).toEqual(63n)
+                            expect(test(5n)).toEqual(61n)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: Int64): Int64 = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1n)).toEqual(0n)
+                            expect(test(2n)).toEqual(1n)
+                            expect(test(32n)).toEqual(5n)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: Int64): Int64 = a.countNonZeros()", ({test}) => {
+                            expect(test(1n)).toEqual(1n)
+                            expect(test(5n * 16n + 5n)).toEqual(4n)
+                        })
+                    })
+                })
             })
             describe("u64", () => {
                 it("can add", () => {
@@ -522,6 +671,27 @@ describe("codegen", () => {
                 it("can return 0", () => {
                     cg("export fun test(): UInt64 = 0ul", ({test}) => {
                         expect(test()).toEqual(0n)
+                    })
+                })
+                describe("builtins", () => {
+                    it("can count leading bits", () => {
+                        cg("export fun test(a: UInt64): Int64 = a.countLeadingZeros()", ({test}) => {
+                            expect(test(1n)).toEqual(63n)
+                            expect(test(5n)).toEqual(61n)
+                        })
+                    })
+                    it("can count trailing bits", () => {
+                        cg("export fun test(a: UInt64): Int64 = a.countTrailingZeros()", ({test}) => {
+                            expect(test(1n)).toEqual(0n)
+                            expect(test(2n)).toEqual(1n)
+                            expect(test(32n)).toEqual(5n)
+                        })
+                    })
+                    it("can count non-zero bits", () => {
+                        cg("export fun test(a: UInt64): Int64 = a.countNonZeros()", ({test}) => {
+                            expect(test(1n)).toEqual(1n)
+                            expect(test(5n * 16n + 5n)).toEqual(4n)
+                        })
                     })
                 })
             })

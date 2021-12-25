@@ -1298,13 +1298,15 @@ class BuiltinsSymbol extends LoadonlySymbol implements Symbol {
     type: GenType
     inst: Inst
     target: Symbol
+    offset?: number
 
-    constructor(location: Locatable, type: GenType, inst: Inst, target: Symbol) {
+    constructor(location: Locatable, type: GenType, inst: Inst, target: Symbol, offset?: number) {
         super(location)
         this.location = location
         this.type = type
         this.inst = inst
         this.target = target
+        this.offset = offset
     }
 
     load(g: Generate) {
@@ -1312,7 +1314,18 @@ class BuiltinsSymbol extends LoadonlySymbol implements Symbol {
     }
 
     call(args: Symbol[]) {
-        return new InstSymbol(this.location, this.type, this.inst, [this.target, ...args])
+        let result: Symbol = new InstSymbol(this.location, this.type, this.inst, [this.target, ...args])
+        const offset = this.offset
+        if (offset !== undefined) {
+            result = new OpSymbol(
+                this.location,
+                i32GenType,
+                result,
+                new NumberConstSymbol(this.location, i32GenType, offset),
+                NodeKind.Subtract
+            )
+        }
+        return result
     }
 
     simplify(): Symbol {
@@ -1381,16 +1394,22 @@ class BuiltinComplexSymbol extends LoadonlySymbol implements Symbol {
 
 function builtinSymbolFor(location: Locatable, type: Type, result: GenType, name: string, target: Symbol): Symbol {
     let inst = Inst.Nop
+    let offset: number | undefined = undefined
+    let clamp = false
     if (type.kind == TypeKind.Location)
         return builtinSymbolFor(location, type.type, result, name, target)
     switch (name) {
         case "countLeadingZeros":
             switch (type.kind) {
                 case TypeKind.I8:
-                case TypeKind.I16:
-                case TypeKind.I32:
                 case TypeKind.U8:
+                    offset = 8
+                    clamp = true
+                case TypeKind.I16:
                 case TypeKind.U16:
+                    offset = (offset ?? 0) + 16
+                    clamp = true
+                case TypeKind.I32:
                 case TypeKind.U32:
                     inst = Inst.i32_clz
                     break
@@ -1420,9 +1439,10 @@ function builtinSymbolFor(location: Locatable, type: Type, result: GenType, name
             switch (type.kind) {
                 case TypeKind.I8:
                 case TypeKind.I16:
-                case TypeKind.I32:
                 case TypeKind.U8:
                 case TypeKind.U16:
+                    clamp = true
+                case TypeKind.I32:
                 case TypeKind.U32:
                     inst = Inst.i32_popcnt
                     break
@@ -1554,8 +1574,12 @@ function builtinSymbolFor(location: Locatable, type: Type, result: GenType, name
             }
             break
     }
+    if (clamp && target.type.needsClamp()) {
+        target = new ClampSymbol(location, target)
+    }
     if (inst == Inst.Nop) unsupported(location, `${name} for type ${typeToString(type)}`)
-    return new BuiltinsSymbol(location, result, inst, target)
+
+    return new BuiltinsSymbol(location, result, inst, target, offset)
 }
 
 const trueSymbol = new NumberConstSymbol(undefined, booleanGenType, 1)
