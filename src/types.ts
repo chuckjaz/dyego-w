@@ -314,9 +314,16 @@ function capabilityMethods(type: Type, scope: Scope<Type>) {
     const thisP = scopeOf({ name: "this", type })
     const thisAndOther = scopeOf({ name: "this", type }, { name: "other", type })
     if (capabilities & Capabilities.Bitwizeable) {
-        enter(scope, "countLeadingZeros", thisP, i32Type)
-        enter(scope, "countTrailingZeros", thisP, i32Type)
-        enter(scope, "countNonZeros", thisP, i32Type)
+        let resultType = i32Type
+        switch (type.kind) {
+            case TypeKind.I64:
+            case TypeKind.U64:
+                resultType = i64Type
+                break
+        }
+        enter(scope, "countLeadingZeros", thisP, resultType)
+        enter(scope, "countTrailingZeros", thisP, resultType)
+        enter(scope, "countNonZeros", thisP, resultType)
     }
     if (capabilities & Capabilities.Floatable) {
         enter(scope, "abs", thisP, type)
