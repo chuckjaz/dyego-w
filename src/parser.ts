@@ -98,10 +98,19 @@ export function parse(text: string): Tree[] {
         while (token != Token.EOF) {
             switch(token) {
                 case Token.Identifier:
+                case Token.Int8:
+                case Token.Int16:
                 case Token.Int32:
+                case Token.Int64:
+                case Token.UInt8:
+                case Token.UInt16:
+                case Token.UInt32:
+                case Token.UInt64:
+                case Token.Float32:
                 case Token.Float64:
                 case Token.True:
                 case Token.False:
+                case Token.Null:
                 case Token.Dash:
                 case Token.Plus:
                 case Token.If:
@@ -536,10 +545,19 @@ export function parse(text: string): Tree[] {
                     let value: Tree | undefined = undefined
                     switch (token as any) {
                         case Token.Identifier:
+                        case Token.Int8:
+                        case Token.Int16:
                         case Token.Int32:
+                        case Token.Int64:
+                        case Token.UInt8:
+                        case Token.UInt16:
+                        case Token.UInt32:
+                        case Token.UInt64:
+                        case Token.Float32:
                         case Token.Float64:
                         case Token.True:
                         case Token.False:
+                        case Token.Null:
                         case Token.Dash:
                         case Token.Plus:
                         case Token.If:
@@ -929,70 +947,70 @@ export function parse(text: string): Tree[] {
 
     function tokenText(token: Token): string {
         switch (token) {
-            case Token.Identifier: return "an identifier"
-            case Token.Dash: return `"-"`
-            case Token.Dot: return `"."`
-            case Token.EOF: return `end of the file`
-            case Token.Equal: return `"="`
-            case Token.LBrace: return `"{"`
-            case Token.LParen: return `"("`
-            case Token.Let: return `let`
-            case Token.Fun: return `fun`
-            case Token.Var: return `var`
-            case Token.Type: return `type`
-            case Token.True: return `true`
-            case Token.False: return `false`
-            case Token.Null: return `null`
-            case Token.When: return `when`
-            case Token.While: return `while`
-            case Token.If: return `if`
-            case Token.Else: return `else`
-            case Token.Export: return `export`
-            case Token.Import: return `import`
-            case Token.As: return `as`
-            case Token.Block: return `block`
-            case Token.Loop: return `loop`
-            case Token.Switch: return `switch`
-            case Token.Case: return `case`
-            case Token.Fallthrough: return `fallthrough`
-            case Token.Default: return `default`
-            case Token.Break: return `break`
-            case Token.Continue: return `continue`
-            case Token.Return: return `return`
-            case Token.Int8: return `an Int8 litearl`
-            case Token.Int16: return `an Int16 literal`
-            case Token.Int32: return `an Int32 literal`
-            case Token.Int64: return `an int64 literal`
-            case Token.UInt8: return `an UInt8 litearl`
-            case Token.UInt16: return `an UInt16 literal`
-            case Token.UInt32: return `an UInt32 literal`
-            case Token.UInt64: return `an Uint64 literal`
-            case Token.Float32: return `a Float32 literal`
-            case Token.Float64: return `a Float64 literal`
-            case Token.Plus: return `"+"`
-            case Token.RBrace: return `"}"`
-            case Token.RParen: return `")"`
-            case Token.Semi: return `";"`
-            case Token.Slash: return `"/"`
-            case Token.Star: return `"*"`
-            case Token.Comma: return `","`
-            case Token.Colon: return `":"`
-            case Token.Bang: return `"!"`
-            case Token.Circumflex: return `"^"`
-            case Token.LBrack: return `"["`
-            case Token.RBrack: return `"]"`
-            case Token.Spread: return `"..."`
-            case Token.Arrow: return `"->"`
-            case Token.And: return `"&&"`
-            case Token.Amp: return `"&"`
-            case Token.Or: return `"||"`
-            case Token.EqualEqual: return `"=="`
-            case Token.NotEqual: return `"!="`
-            case Token.Lt: return `"<"`
-            case Token.Lte: return `"<="`
-            case Token.Gt: return `">"`
-            case Token.Gte: return `">="`
-            case Token.Error: return `an invalid token`
+            case Token.Identifier: return "An identifier"
+            case Token.Dash: return `Token "-"`
+            case Token.Dot: return `Token "."`
+            case Token.EOF: return `End of the file`
+            case Token.Equal: return `Token "="`
+            case Token.LBrace: return `Token "{"`
+            case Token.LParen: return `Token "("`
+            case Token.Let: return `Reserved word "let"`
+            case Token.Fun: return `Reserved word "fun"`
+            case Token.Var: return `Reserved word "var"`
+            case Token.Type: return `Reserved word "type"`
+            case Token.True: return `Reserved word "true"`
+            case Token.False: return `Reserved word "false"`
+            case Token.Null: return `Reserved word "null"`
+            case Token.When: return `Reserved word "when"`
+            case Token.While: return `Reserved word "while"`
+            case Token.If: return `Reserved word "if"`
+            case Token.Else: return `Reserved word "else"`
+            case Token.Export: return `Reserved word "export"`
+            case Token.Import: return `Reserved word "import"`
+            case Token.As: return `Reserved word "as"`
+            case Token.Block: return `Reserved word "block"`
+            case Token.Loop: return `Reserved word "loop"`
+            case Token.Switch: return `Reserved word "switch"`
+            case Token.Case: return `Reserved word "case"`
+            case Token.Fallthrough: return `Reserved word "fallthrough"`
+            case Token.Default: return `Reserved word "default"`
+            case Token.Break: return `Reserved word "break"`
+            case Token.Continue: return `Reserved word "continue"`
+            case Token.Return: return `Reserved word "return"`
+            case Token.Int8: return `An Int8 literal`
+            case Token.Int16: return `An Int16 literal`
+            case Token.Int32: return `An Int32 literal`
+            case Token.Int64: return `An int64 literal`
+            case Token.UInt8: return `An UInt8 litearl`
+            case Token.UInt16: return `An UInt16 literal`
+            case Token.UInt32: return `An UInt32 literal`
+            case Token.UInt64: return `An Uint64 literal`
+            case Token.Float32: return `A Float32 literal`
+            case Token.Float64: return `A Float64 literal`
+            case Token.Plus: return `Token "+"`
+            case Token.RBrace: return `Token "}"`
+            case Token.RParen: return `Token ")"`
+            case Token.Semi: return `Token ";"`
+            case Token.Slash: return `Token "/"`
+            case Token.Star: return `Token "*"`
+            case Token.Comma: return `Token ","`
+            case Token.Colon: return `Token ":"`
+            case Token.Bang: return `Token "!"`
+            case Token.Circumflex: return `Token "^"`
+            case Token.LBrack: return `Token "["`
+            case Token.RBrack: return `Token "]"`
+            case Token.Spread: return `Token "..."`
+            case Token.Arrow: return `Token "->"`
+            case Token.And: return `Token "&&"`
+            case Token.Amp: return `Token "&"`
+            case Token.Or: return `Token "||"`
+            case Token.EqualEqual: return `Token "=="`
+            case Token.NotEqual: return `Token "!="`
+            case Token.Lt: return `Token "<"`
+            case Token.Lte: return `Token "<="`
+            case Token.Gt: return `Token ">"`
+            case Token.Gte: return `Token ">="`
+            case Token.Error: return `An invalid token`
         }
     }
 
@@ -1000,7 +1018,7 @@ export function parse(text: string): Tree[] {
         if (token != expected) {
             if (expected != Token.EOF)
                 error(`Expected ${tokenText(expected)}`)
-            else error(`The token "${tokenText(token)}" was not expected here`)
+            else error(`${tokenText(token)} was not expected here`)
         }
         const result = scanner.value
         next()
