@@ -2,6 +2,52 @@ import * as fs from 'fs'
 import { parse } from './parser'
 
 describe("parser", () => {
+    describe("literals", () => {
+        it("can parse an i8", () => {
+            l("1t")
+        })
+
+        it("can parse an i16", () => {
+            l("1s")
+        })
+
+        it("can parse an i32", () => {
+            l("1")
+        })
+
+        it("can parse an i64", () => {
+            l("1l")
+        })
+
+        it("can parse an u8", () => {
+            l("1ut")
+        })
+
+        it("can parse an u16", () => {
+            l("1us")
+        })
+
+        it("can parse an u32", () => {
+            l("1u")
+        })
+
+        it("can parse an u64", () => {
+            l("1ul")
+        })
+
+        it("can parse a boolean", () => {
+            l("true")
+            l("false")
+        })
+
+        it("can parse null", () => {
+            l("null")
+        })
+
+        function l(text: string) {
+            parse(`let a = ${text}; fun b(): any { ${text} }`)
+        }
+    })
     describe("examples", () => {
         it("can parse n-body", () => {
             p("n-body.dgw")
