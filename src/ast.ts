@@ -14,6 +14,7 @@ export const enum NodeKind {
     BlockExpression,
     IfThenElse,
     Loop,
+    While,
     Switch,
     SwitchCase,
     Break,
@@ -61,6 +62,7 @@ export function nameOfNodeKind(kind: NodeKind): string {
         case NodeKind.BlockExpression: return "BlockExpression"
         case NodeKind.IfThenElse: return "IfThenElse"
         case NodeKind.Loop: return "Loop"
+        case NodeKind.While: return "While"
         case NodeKind.Switch: return "Switch"
         case NodeKind.SwitchCase: return "SwitchCase"
         case NodeKind.Break: return "Break"
@@ -108,6 +110,7 @@ export type Tree =
     BlockExpression |
     IfThenElse |
     Loop |
+    While |
     Switch |
     SwitchCase |
     Break |
@@ -248,6 +251,13 @@ export interface IfThenElse extends Locatable {
 
 export interface Loop extends Locatable {
     kind: NodeKind.Loop
+    name?: string
+    body: Tree[]
+}
+
+export interface While extends Locatable {
+    kind: NodeKind.While
+    condition: Tree
     name?: string
     body: Tree[]
 }
@@ -566,6 +576,10 @@ export function * childrenOf(tree: Tree): Iterable<Tree> {
         case NodeKind.Loop:
             yield * tree.body
             return
+        case NodeKind.While:
+            yield tree.condition
+            yield * tree.body
+            break
         case NodeKind.Switch:
             yield tree.target
             yield * tree.cases

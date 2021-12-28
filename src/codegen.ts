@@ -9,13 +9,14 @@ import { ExportKind, ExportSection } from "./wasm/exportsection";
 import { FunctionSection } from "./wasm/functionSection";
 import { GlobalSection } from "./wasm/globalsection";
 import { ImportSection } from "./wasm/importSection";
-import { lowerSwitch } from "./lower";
+import { LowerResult, lowerSwitch, lowerWhile } from "./lower";
 import { MemorySection } from "./wasm/memorySection";
 import { Module } from "./wasm/module";
 import { Section } from "./wasm/section";
 import { StartSection } from "./wasm/startsection";
 import { TypeSection } from "./wasm/typesection";
 import { FuncIndex, Inst, LocalIndex, NumberType, ReferenceType, ValueType } from "./wasm/wasm";
+import { check, error, required, unsupported } from "./utils";
 
 interface Symbol {
     type: GenType
@@ -2137,25 +2138,6 @@ function none(): never {
     throw new Error("Internal code gen error")
 }
 
-function unsupported(location: Locatable | undefined, message?: string): never {
-    error(message ? "Not supported yet: " + message : "Not supported yet", location)
-}
-
-function error(message: string, location?: Locatable): never {
-    const e = new Error(message) as any
-    if (location) e.position = location.start
-    throw e
-}
-
-function required<T>(value: T | undefined, location?: Locatable): T {
-    if (value !== undefined) return value
-    error("Value is required", location)
-}
-
-function check(value: boolean, message?: string) {
-    if (!value) error(message || "Failed check")
-}
-
 interface SymbolAllocator {
     parameter(location: Locatable, type: GenType): Symbol
     allocate(location: Locatable, type: GenType, init?: Symbol): Symbol
@@ -2293,7 +2275,15 @@ interface Scopes {
     letTarget?: string
 }
 
-export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module) {
+function lowerings(program: Tree[], types: Map<Tree, Type>): LowerResult {
+    let result: LowerResult = { program, types }
+    for (const lowering of [lowerWhile, lowerSwitch]) {
+        result = lowering(result.program, result.types)
+    }
+    return result
+}
+
+export function codegen(initialProgram: Tree[], initialTypes: Map<Tree, Type>, module: Module) {
     const genTypes = new Map<Type, GenType>()
     const typeSection = new TypeSection()
     const importSection = new ImportSection()
@@ -2308,9 +2298,7 @@ export function codegen(program: Tree[], types: Map<Tree, Type>, module: Module)
     const memorySection = new MemorySection(0)
     let startSection: StartSection | undefined = undefined
 
-    let {program: p, types: t} = lowerSwitch(program, types)
-    program = p
-    types = t
+    let {program, types} = lowerings(initialProgram, initialTypes)
 
     // Allocate the top-of-memory variable.
     dataAllocator.allocate({ start: 0 }, voidPointerGenType)

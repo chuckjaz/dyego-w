@@ -1,9 +1,23 @@
-import { BlockExpression, Break, BreakIndexed, childrenOf, ImportFunction, LiteralInt32, LiteralKind,Locatable,NodeKind, Parameter, Scope, StructField, Subtract, SwitchCase, Tree } from "./ast";
-import { i32Type, Type, voidType } from "./types";
+import { BlockExpression, Break, BreakIndexed, childrenOf, IfThenElse, ImportFunction, LiteralInt32, LiteralKind,Locatable,Loop,NodeKind, Not, Parameter, Scope, StructField, Subtract, SwitchCase, Tree } from "./ast";
+import { booleanType, i32Type, Type, voidType } from "./types";
+import { required } from "./utils";
 
-export function lowerSwitch(program: Tree[], types: Map<Tree, Type>): { program: Tree[], types: Map<Tree, Type> } {
+export interface LowerResult {
+    program: Tree[], 
+    types: Map<Tree, Type>
+}
+
+export function lowerSwitch(program: Tree[], types: Map<Tree, Type>): LowerResult {
+    return loweringOf(program, types, switchLowering)
+}
+
+export function lowerWhile(program: Tree[], types: Map<Tree, Type>): LowerResult {
+    return loweringOf(program, types, whileLowering)
+}
+
+function loweringOf(program: Tree[], types: Map<Tree, Type>, tx: Transformer): LowerResult {
     const lets = new Scope<Tree>()
-    const result = program.map(tree => switchLowering(tree, { types, lets }))
+    const result = program.map(tree => tx(tree, { types, lets }))
     return {
         program: result,
         types: types
@@ -20,6 +34,29 @@ type Transformer = (tree: Tree, context: TransformContext) => Tree
 let uniqueCount = 0
 function unique(name?: string): string {
     return `${name ?? 'tmp'}$${uniqueCount++}`
+}
+
+function whileLowering(tree: Tree, context: TransformContext): Tree {
+    switch (tree.kind) {
+        case NodeKind.While:
+            const whileName = unique("while")
+            const condition = transformChildren(tree.condition, context, whileLowering)
+            const notCondition: Not = { kind: NodeKind.Not, target: condition }
+            const breakStmt: Break = { kind: NodeKind.Break, name: whileName }
+            const test: IfThenElse = { kind: NodeKind.IfThenElse, condition: notCondition, then: breakStmt }
+            const body = transformTrees(tree.body, context, whileLowering)
+            const loop: Loop = {
+                kind: NodeKind.Loop,
+                name: whileName,
+                body: [test, ...body]
+            }
+            context.types.set(notCondition, booleanType)
+            context.types.set(test, voidType)
+            context.types.set(loop, voidType)
+            return loop
+        default:
+            return transformChildren(tree, context, whileLowering)
+    }
 }
 
 function switchLowering(tree: Tree, context: TransformContext): Tree {
@@ -155,6 +192,21 @@ function switchLowering(tree: Tree, context: TransformContext): Tree {
     }
 }
 
+function transformTrees(
+    trees: Tree[],
+    context: TransformContext,
+    tx: Transformer
+): Tree[] {
+    const result: Tree[] = []
+    let changed = false
+    for (const child of trees) {
+        const newChild = tx(child, context)
+        result.push(newChild)
+        changed = changed || newChild !== child
+    }
+    return changed ? result : trees
+}
+
 function transformChildren<T extends Tree>(
     tree: T,
     context: TransformContext,
@@ -258,6 +310,12 @@ function copy<T extends Tree>(tree: T, newChildren: Tree[]): T {
             return {
                 ...tree,
                 body: newChildren
+            }
+        case NodeKind.While:
+            return {
+                ...tree,
+                expression: newChildren[0],
+                body: newChildren.slice(1)
             }
         case NodeKind.Switch:
             return {
