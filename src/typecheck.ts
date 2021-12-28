@@ -1,5 +1,6 @@
-import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse, nameOfCompareOp, BreakIndexed, Switch, SwitchCase } from "./ast"
+import { ArrayLit, Assign, BlockExpression, Call, CompareOp, Index, Function, LiteralKind, Locatable, Loop, nameOfLiteralKind, nameOfNodeKind, NodeKind, Reference, Return, Scope, Select, StructLit, StructTypeLit, Tree, Import, Parameter, IfThenElse, nameOfCompareOp, BreakIndexed, Switch, SwitchCase, While } from "./ast"
 import { ArrayType, booleanType, builtInMethodsOf, capabilitesOf, Capabilities, f32Type, f64Type, globals, i16Type, i32Type, i64Type, i8Type, nameOfTypeKind, nullType, PointerType, StructType, Type, TypeKind, typeToString, u16Type, u32Type, u64Type, u8Type, UnknownType, voidType } from "./types";
+import { required } from "./utils";
 
 const builtins = new Scope<Type>(globals)
 
@@ -25,7 +26,7 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
     return result;
 
     function bind(node: Tree, type: Type) {
-        required(result.get(node) === undefined)
+        required(result.get(node) === undefined, node)
         result.set(node, type)
         if (type.kind == TypeKind.Unknown) {
             addFixup(type, final => result.set(node, final))
@@ -274,7 +275,7 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
     function validateConst(tree: Tree, scopes: Scopes) {
         switch (tree.kind) {
             case NodeKind.Reference:
-                const type = required(scopes.scope.find(tree.name))
+                const type = required(scopes.scope.find(tree.name), tree)
                 if (type.kind == TypeKind.Location) {
                     error(tree, "Expected a constant expression")
                 }
@@ -350,6 +351,9 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
                 break
             case NodeKind.Loop:
                 type = loopStatement(tree, scopes)
+                break
+            case NodeKind.While:
+                type = whileStatement(tree, scopes)
                 break
             case NodeKind.Switch:
                 type = switchStatement(tree, scopes)
@@ -569,7 +573,7 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
         return ifType
     }
 
-    function loopStatement(loop: Loop, scopes: Scopes): Type {
+    function checkLoop(loop: Loop | While, scopes: Scopes): Type {
         const continues = new Scope<Tree>(scopes.continues)
         const breaks = new Scope<Tree>(scopes.breaks)
         const name = loop.name
@@ -581,6 +585,17 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
         enter(loop, '$$top', loop, breaks)
         typeCheckStatements(loop.body, {...scopes, continues, breaks })
         return voidType
+    }
+
+    function loopStatement(loop: Loop, scopes: Scopes): Type {
+        checkLoop(loop, scopes)
+        return voidType
+    }
+
+    function whileStatement(loop: While, scopes: Scopes): Type {
+        const conditionType = typeCheckExpr(loop.condition, scopes)
+        mustMatch(loop.condition, conditionType, booleanType)
+        return checkLoop(loop, scopes)
     }
 
     function breakIndexed(tree: BreakIndexed, scopes: Scopes): Type {
@@ -753,7 +768,7 @@ export function typeCheck(incommingScope: Scope<Type>, program: Tree[]): Map<Tre
         })
         to.fields.forEach((name, type) => {
             if (!from.fields.has(name)) error(location, `Expected type ${typeToString(from)} to have a field named "${name}"`)
-            const fromFieldType = required(from.fields.find(name))
+            const fromFieldType = required(from.fields.find(name), location)
             mustMatch(location, fromFieldType, type)
         })
 
@@ -835,10 +850,4 @@ function error(location: Locatable, message: string): never {
     e.start = location.start
     e.end = location.end
     throw e
-}
-
-function required<T>(value: T | undefined): T {
-    if (!value)
-        throw new Error("Required a value")
-    return value
 }

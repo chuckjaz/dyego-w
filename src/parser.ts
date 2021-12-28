@@ -693,18 +693,7 @@ export function parse(text: string): Tree[] {
             expect(Token.LParen)
             const condition = expression()
             expect(Token.RParen)
-            const test: Tree = {
-                kind: NodeKind.IfThenElse,
-                condition: {
-                    kind: NodeKind.Not,
-                    target: condition
-                },
-                then: {
-                    kind: NodeKind.Break
-                }
-            }
-            const body = [test, ...block()]
-            return { kind: NodeKind.Loop, body }
+            return { kind: NodeKind.While, condition, body: block() }
         })
     }
 
