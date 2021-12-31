@@ -1,6 +1,6 @@
 import { 
     Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, Block, BodyElement, Branch, BranchIndexed, 
-    Call, Declaration, Dereference, Divide, Exportable, Exported, Expression, Field, Function, IfThenElse, 
+    Call, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, IfThenElse, 
     Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32, 
     LiteralFloat64, LiteralInt16, LiteralInt32, LiteralInt64, LiteralInt8, LiteralKind, LiteralNull, LiteralUInt16,
     LiteralUInt32, LiteralUInt64, LiteralUInt8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
@@ -9,12 +9,6 @@ import {
 } from "../last";
 import { Scanner } from "./scanner";
 import { Token } from "./tokens";
-
-export interface Diagnostic {
-    location: Locatable
-    message: string
-    related?: Diagnostic[]
-}
 
 export function parse(scanner: Scanner): Module | Diagnostic[] {
     let follows = setOf(Token.EOF, Token.Fun, Token.Var, Token.Let)
@@ -524,7 +518,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         expect(Token.LBrack)
         const elements = sequence(expression, expressionFirstSet, rbrackSet, comma)
         expect(Token.RBrack)
-        return l<ArrayLiteral>(start, { kind: LastKind.ArrayLiteral, elements })
+        return l<ArrayLiteral>(start, { kind: LastKind.ArrayLiteral, values: elements })
     }
 
     function struct(): StructLiteral {

@@ -6,13 +6,6 @@ export const enum LastKind {
     Multiply,
     Divide,
     Remainder,
-    BitAnd,
-    BitOr,
-    BitXor,
-    ShiftLeft,
-    ShiftRight,
-    RotateLeft,
-    RotateRight,
     Negate,
     Not,
     Equal,
@@ -66,13 +59,6 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.Multiply: return "Multiply"
         case LastKind.Divide: return "Divide"
         case LastKind.Remainder: return "Remainder"
-        case LastKind.BitAnd: return "BitAnd"
-        case LastKind.BitOr: return "BitOr"
-        case LastKind.BitXor: return "BitXor"
-        case LastKind.ShiftLeft: return "ShiftLeft"
-        case LastKind.ShiftRight: return "ShiftRight"
-        case LastKind.RotateLeft: return "RotateLeft"
-        case LastKind.RotateRight: return "RotateRight"
         case LastKind.Negate: return "Negate"
         case LastKind.Not: return "Not"
         case LastKind.Equal: return "Equal"
@@ -158,13 +144,6 @@ export type Expression =
     Multiply | 
     Divide |
     Remainder |
-    BitAnd |
-    BitOr |
-    BitXor |
-    ShiftLeft |
-    ShiftRight |
-    RotateLeft |
-    RotateRight |
     Negate |
     Not |
     Equal |
@@ -205,11 +184,11 @@ export type Literal =
 
 export type Exportable = Var | Function
 export type Declaration = Let | Var | Type | Function | Exported
-export type Statement = Let | Var | Loop | Branch | BranchIndexed | Return | Assign
+export type Statement = Let | Var | Loop | Block | Branch | BranchIndexed | Return | Assign
 export type BodyElement = Statement | Expression
 export type TypeExpression = Reference | TypeSelect | StructTypeLiteral | ArrayConstructor | PointerConstructor
 export type ImportItem = ImportFunction | ImportVariable
-
+export type BranchTarget = Loop | Block
 export type Last = Declaration | Statement | Expression | TypeExpression | Import | Parameter | ImportItem
 
 export interface Binary {
@@ -230,13 +209,6 @@ export interface Subtact extends LastNode, Binary { kind: LastKind.Subtract }
 export interface Multiply extends LastNode, Binary { kind: LastKind.Multiply }
 export interface Divide extends LastNode, Binary { kind: LastKind.Divide }
 export interface Remainder extends LastNode, Binary { kind: LastKind.Remainder }
-export interface BitAnd extends LastNode, Binary { kind: LastKind.BitAnd }
-export interface BitOr extends LastNode, Binary { kind: LastKind.BitOr }
-export interface BitXor extends LastNode, Binary { kind: LastKind.BitXor }
-export interface ShiftLeft extends LastNode, Binary { kind: LastKind.ShiftLeft }
-export interface ShiftRight extends LastNode, Binary { kind: LastKind.ShiftRight }
-export interface RotateLeft extends LastNode, Binary { kind: LastKind.RotateLeft }
-export interface RotateRight extends LastNode, Binary { kind: LastKind.RotateRight }
 export interface Negate extends LastNode, Unary { kind: LastKind.Negate }
 export interface Not extends LastNode, Unary { kind: LastKind.Not }
 export interface Equal extends LastNode, Binary { kind: LastKind.Equal }
@@ -291,7 +263,7 @@ export interface Field extends LastNode {
 
 export interface ArrayLiteral extends LastNode {
     kind: LastKind.ArrayLiteral
-    elements: Expression[]
+    values: Expression[]
 }
 
 export interface Block extends LastNode {
