@@ -26,4 +26,3 @@ var b30: Int[] = [ 51, 49 ];
 var b12: Int[] = [ 49, 49 ];
 
 export fun test(): Int = atoi(2, &b30) + atoi(2, &b12)
-export fun test_raw(): Int = atoi_raw(2, &b30) + atoi_raw(2, &b12)
