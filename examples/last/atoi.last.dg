@@ -1,0 +1,29 @@
+fun atoi(len: Int, bytes: Int[]^): Int {
+    var i: Int = 0;
+    var value: Int = 0;
+    block outer {
+        loop {
+            if (i >= len) { branch outer; }
+            var c: Int = bytes^[i];
+            block a {
+                block b {
+                    block c {
+                        branch (c - 48) c, c, c, c, c, c, c, c, c, c else b;
+                    }
+                    value = value * 10 + (c - 48);
+                    branch a;
+                }
+                return -1;
+            }
+            i = i + 1;
+            branch;
+        }
+    }
+    value;
+}
+
+var b30: Int[] = [ 51, 49 ];
+var b12: Int[] = [ 49, 49 ];
+
+export fun test(): Int = atoi(2, &b30) + atoi(2, &b12)
+export fun test_raw(): Int = atoi_raw(2, &b30) + atoi_raw(2, &b12)
