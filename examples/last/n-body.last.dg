@@ -101,24 +101,24 @@ export fun advance(dt: Double): Void {
     let size: Int = 5;
 
     var i: Int = 0;
-    branch outer {
+    block outer {
         loop {
-            if (i >= size) { }
-            var bodyi = bodies[i]
-            var vxi = bodyi.vx;
-            var vyi = bodyi.vy;
-            var vzi = bodyi.vz;
-            var j = i + 1;
-            branch inner {
+            if (i >= size) { branch outer; }
+            var bodyi: BodyValue = bodies[i]
+            var vxi: Float64 = bodyi.vx;
+            var vyi: Float64 = bodyi.vy;
+            var vzi: Float64 = bodyi.vz;
+            var j: Int  = i + 1;
+            block inner {
                 loop {
                     if (j >= size) { branch inner; } 
-                    var bodyj = bodies[j];
-                    var dx = bodyi.x - bodyj.x;
-                    var dy = bodyi.y - bodyj.y;
-                    var dz = bodyi.z - bodyj.z;
+                    var bodyj: BodyValue = bodies[j];
+                    var dx: Float64 = bodyi.x - bodyj.x;
+                    var dy: Float64 = bodyi.y - bodyj.y;
+                    var dz: Float64 = bodyi.z - bodyj.z;
 
-                    var d2 = dx * dx + dy * dy + dz * dz;
-                    var mag = dt / (d2 * d2.sqrt());
+                    var d2: Float64 = dx * dx + dy * dy + dz * dz;
+                    var mag: Float64 = dt / (d2 * d2.sqrt());
 
                     vxi = vxi - dx * bodyj.mass * mag;
                     vyi = vyi - dy * bodyj.mass * mag;
@@ -141,10 +141,10 @@ export fun advance(dt: Double): Void {
     }
 
     i = 0;
-    branch outer {
+    block outer {
         loop {
             if (i >= size) { branch outer; }
-            var bi: Body = bodies[i]
+            var bi: BodyValue = bodies[i]
             bodies[i].x = bi.x + dt * bi.vx;
             bodies[i].y = bi.y + dt * bi.vy;
             bodies[i].z = bi.z + dt * bi.vz;
@@ -159,22 +159,22 @@ export fun energy(): Double {
 
     var e: Float64 = 0.0;
     var i: Int = 0;
-    branch outer {
+    block outer {
         loop {
             if (i >= size) { branch outer; }
-            var bodyi = bodies[i];
+            var bodyi: BodyValue = bodies[i];
             e = e + (0.5 * bodyi.mass * (bodyi.vx * bodyi.vx +
                 bodyi.vy * bodyi.vy + bodyi.vz * bodyi.vz));
-            var j = i + 1;
-            branch inner {
+            var j: Int = i + 1;
+            block inner {
                 loop {
                     if (j >= size) { branch inner; }
-                    var bodyj = bodies[j];
-                    var dx = bodyi.x - bodyj.x;
-                    var dy = bodyi.y - bodyj.y;
-                    var dz = bodyi.z - bodyj.z;
+                    var bodyj: BodyValue = bodies[j];
+                    var dx: Float64 = bodyi.x - bodyj.x;
+                    var dy: Float64 = bodyi.y - bodyj.y;
+                    var dz: Float64 = bodyi.z - bodyj.z;
 
-                    var distance = (dx * dx + dy * dy + dz * dz).sqrt();
+                    var distance: Float64 = (dx * dx + dy * dy + dz * dz).sqrt();
                     e = e -((bodyi.mass * bodyj.mass) / distance);
                     j = j + 1;
                     branch;
@@ -190,7 +190,7 @@ export fun energy(): Double {
 
 export fun mainLoop(n: Int): Void {
     var i: Int = 0;
-    branch outer {
+    block outer {
         loop {
             if (i >= n) { branch outer; }
             advance(0.01);

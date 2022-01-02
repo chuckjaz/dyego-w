@@ -9,7 +9,7 @@ fun newNode(left: Node^, right: Node^): Node^ {
         freeList = node.left
     } else {
         node = top;
-        var newTop = top + 1;
+        var newTop: Node^ = top + 1;
         if (newTop >= memory.limit() as Node^) {
             memory.grow(1);
         }
@@ -40,12 +40,13 @@ export fun work(iterations: Int, depth: Int): Int {
     var check: Int = 0;
     var i: Int = 0;
     loop {
-        if (i >= iterations) { branch; }
-        var tree: Node^ = bottomUpTree(depth);
-        check = check + itemCheck(tree);
-        freeTree(tree);
-        i = i + 1;
-        branch;
+        if (i < iterations) {
+            var tree: Node^ = bottomUpTree(depth);
+            check = check + itemCheck(tree);
+            freeTree(tree);
+            i = i + 1;
+            branch;
+        }
     }
     check;
 }

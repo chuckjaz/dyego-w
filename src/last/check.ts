@@ -1,5 +1,5 @@
 import { required } from "../utils";
-import { BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral, Type as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind, StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement } from "./ast";
+import { BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral, TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind, StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
 import { Scope } from "./scope";
@@ -12,19 +12,25 @@ interface Scopes {
     branchTargets: Scope<BranchTarget>
 }
 
-export function check(module: Module): Map<Last, Type> | Diagnostic[] {
+export interface CheckResult {
+    types: Map<Last, Type>
+    exported: Set<string>
+}
+
+export function check(module: Module): CheckResult | Diagnostic[] {
     const diagnostics: Diagnostic[] = []
-    const result = new Map<Last, Type>()
+    const types = new Map<Last, Type>()
     const fixups = new Map<UnknownType, ((final: Type) => void)[]>()
     const scanned = new Set<Type>()
     const moduleScope = new Scope(builtins)
     const errorType: ErrorType = { kind: TypeKind.Error }
+    const exported = new Set<string>()
 
     checkModule(module, {
         scope: moduleScope,
         branchTargets: new Scope()
     })
-    return diagnostics.length > 0 ? diagnostics : result
+    return diagnostics.length > 0 ? diagnostics : { types, exported }
 
     function checkModule(module: Module, scopes: Scopes) {
         enterDeclarations(module.declarations, scopes)
@@ -46,43 +52,51 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
         }
 
         // Enter types
-        for (const d of declarations) {
-            const declaration = noExport(d)
-            switch (declaration.kind) {
-                case LastKind.Let: {
-                    const type = typeExpr(declaration.type, scopes)
-                    enter(declaration, declaration.name, type, scope)
-                    bind(declaration, type)
-                    break
+        for (const declaration of declarations) {
+            enterDeclaration(declaration, scopes)
+        }
+    }
+
+    function enterDeclaration(declaration: Declaration, scopes: Scopes) {
+        const scope = scopes.scope
+        switch(declaration.kind) {
+            case LastKind.Exported:
+                exported.add(declaration.target.name)
+                enterDeclaration(declaration.target, scopes)
+                break
+            case LastKind.Let: {
+                const type = typeExpr(declaration.type, scopes)
+                enter(declaration, declaration.name, type, scope)
+                bind(declaration, type)
+                break
+            }
+            case LastKind.Var: {
+                const type = typeExpr(declaration.type, scopes)
+                const addressable = scope === moduleScope
+                enter(declaration, declaration.name, { kind: TypeKind.Location, type, addressable }, scope)
+                bind(declaration, type)
+                break
+            }
+            case LastKind.Function: {
+                const parameters = funcParameters(declaration.parameters, scopes)
+                const result = typeExpr(declaration.result, scopes)
+                const type: FunctionType = { kind: TypeKind.Function, parameters, result }
+                enter(declaration, declaration.name, type, scope)
+                bind(declaration, type)
+                break
+            }
+            case LastKind.Type: {
+                const preentered = required(scope.find(declaration.name))
+                const type = typeExpr(declaration.type, scopes);
+                if (type.kind == TypeKind.Struct) {
+                    type.name = declaration.name;
                 }
-                case LastKind.Var: {
-                    const type = typeExpr(declaration.type, scopes)
-                    const addressable = scope === moduleScope
-                    enter(declaration, declaration.name, { kind: TypeKind.Location, type, addressable }, scope)
-                    bind(declaration, type)
-                    break
+                bind(declaration, type)
+                renter(declaration, declaration.name, type, scopes.scope)
+                if (preentered.kind == TypeKind.Unknown) {
+                    fixup(preentered, type)
                 }
-                case LastKind.Function: {
-                    const parameters = funcParameters(declaration.parameters, scopes)
-                    const result = typeExpr(declaration.result, scopes)
-                    const type: FunctionType = { kind: TypeKind.Function, parameters, result }
-                    enter(declaration, declaration.name, type, scope)
-                    bind(declaration, type)
-                    break
-                }
-                case LastKind.Type: {
-                    const preentered = required(scope.find(declaration.name))
-                    const type = typeExpr(declaration.type, scopes);
-                    if (type.kind == TypeKind.Struct) {
-                        type.name = declaration.name;
-                    }
-                    bind(declaration, type)
-                    renter(declaration, declaration.name, type, scopes.scope)
-                    if (preentered.kind == TypeKind.Unknown) {
-                        fixup(preentered, type)
-                    }
-                    break
-                }
+                break
             }
         }
     }
@@ -149,22 +163,13 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
                     }
                     bodyScope.enter(name, type)
                 })
-                const bodyType = checkBlockOrExprssion(
+                const bodyType = checkBody(
                     declaration.body,
                     { scope: bodyScope, branchTargets: scopes.branchTargets }
                 )
-                mustMatch(declaration.body, resultType, bodyType)
+                mustMatch(declaration, resultType, bodyType)
                 return voidType
             }
-        }
-    }
-
-    function checkBlockOrExprssion(blockOrExpression: Block | Expression, scopes: Scopes): Type {
-        switch (blockOrExpression.kind) {
-            case LastKind.Block:
-                return checkBlockOrLoop(blockOrExpression, scopes)
-            default:
-                return checkExpression(blockOrExpression, scopes)
         }
     }
 
@@ -285,17 +290,12 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
     function ifThenElseExpresssion(node: IfThenElse, scopes: Scopes): Type {
         const conditionType = checkExpression(node.condition, scopes)
         mustMatch(node.condition, booleanType, conditionType)
-        const thenType = checkBlockOrExprssion(node.then, scopes)
-        const elseNode = node.else
-        var ifType: Type
-        if (!elseNode) {
-            ifType = voidType
-        } else {
-            const elseType = checkBlockOrExprssion(elseNode, scopes)
+        const thenType = checkBody(node.then, scopes)
+        const elseType = checkBody(node.else, scopes)
+        if (node.else.length) {
             mustMatch(node, elseType, thenType)
-            ifType = thenType
         }
-        return ifType
+        return thenType
     }
 
     function structLiteral(node: StructLiteral, scopes: Scopes): Type {
@@ -516,10 +516,10 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
             enter(block, name, block, blockBranchTargets)
         }
         enter(block, "$$top", block, blockBranchTargets)
-        return checkBlockBody(block.body, { scope: blockScope, branchTargets: blockBranchTargets})
+        return checkBody(block.body, { scope: blockScope, branchTargets: blockBranchTargets})
     }
 
-    function checkBlockBody(body: BodyElement[], scopes: Scopes): Type {
+    function checkBody(body: BodyElement[], scopes: Scopes): Type {
         enterDeclarations(body.filter(i => i.kind == LastKind.Var || LastKind.Let) as Declaration[], scopes)
         let type = voidType
         for (const element of body) {
@@ -533,8 +533,8 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
         switch (node.kind) {
             case LastKind.Var:
             case LastKind.Let:
-                type = checkDeclaration(node, scopes)
-                break
+            case LastKind.Type:
+                return checkDeclaration(node, scopes)
             case LastKind.Block:
             case LastKind.Loop:
                 type = checkBlockOrLoop(node, scopes)
@@ -546,13 +546,16 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
                 validateBranchTarget(node, node.target, scopes)
                 type = voidType
                 break
-            case LastKind.BranchIndexed:
+            case LastKind.BranchIndexed: {
+                const conditionType = checkExpression(node.condition, scopes)
+                mustMatch(node.condition, i32Type, conditionType)
                 for (const target of node.targets) {
                     validateBranchTarget(node, target, scopes)
                 }
                 validateBranchTarget(node, node.else, scopes)
                 type = voidType
                 break
+            }
             case LastKind.Return: {
                 const value = node.value
                 if (value) {
@@ -657,10 +660,10 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
 
 
     function bind(node: Last, type: Type) {
-        required(result.get(node) === undefined, node)
-        result.set(node, type)
+        required(types.get(node) === undefined, node)
+        types.set(node, type)
         if (type.kind == TypeKind.Unknown) {
-            addFixup(type, final => result.set(node, final))
+            addFixup(type, final => types.set(node, final))
         }
         scanForFixes(type)
     }
@@ -785,15 +788,11 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
         // Replace fields
         const primary = from.name ? from : to
         const secondary = primary === to ? from : to
-        result.forEach((value, key) => {
+        types.forEach((value, key) => {
             substitute(value, primary, secondary)
         })
 
         return primary
-    }
-
-    function expectBoolean(location: Locatable, type: Type) {
-        return mustMatch(location, type, booleanType)
     }
 
     function expectStruct(type: Type, location: Locatable): StructType {
@@ -822,7 +821,7 @@ export function check(module: Module): Map<Last, Type> | Diagnostic[] {
             if (from.kind == TypeKind.Null || to.kind == TypeKind.Null) {
                 return nullTypeMatch(location, from, to)
             }
-            report(location, `Expected type ${typeToString(from)}, received ${typeToString(to)}`);
+            report(location, `Expected type ${typeToString(to)}, received ${typeToString(from)}`);
         }
         return to
     }

@@ -183,13 +183,14 @@ export type Literal =
     LiteralNull
 
 export type Exportable = Var | Function
-export type Declaration = Let | Var | Type | Function | Exported
-export type Statement = Let | Var | Loop | Block | Branch | BranchIndexed | Return | Assign
+export type Declaration = Let | Var | TypeDeclaration | Function | Exported
+export type Statement = Let | Var | TypeDeclaration | Loop | Block | Branch | BranchIndexed | Return | Assign
 export type BodyElement = Statement | Expression
 export type TypeExpression = Reference | TypeSelect | StructTypeLiteral | ArrayConstructor | PointerConstructor
 export type ImportItem = ImportFunction | ImportVariable
 export type BranchTarget = Loop | Block
-export type Last = Declaration | Statement | Expression | TypeExpression | Import | Parameter | ImportItem
+export type Last = Declaration | Statement | Expression | TypeExpression | Import | Parameter | ImportItem | Field | 
+    StructFieldLiteral
 
 export interface Binary {
     left: Expression
@@ -281,8 +282,8 @@ export interface Loop extends LastNode {
 export interface IfThenElse extends LastNode {
     kind: LastKind.IfThenElse
     condition: Expression
-    then: Block | Expression
-    else?: Block | Expression
+    then: BodyElement[]
+    else: BodyElement[]
 }
 
 export interface Branch extends LastNode {
@@ -330,7 +331,7 @@ export interface Function extends LastNode {
     name: string
     parameters: Parameter[]
     result: TypeExpression
-    body: Expression
+    body: BodyElement[]
 }
 
 export interface Parameter extends LastNode {
@@ -359,7 +360,7 @@ export interface Var extends LastNode {
     value?: Expression
 }
 
-export interface Type extends LastNode {
+export interface TypeDeclaration extends LastNode {
     kind: LastKind.Type
     name: string
     type: TypeExpression

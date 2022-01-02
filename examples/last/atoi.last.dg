@@ -22,7 +22,7 @@ fun atoi(len: Int, bytes: Int[]^): Int {
     value;
 }
 
-var b30: Int[] = [ 51, 49 ];
-var b12: Int[] = [ 49, 49 ];
+var b30: Int[2] = [ 51, 49 ];
+var b12: Int[2] = [ 49, 49 ];
 
 export fun test(): Int = atoi(2, &b30) + atoi(2, &b12)

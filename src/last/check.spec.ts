@@ -1,7 +1,6 @@
 import { parse, Scanner } from "../last-parser"
-import { Last, Module } from "./ast"
-import { check } from './check'
-import { Type } from "./types"
+import { Module } from "./ast"
+import { check, CheckResult } from './check'
 import { Diagnostic } from "./diagnostic"
 import * as fs from 'fs'
 
@@ -45,7 +44,7 @@ function p(text: string, name: string = "<text>"): Module {
     return module
 }
 
-function t(text: string, name: string = "<text>"): [Module, Map<Last, Type>] {
+function t(text: string, name: string = "<text>"): [Module, CheckResult] {
     const module = p(text, name)
     const types = check(module)
     if (Array.isArray(types)) {
@@ -54,7 +53,7 @@ function t(text: string, name: string = "<text>"): [Module, Map<Last, Type>] {
     return [module, types]
 }
 
-function te(name: string): [Module, Map<Last, Type>] {
+function te(name: string): [Module, CheckResult] {
     const text = fs.readFileSync(`examples/${name}`, 'utf-8')
     return t(text, name)
 }
