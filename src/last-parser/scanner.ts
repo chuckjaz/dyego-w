@@ -342,6 +342,9 @@ export class Scanner {
                 case "]":
                     result = Token.RBrack
                     break
+                case "%":
+                    result = Token.Percent
+                    break
                 case ">":
                     if (text[i] == "=") {
                         i++

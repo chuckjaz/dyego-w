@@ -69,16 +69,17 @@ export type Type =
 export const enum Capabilities {
     Numeric = 1 << 0,
     Bitwizeable = 1 << 1,
-    Negatable = 1 << 2,
-    Floatable = 1 << 3,
-    Comparable = 1 << 4,
-    Logical = 1 << 5,
-    Indexable = 1 << 6,
-    Pointer = 1 << 7,
-    Callable = 1 << 8,
-    Loadable = 1 << 9,
-    Storeable = 1 << 10,
-    Builtins = 1 << 11,
+    Rotatable = 1 << 2,
+    Negatable = 1 << 3,
+    Floatable = 1 << 4,
+    Comparable = 1 << 5,
+    Logical = 1 << 6,
+    Indexable = 1 << 7,
+    Pointer = 1 << 8,
+    Callable = 1 << 9,
+    Loadable = 1 << 10,
+    Storeable = 1 << 11,
+    Builtins = 1 << 12,
 }
 
 export interface I8 {
@@ -216,14 +217,16 @@ export function capabilitesOf(type: Type): Capabilities {
     switch (type.kind) {
         case TypeKind.I8:
         case TypeKind.I16:
-        case TypeKind.I32:
-        case TypeKind.I64:
         case TypeKind.U8:
         case TypeKind.U16:
+            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
+                Capabilities.Bitwizeable;
+        case TypeKind.I32:
+        case TypeKind.I64:
         case TypeKind.U32:
         case TypeKind.U64:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
-                Capabilities.Bitwizeable;
+                Capabilities.Bitwizeable | Capabilities.Rotatable;
         case TypeKind.F32:
         case TypeKind.F64:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
@@ -323,7 +326,14 @@ function capabilityMethods(type: Type, scope: Scope<Type>) {
     let capabilities = capabilitesOf(type)
     const thisP = scopeOf({ name: "this", type })
     const thisAndOther = scopeOf({ name: "this", type }, { name: "other", type })
-    const thisAndValue = scopeOf({ name: "this", type }, { name: "value", type: i32Type })
+    let valueType = i32Type
+    switch (type.kind) {
+        case TypeKind.I64:
+        case TypeKind.U64:
+            valueType = i64Type
+            break
+    }
+    const thisAndValue = scopeOf({ name: "this", type }, { name: "value", type: valueType })
     if (capabilities & Capabilities.Bitwizeable) {
         let resultType = i32Type
         switch (type.kind) {
@@ -337,11 +347,13 @@ function capabilityMethods(type: Type, scope: Scope<Type>) {
         enter(scope, "countNonZeros", thisP, resultType)
         enter(scope, "shiftLeft", thisAndValue, type)
         enter(scope, "shiftRight", thisAndValue, type)
-        enter(scope, "rotateLeft", thisAndValue, type)
-        enter(scope, "rotateRight", thisAndValue, type)
         enter(scope, "bitAnd", thisAndOther, type)
         enter(scope, "bitXor", thisAndOther, type)
         enter(scope, "bitOr", thisAndOther, type)
+    }
+    if (capabilities & Capabilities.Rotatable) {
+        enter(scope, "rotateLeft", thisAndValue, type)
+        enter(scope, "rotateRight", thisAndValue, type)
     }
     if (capabilities & Capabilities.Floatable) {
         enter(scope, "abs", thisP, type)
