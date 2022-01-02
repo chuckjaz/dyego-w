@@ -120,6 +120,11 @@ describe("last codegen", () => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
+                it("can remainder", () => {
+                    cg("export fun test(a: Int8, b: Int8): Int8 = a % b", ({test}) => {
+                        expect(test(23, 3)).toEqual(23 % 3)
+                    })
+                })
                 it("can compare", () => {
                     cg("export fun test(a: Int8, b: Int8): Boolean = a > b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
@@ -170,6 +175,33 @@ describe("last codegen", () => {
                             expect(test(5 * 16 + 5)).toEqual(4)
                         })
                     })
+                    it("can shift left", () => {
+                        cg("export fun test(a: Int8, b: Int32): Int8 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                            expect(test(-4, 2)).toEqual(-4 << 2)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: Int8, b: Int32): Int8 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(25 >> 2)
+                            expect(test(-30, 2)).toEqual(-30 >> 2)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: Int8, b: Int8): Int8 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 & 7)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: Int8, b: Int8): Int8 = a.bitOr(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 | 7)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: Int8, b: Int8): Int8 = a.bitXor(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
                 })
             })
             describe("u8", () => {
@@ -193,6 +225,11 @@ describe("last codegen", () => {
                 it("can divide", () => {
                     cg("export fun test(a: UInt8, b: UInt8): UInt8 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
+                    })
+                })
+                it("can remainder", () => {
+                    cg("export fun test(a: UInt8, b: UInt8): UInt8 = a % b", ({test}) => {
+                        expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 it("can compare", () => {
@@ -245,6 +282,31 @@ describe("last codegen", () => {
                             expect(test(5 * 16 + 5)).toEqual(4)
                         })
                     })
+                    it("can shift left", () => {
+                        cg("export fun test(a: UInt8, b: Int32): UInt8 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: UInt8, b: Int32): UInt8 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(25 >> 2)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: UInt8, b: UInt8): UInt8 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 & 7)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: UInt8, b: UInt8): UInt8 = a.bitOr(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 | 7)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: UInt8, b: UInt8): UInt8 = a.bitXor(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
                 })
             })
             describe("i16", () => {
@@ -268,6 +330,11 @@ describe("last codegen", () => {
                 it("can divide", () => {
                     cg("export fun test(a: Int16, b: Int16): Int16 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
+                    })
+                })
+                it("can remainder", () => {
+                    cg("export fun test(a: Int16, b: Int16): Int16 = a % b", ({test}) => {
+                        expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 it("can compare", () => {
@@ -320,8 +387,32 @@ describe("last codegen", () => {
                             expect(test(5 * 16 + 5)).toEqual(4)
                         })
                     })
+                    it("can shift left", () => {
+                        cg("export fun test(a: Int16, b: Int32): Int16 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: Int16, b: Int32): Int16 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(25 >> 2)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: Int16, b: Int16): Int16 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 & 7)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: Int16, b: Int16): Int16 = a.bitOr(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 | 7)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: Int16, b: Int16): Int16 = a.bitXor(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
                 })
-
             })
             describe("u16", () => {
                 it("can add", () => {
@@ -344,6 +435,11 @@ describe("last codegen", () => {
                 it("can divide", () => {
                     cg("export fun test(a: UInt16, b: UInt16): UInt16 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
+                    })
+                })
+                it("can remainder", () => {
+                    cg("export fun test(a: UInt16, b: UInt16): UInt16 = a % b", ({test}) => {
+                        expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 it("can compare", () => {
@@ -396,8 +492,32 @@ describe("last codegen", () => {
                             expect(test(5 * 16 + 5)).toEqual(4)
                         })
                     })
+                    it("can shift left", () => {
+                        cg("export fun test(a: UInt16, b: Int32): UInt16 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: UInt16, b: Int32): UInt16 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(25 >> 2)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: UInt16, b: UInt16): UInt16 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 & 7)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: UInt16, b: UInt16): UInt16 = a.bitOr(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 | 7)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: UInt16, b: UInt16): UInt16 = a.bitXor(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
                 })
-
             })
             describe("i32", () => {
                 it("can add", () => {
@@ -420,6 +540,11 @@ describe("last codegen", () => {
                 it("can divide", () => {
                     cg("export fun test(a: Int32, b: Int32): Int32 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
+                    })
+                })
+                it("can remainder", () => {
+                    cg("export fun test(a: Int32, b: Int32): Int32 = a % b", ({test}) => {
+                        expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 it("can compare", () => {
@@ -472,6 +597,41 @@ describe("last codegen", () => {
                             expect(test(5 * 16 + 5)).toEqual(4)
                         })
                     })
+                    it("can shift left", () => {
+                        cg("export fun test(a: Int32, b: Int32): Int32 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: Int32, b: Int32): Int32 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(25 >> 2)
+                        })
+                    })
+                    it("can rotate left", () => {
+                        cg("export fun test(a: Int32, b: Int32): Int32 = a.rotateLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                        })
+                    })
+                    it("can rotate right", () => {
+                        cg("export fun test(a: Int32, b: Int32): Int32 = a.rotateRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(1073741830)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: Int32, b: Int32): Int32 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 & 7)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: Int32, b: Int32): Int32 = a.bitOr(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 | 7)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: Int32, b: Int32): Int32 = a.bitXor(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
                 })
             })
             describe("u32", () => {
@@ -495,6 +655,11 @@ describe("last codegen", () => {
                 it("can divide", () => {
                     cg("export fun test(a: UInt32, b: UInt32): UInt32 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
+                    })
+                })
+                it("can remainder", () => {
+                    cg("export fun test(a: UInt32, b: UInt32): UInt32 = a % b", ({test}) => {
+                        expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 it("can compare", () => {
@@ -547,6 +712,41 @@ describe("last codegen", () => {
                             expect(test(5 * 16 + 5)).toEqual(4)
                         })
                     })
+                    it("can shift left", () => {
+                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(25 >> 2)
+                        })
+                    })
+                    it("can rotate left", () => {
+                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a.rotateLeft(b)", ({test}) => {
+                            expect(test(4, 2)).toEqual(4 << 2)
+                        })
+                    })
+                    it("can rotate right", () => {
+                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a.rotateRight(b)", ({test}) => {
+                            expect(test(25, 2)).toEqual(1073741830)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: UInt32, b: UInt32): UInt32 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 & 7)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: UInt32, b: UInt32): UInt32 = a.bitOr(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 | 7)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: UInt32, b: UInt32): UInt32 = a.bitXor(b)", ({test}) => {
+                            expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
                 })
             })
             describe("i64", () => {
@@ -570,6 +770,11 @@ describe("last codegen", () => {
                 it("can divide", () => {
                     cg("export fun test(a: Int64, b: Int64): Int64 = a / b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(7n)
+                    })
+                })
+                it("can remainder", () => {
+                    cg("export fun test(a: Int64, b: Int64): Int64 = a % b", ({test}) => {
+                        expect(test(23n, 3n)).toEqual(23n % 3n)
                     })
                 })
                 it("can compare", () => {
@@ -622,6 +827,41 @@ describe("last codegen", () => {
                             expect(test(5n * 16n + 5n)).toEqual(4n)
                         })
                     })
+                    it("can shift left", () => {
+                        cg("export fun test(a: Int64, b: Int64): Int64 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4n, 2n)).toEqual(4n << 2n)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: Int64, b: Int64): Int64 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25n, 2n)).toEqual(25n >> 2n)
+                        })
+                    })
+                    it("can rotate left", () => {
+                        cg("export fun test(a: Int64, b: Int64): Int64 = a.rotateLeft(b)", ({test}) => {
+                            expect(test(4n, 2n)).toEqual(4n << 2n)
+                        })
+                    })
+                    it("can rotate right", () => {
+                        cg("export fun test(a: Int64, b: Int64): Int64 = a.rotateRight(b)", ({test}) => {
+                            expect(test(25n, 2n)).toEqual(4611686018427387910n)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: Int64, b: Int64): Int64 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23n, 7n)).toEqual(23n & 7n)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: Int64, b: Int64): Int64 = a.bitOr(b)", ({test}) => {
+                            expect(test(23n, 7n)).toEqual(23n | 7n)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: Int64, b: Int64): Int64 = a.bitXor(b)", ({test}) => {
+                            expect(test(23n, 7n)).toEqual(23n ^ 7n)
+                        })
+                    })
                 })
             })
             describe("u64", () => {
@@ -645,6 +885,11 @@ describe("last codegen", () => {
                 it("can divide", () => {
                     cg("export fun test(a: UInt64, b: UInt64): UInt64 = a / b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(7n)
+                    })
+                })
+                it("can remainder", () => {
+                    cg("export fun test(a: UInt64, b: UInt64): UInt64 = a % b", ({test}) => {
+                        expect(test(23n, 3n)).toEqual(23n % 3n)
                     })
                 })
                 it("can compare", () => {
@@ -695,6 +940,41 @@ describe("last codegen", () => {
                         cg("export fun test(a: UInt64): Int64 = a.countNonZeros()", ({test}) => {
                             expect(test(1n)).toEqual(1n)
                             expect(test(5n * 16n + 5n)).toEqual(4n)
+                        })
+                    })
+                    it("can shift left", () => {
+                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a.shiftLeft(b)", ({test}) => {
+                            expect(test(4n, 2n)).toEqual(4n << 2n)
+                        })
+                    })
+                    it("can shift right", () => {
+                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a.shiftRight(b)", ({test}) => {
+                            expect(test(25n, 2n)).toEqual(25n >> 2n)
+                        })
+                    })
+                    it("can rotate left", () => {
+                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a.rotateLeft(b)", ({test}) => {
+                            expect(test(4n, 2n)).toEqual(4n << 2n)
+                        })
+                    })
+                    it("can rotate right", () => {
+                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a.rotateRight(b)", ({test}) => {
+                            expect(test(25n, 2n)).toEqual(4611686018427387910n)
+                        })
+                    })
+                    it("can bitwise and", () => {
+                        cg("export fun test(a: UInt64, b: UInt64): UInt64 = a.bitAnd(b)", ({test}) => {
+                            expect(test(23n, 7n)).toEqual(23n & 7n)
+                        })
+                    })
+                    it("can bitwise or", () => {
+                        cg("export fun test(a: UInt64, b: UInt64): UInt64 = a.bitOr(b)", ({test}) => {
+                            expect(test(23n, 7n)).toEqual(23n | 7n)
+                        })
+                    })
+                    it("can bitwise xor", () => {
+                        cg("export fun test(a: UInt64, b: UInt64): UInt64 = a.bitXor(b)", ({test}) => {
+                            expect(test(23n, 7n)).toEqual(23n ^ 7n)
                         })
                     })
                 })

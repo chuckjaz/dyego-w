@@ -392,6 +392,25 @@ export class GenType {
                         return
                 }
                 break
+            case LastKind.Remainder:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                        g.inst(Inst.i32_rem_s)
+                        return
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_rem_s)
+                        return
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_rem_u)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_rem_u)
+                        return
+                }
             case LastKind.Not:
                 switch (this.type.kind) {
                     case TypeKind.Boolean:
@@ -1527,10 +1546,10 @@ class BuiltinComplexGenNode extends LoadonlyGenNode implements GenNode {
 }
 
 export function builtinGenNodeFor(
-    location: Locatable, 
-    type: Type, 
-    result: GenType, 
-    name: string, 
+    location: Locatable,
+    type: Type,
+    result: GenType,
+    name: string,
     target: GenNode
 ): GenNode {
     let inst = Inst.Nop
@@ -1589,6 +1608,127 @@ export function builtinGenNodeFor(
                 case TypeKind.I64:
                 case TypeKind.U64:
                     inst = Inst.i64_popcnt
+                    break
+            }
+            break
+        case "shiftLeft":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.i32_shl
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_shl
+                    break
+            }
+            break
+        case "shiftRight":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                    clamp = true
+                case TypeKind.I32:
+                    inst = Inst.i32_shr_s
+                    break
+                case TypeKind.I64:
+                    inst = Inst.i64_shr_s
+                    break
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.U32:
+                    inst = Inst.i32_shr_u
+                    break
+                case TypeKind.U64:
+                    inst = Inst.i64_shr_u
+                    break
+            }
+            break
+        case "rotateLeft":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.i32_rotl
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_rotl
+                    break
+            }
+            break
+        case "rotateRight":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.i32_rotr
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_rotr
+                    break
+            }
+            break
+        case "bitAnd":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.i32_and
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_and
+                    break
+            }
+            break
+        case "bitOr":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.i32_or
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_or
+                    break
+            }
+            break
+        case "bitXor":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.i32_xor
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i64_xor
                     break
             }
             break
