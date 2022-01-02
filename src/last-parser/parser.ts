@@ -1,17 +1,17 @@
-import { 
-    Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, Block, BodyElement, Branch, BranchIndexed, 
-    Call, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, IfThenElse, 
-    Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32, 
+import {
+    Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, Block, BodyElement, Branch, BranchIndexed,
+    Call, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, IfThenElse,
+    Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32,
     LiteralFloat64, LiteralInt16, LiteralInt32, LiteralInt64, LiteralInt8, LiteralKind, LiteralNull, LiteralUInt16,
     LiteralUInt32, LiteralUInt64, LiteralUInt8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
     PointerConstructor, Reference, Remainder, Return, Select, StructFieldLiteral, StructLiteral, StructTypeLiteral,
-    Subtact, Type, TypeExpression, TypeSelect, Var 
+    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var
 } from "../last";
 import { Scanner } from "./scanner";
 import { Token } from "./tokens";
 
 export function parse(scanner: Scanner): Module | Diagnostic[] {
-    let follows = setOf(Token.EOF, Token.Fun, Token.Var, Token.Let)
+    let follows = setOf(Token.EOF, Token.Fun, Token.Var, Token.Let, Token.Type)
     let token = scanner.next()
     const diagnostics: Diagnostic[] = []
     const result = module()
@@ -21,6 +21,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         const start = scanner.start
         const imports = importStatements()
         const declarations = declarationStatements()
+        expect(Token.EOF)
         return l<Module>(start, { kind: LastKind.Module, imports, declarations })
     }
 
@@ -215,13 +216,13 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         return l<Var>(start, { kind: LastKind.Var, name, type, value })
     }
 
-    function typeDeclaration(): Type {
+    function typeDeclaration(): TypeDeclaration {
         const start = scanner.start
         expect(Token.Type)
         const name = expectName()
         expect(Token.Equal)
         const type = typeExpression()
-        return l<Type>(start, { kind: LastKind.Type, name, type })
+        return l<TypeDeclaration>(start, { kind: LastKind.Type, name, type })
     }
 
     function functionDeclaration(): Function {
@@ -233,12 +234,12 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         expect(Token.RParen)
         expect(Token.Colon)
         const result = typeExpression()
-        let body: Expression
+        let body: BodyElement[]
         if (token == Token.Equal) {
             next()
-            body = expression()
+            body = [expression()]
         } else {
-            body = block()
+            body = statements()
         }
         return l<Function>(start, { kind: LastKind.Function, name, parameters, result, body })
     }
@@ -320,7 +321,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
                     left = l<Multiply>(start, { kind: LastKind.Multiply, left, right })
                     continue
                 }
-                case Token.Dash: {
+                case Token.Slash: {
                     next()
                     const right = asLevelExpression()
                     left = l<Divide>(start, { kind: LastKind.Divide, left, right })
@@ -498,17 +499,26 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         return l<Dereference>(target.start, { kind: LastKind.Dereference, target })
     }
 
+    function expressionOrBody(): BodyElement[] {
+        switch (token) {
+            case Token.LBrace:
+                return statements()
+            default:
+                return [expression()]
+        }
+    }
+
     function ifExpression(): IfThenElse {
         const start = scanner.start
         expect(Token.If)
         expect(Token.LParen)
-        const condition = expressionOrBlock()
+        const condition = expression()
         expect(Token.RParen)
-        const thenExpr = expressionOrBlock()
-        let elseExpr: Expression | Block | undefined = undefined
+        const thenExpr = expressionOrBody()
+        let elseExpr: BodyElement[] = []
         if (token == Token.Else) {
             next()
-            elseExpr = expressionOrBlock()
+            elseExpr = expressionOrBody()
         }
         return l<IfThenElse>(start, { kind: LastKind.IfThenElse, condition, then: thenExpr, else: elseExpr })
     }
@@ -545,11 +555,17 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         return l<Field>(start, { kind: LastKind.Field, name, value })
     }
 
-    function block(): Block {
+    function statements(): BodyElement[] {
         const start = scanner.start
         expect(Token.LBrace)
         const body = sequence(bodyElement, bodyElementFirstSet, rbraceSet)
         expect(Token.RBrace)
+        return body
+    }
+
+    function block(): Block {
+        const start = scanner.start
+        const body = statements()
         return l<Block>(start, { kind: LastKind.Block, body })
     }
 
@@ -584,7 +600,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         expect(Token.LBrace)
         const body = sequence(bodyElement, bodyElementFirstSet, rbraceSet)
         expect(Token.RBrace)
-        return l<Loop>(start, { kind: LastKind.Loop, name, body })    
+        return l<Loop>(start, { kind: LastKind.Loop, name, body })
     }
 
     function blockStatement(): Block {
@@ -597,7 +613,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         expect(Token.LBrace)
         const body = sequence(bodyElement, bodyElementFirstSet, rbraceSet)
         expect(Token.RBrace)
-        return l<Block>(start, { kind: LastKind.Block, name, body })    
+        return l<Block>(start, { kind: LastKind.Block, name, body })
     }
 
     function branch(): Branch | BranchIndexed {
@@ -766,7 +782,7 @@ function tokenText(token: Token): string {
         case Token.LBrack: return "a '[' operator"
         case Token.RBrack: return "a ']' operator"
         case Token.Error: return "an error symbol"
-        case Token.EOF: return "end of file" 
+        case Token.EOF: return "end of file"
     }
 }
 
@@ -791,9 +807,9 @@ const rbrackSet = setOf(Token.RBrack)
 const rbraceSet = setOf(Token.RBrace)
 
 const gtSet = setOf(Token.Gt)
-const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Export)
+const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Type, Token.Export)
 const expressionFirstSet = setOf(Token.Identifier, Token.Int8, Token.Int16, Token.Int32, Token.Int64,
-    Token.UInt8, Token.UInt16, Token.UInt32, Token.UInt64, Token.Float32, Token.Float64, Token.Null, Token.True, 
+    Token.UInt8, Token.UInt16, Token.UInt32, Token.UInt64, Token.Float32, Token.Float64, Token.Null, Token.True,
     Token.False, Token.Dash, Token.Plus, Token.If, Token.Amp, Token.LBrack, Token.LBrace)
 const statementFirstSet = setOf(Token.Var, Token.Let, Token.Loop, Token.Block, Token.Branch, Token.Return )
 const bodyElementFirstSet = unionOf(expressionFirstSet, statementFirstSet)
