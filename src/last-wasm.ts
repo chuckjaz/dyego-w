@@ -1,1 +1,1 @@
-export * from './codegen'
+export * from './last-wasm/codegen'

@@ -7,18 +7,26 @@ import {
     PointerConstructor, Reference, Remainder, Return, Select, StructFieldLiteral, StructLiteral, StructTypeLiteral,
     Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var
 } from "../last";
-import { Scanner } from "./scanner";
+import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
 
-export function parse(scanner: Scanner): Module | Diagnostic[] {
+interface PositionMap {
+    pos(offset: number): number
+}
+
+export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnostic[] {
     let follows = setOf(Token.EOF, Token.Fun, Token.Var, Token.Let, Token.Type)
     let token = scanner.next()
     const diagnostics: Diagnostic[] = []
+    const pos = builder ? {
+        get start() { return builder.pos(scanner.start) },
+        get end() { return builder.pos(scanner.end) }
+    } : scanner
     const result = module()
     return diagnostics.length > 0 ? diagnostics : result
 
     function module(): Module {
-        const start = scanner.start
+        const start = pos.start
         const imports = importStatements()
         const declarations = declarationStatements()
         expect(Token.EOF)
@@ -30,7 +38,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function importStatement(): Import {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Import)
         const module = expectName()
         expect(Token.LBrace)
@@ -44,7 +52,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function importItem(module: string): ImportItem {
-        const start = scanner.start
+        const start = pos.start
         const name = expectName()
         if (token == Token.LParen) {
             return importFunction(start, module, name)
@@ -82,7 +90,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function parameter(): Parameter {
-        const start = scanner.start
+        const start = pos.start
         const name = expectName()
         expect(Token.Colon)
         const type = typeExpression()
@@ -90,7 +98,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function typeExpression(): TypeExpression {
-        const start = scanner.start
+        const start = pos.start
         let result: TypeExpression = primaryTypeExpression()
         while (true) {
             switch(token) {
@@ -121,7 +129,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function primaryTypeExpression(): TypeExpression {
-        const start = scanner.start
+        const start = pos.start
         switch (token) {
             case Token.Identifier: {
                 const name = expectName()
@@ -146,7 +154,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function structFieldLiteral(): StructFieldLiteral {
-        const start = scanner.start
+        const start = pos.start
         const name = expectName()
         expect(Token.Colon)
         const type = typeExpression()
@@ -158,7 +166,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function declarationStatement(): Declaration {
-        const start = scanner.start
+        const start = pos.start
         switch (token) {
             case Token.Export: {
                 next()
@@ -179,7 +187,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function exportable(): Exportable {
-        const start = scanner.start
+        const start = pos.start
         switch (token) {
             case Token.Fun:
                 return functionDeclaration()
@@ -192,7 +200,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function letDeclaration(): Let {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Let)
         const name = expectName()
         expect(Token.Colon)
@@ -203,7 +211,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function varDeclaration(): Var {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Var)
         const name = expectName()
         expect(Token.Colon)
@@ -217,7 +225,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function typeDeclaration(): TypeDeclaration {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Type)
         const name = expectName()
         expect(Token.Equal)
@@ -226,7 +234,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function functionDeclaration(): Function {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Fun)
         const name = expectName()
         expect(Token.LParen)
@@ -245,7 +253,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function expression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         let left = orExpression()
         while (token == Token.And) {
             next()
@@ -256,7 +264,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function orExpression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         let left = compareExpression()
         while (token == Token.Or) {
             next()
@@ -267,7 +275,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function compareExpression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         let left = addExpression()
         let hasOp = false
         let op = LastKind.GreaterThan
@@ -288,7 +296,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function addExpression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         let left = multiplyExpression()
         while(true) {
             switch (token) {
@@ -311,7 +319,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function multiplyExpression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         let left = asLevelExpression()
         while(true) {
             switch (token) {
@@ -339,7 +347,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function asLevelExpression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         let left = simpleExpression()
         if (token == Token.As) {
             next()
@@ -350,7 +358,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function simpleExpression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         let result = primitiveExpression()
         while (true) {
             switch (token) {
@@ -373,7 +381,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function primitiveExpression(): Expression {
-        const start = scanner.start
+        const start = pos.start
         switch (token) {
             case Token.Identifier: {
                 const name = expectName()
@@ -509,7 +517,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function ifExpression(): IfThenElse {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.If)
         expect(Token.LParen)
         const condition = expression()
@@ -524,7 +532,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function array(): ArrayLiteral {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.LBrack)
         const elements = sequence(expression, expressionFirstSet, rbrackSet, comma)
         expect(Token.RBrack)
@@ -532,23 +540,15 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function struct(): StructLiteral {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.LBrace)
         const fields = sequence(field, identSet, rbraceSet, comma)
         expect(Token.RBrace)
         return l<StructLiteral>(start, { kind: LastKind.StructLiteral, fields })
     }
 
-    function expressionOrBlock(): Expression | Block {
-        if (token == Token.LBrace) {
-            return block()
-        } else {
-            return expression()
-        }
-    }
-
     function field(): Field {
-        const start = scanner.start
+        const start = pos.start
         const name = expectName()
         expect(Token.Colon)
         const value = expression()
@@ -556,7 +556,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function statements(): BodyElement[] {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.LBrace)
         const body = sequence(bodyElement, bodyElementFirstSet, rbraceSet)
         expect(Token.RBrace)
@@ -564,13 +564,13 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function block(): Block {
-        const start = scanner.start
+        const start = pos.start
         const body = statements()
         return l<Block>(start, { kind: LastKind.Block, body })
     }
 
     function bodyElement(): BodyElement {
-        const start = scanner.start
+        const start = pos.start
         switch (token) {
             case Token.Loop: return loop()
             case Token.Block: return blockStatement()
@@ -591,7 +591,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function loop(): Loop {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Loop)
         let name: string | undefined = undefined
         if (token == Token.Identifier) {
@@ -604,7 +604,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function blockStatement(): Block {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Block)
         let name: string | undefined = undefined
         if (token == Token.Identifier) {
@@ -617,7 +617,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function branch(): Branch | BranchIndexed {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Branch)
         if (token == Token.LParen) {
             next()
@@ -637,7 +637,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
     }
 
     function returnStatement(): Return {
-        const start = scanner.start
+        const start = pos.start
         expect(Token.Return)
         let value: Expression | undefined = undefined
         if (expressionFirstSet[token]) {
@@ -662,13 +662,13 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
             result.push(element())
             if (separator == semi && token == Token.Semi) separator()
             if (separator == comma && token == Token.Comma) separator()
-            let last = scanner.start
+            let last = pos.start
             while (firstSet[token]) {
                 result.push(element())
                 if (separator == semi && token == Token.Semi) separator()
                 if (separator == comma && token == Token.Comma) separator()
-                if (last == scanner.start) throw new Error(`Parser didn't make progress at ${last}`)
-                last = scanner.start
+                if (last == pos.start) throw new Error(`Parser didn't make progress at ${last}`)
+                last = pos.start
             }
         }
         follows = savedFollows
@@ -694,7 +694,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
         return token
     }
 
-    function report(message: string, location: Locatable = {start: scanner.start, end: scanner.end }) {
+    function report(message: string, location: Locatable = {start: pos.start, end: pos.end }) {
         diagnostics.push({ location, message })
     }
 
@@ -718,7 +718,7 @@ export function parse(scanner: Scanner): Module | Diagnostic[] {
 
     function l<T extends Locatable>(start: number | undefined, n: T): T {
         n.start = start
-        n.end = scanner.end
+        n.end = pos.end
         return n
     }
 }
