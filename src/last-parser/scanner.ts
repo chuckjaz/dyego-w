@@ -1,5 +1,10 @@
 import { Token } from "./tokens"
 
+export interface PositionBuilder {
+    addLine(offset: number): void
+    pos(offset: number): number
+}
+
 export class Scanner {
     text: string
     start: number = 0
@@ -7,9 +12,11 @@ export class Scanner {
     prev: number = 0
     value: any
     message: string = ""
+    builder: PositionBuilder | undefined
 
-    constructor(text: string) {
+    constructor(text: string, builder?: PositionBuilder) {
         this.text = text + "\0"
+        this.builder = builder
     }
 
     clone(): Scanner {
@@ -18,6 +25,7 @@ export class Scanner {
         result.end = this.end
         result.prev = this.prev
         result.value = this.value
+        result.builder = this.builder
         return result
     }
 
@@ -34,7 +42,13 @@ export class Scanner {
                 case "\0":
                     i--
                     break loop
-                case " ": case "\t": case "\n": case "\r":
+                case " ": case "\t":
+                    continue
+                case "\r":
+                    if (text[i] == "\n") i++
+                    // fallthrough
+                case "\n":
+                    this.builder?.addLine(i)
                     continue
                 case "A": case "B": case "C": case "D": case "E":
                 case "F": case "G": case "H": case "I": case "J":
@@ -265,6 +279,12 @@ export class Scanner {
                             i++
                             while(true) {
                                 switch (text[i++]) {
+                                    case "\r":
+                                        if (text[i] == "\n") i++
+                                        // fallthrough
+                                    case "\n":
+                                        this.builder?.addLine(i)
+                                        continue
                                     case "*":
                                         if (text[i] == "/") {
                                             i++
@@ -283,13 +303,9 @@ export class Scanner {
                             i++
                             while(true) {
                                 switch(text[i++]) {
-                                    case "\r":
-                                        if (text[i] == "\n") i++
-                                    case "\n":
-                                        continue loop
-                                    case "\0":
+                                    case "\r": case "\n": case "\0":
                                         i--
-                                        break loop
+                                        continue loop
                                 }
                             }
                         }
