@@ -385,7 +385,7 @@ export class GenType {
                         g.inst(Inst.i64_div_u)
                         return
                     case TypeKind.F32:
-                        g.inst(Inst.f64_div)
+                        g.inst(Inst.f32_div)
                         return
                     case TypeKind.F64:
                         g.inst(Inst.f64_div)
