@@ -1,4 +1,4 @@
-import { Locatable } from './ast'
+import { Locatable } from "./last"
 
 export function unsupported(location: Locatable | undefined, message?: string): never {
     error(message ? "Not supported yet: " + message : "Not supported yet", location)
