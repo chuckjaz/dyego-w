@@ -979,6 +979,150 @@ describe("last codegen", () => {
                     })
                 })
             })
+            describe("float32", () => {
+                it("can add", () => {
+                    cg("export fun test(a: Float32, b: Float32): Float32 = a + b", ({test}) => {
+                        expect(test(1, 2)).toEqual(3)
+                        expect(test(23, 19)).toEqual(42)
+                        expect(test(1.23, 3.43)).toBeCloseTo(1.23 + 3.43)
+                    })
+                })
+                it("can subtract", () => {
+                    cg("export fun test(a: Float32, b: Float32): Float32 = a - b", ({test}) => {
+                        expect(test(1, 2)).toEqual(-1)
+                    })
+                })
+                it("can multiply", () => {
+                    cg("export fun test(a: Float32, b: Float32): Float32 = a * b", ({test}) => {
+                        expect(test(2, 3)).toEqual(6)
+                    })
+                })
+                it("can divide", () => {
+                    cg("export fun test(a: Float32, b: Float32): Float32 = a / b", ({test}) => {
+                        expect(test(14, 2)).toEqual(7)
+                    })
+                })
+                describe("builtins", () => {
+                    it("can abs", () => {
+                        cg("export fun test(a: Float32): Float32 = a.abs()", ({test}) => {
+                            expect(test(-32)).toEqual(32)
+                        })
+                    })
+                    it("can sqrt", () => {
+                        cg("export fun test(a: Float32): Float32 = a.sqrt()", ({test}) => {
+                            expect(test(25)).toEqual(5)
+                        })
+                    })
+                    it("can floor", () => {
+                        cg("export fun test(a: Float32): Float32 = a.floor()", ({test}) => {
+                            expect(test(25.93)).toEqual(25)
+                        })
+                    })
+                    it("can ceil", () => {
+                        cg("export fun test(a: Float32): Float32 = a.ceil()", ({test}) => {
+                            expect(test(25.93)).toEqual(26)
+                        })
+                    })
+                    it("can trunc", () => {
+                        cg("export fun test(a: Float32): Float32 = a.trunc()", ({test}) => {
+                            expect(test(25.93)).toEqual(25)
+                        })
+                    })
+                    it("can nearest", () => {
+                        cg("export fun test(a: Float32): Float32 = a.nearest()", ({test}) => {
+                            expect(test(25.93)).toEqual(26)
+                        })
+                    })
+                    it("can min", () => {
+                        cg("export fun test(a: Float32, b: Float32): Float32 = a.min(b)", ({test}) => {
+                            expect(test(25, 30)).toEqual(25)
+                        })
+                    })
+                    it("can max", () => {
+                        cg("export fun test(a: Float32, b: Float32): Float32 = a.max(b)", ({test}) => {
+                            expect(test(25, 30)).toEqual(30)
+                        })
+                    })
+                    it("can copysign", () => {
+                        cg("export fun test(a: Float32, b: Float32): Float32 = a.copysign(b)", ({test}) => {
+                            expect(test(1, 23)).toEqual(1)
+                            expect(test(1, -23)).toEqual(-1)
+                        })
+                    })
+                })
+            })
+            describe("float64", () => {
+                it("can add", () => {
+                    cg("export fun test(a: Float64, b: Float64): Float64 = a + b", ({test}) => {
+                        expect(test(1, 2)).toEqual(3)
+                        expect(test(23, 19)).toEqual(42)
+                        expect(test(1.23, 3.43)).toBeCloseTo(1.23 + 3.43)
+                    })
+                })
+                it("can subtract", () => {
+                    cg("export fun test(a: Float64, b: Float64): Float64 = a - b", ({test}) => {
+                        expect(test(1, 2)).toEqual(-1)
+                    })
+                })
+                it("can multiply", () => {
+                    cg("export fun test(a: Float64, b: Float64): Float64 = a * b", ({test}) => {
+                        expect(test(2, 3)).toEqual(6)
+                    })
+                })
+                it("can divide", () => {
+                    cg("export fun test(a: Float64, b: Float64): Float64 = a / b", ({test}) => {
+                        expect(test(14, 2)).toEqual(7)
+                    })
+                })
+                describe("builtins", () => {
+                    it("can abs", () => {
+                        cg("export fun test(a: Float64): Float64 = a.abs()", ({test}) => {
+                            expect(test(-32)).toEqual(32)
+                        })
+                    })
+                    it("can sqrt", () => {
+                        cg("export fun test(a: Float64): Float64 = a.sqrt()", ({test}) => {
+                            expect(test(25)).toEqual(5)
+                        })
+                    })
+                    it("can floor", () => {
+                        cg("export fun test(a: Float64): Float64 = a.floor()", ({test}) => {
+                            expect(test(25.93)).toEqual(25)
+                        })
+                    })
+                    it("can ceil", () => {
+                        cg("export fun test(a: Float64): Float64 = a.ceil()", ({test}) => {
+                            expect(test(25.93)).toEqual(26)
+                        })
+                    })
+                    it("can trunc", () => {
+                        cg("export fun test(a: Float64): Float64 = a.trunc()", ({test}) => {
+                            expect(test(25.93)).toEqual(25)
+                        })
+                    })
+                    it("can nearest", () => {
+                        cg("export fun test(a: Float64): Float64 = a.nearest()", ({test}) => {
+                            expect(test(25.93)).toEqual(26)
+                        })
+                    })
+                    it("can min", () => {
+                        cg("export fun test(a: Float64, b: Float64): Float64 = a.min(b)", ({test}) => {
+                            expect(test(25, 30)).toEqual(25)
+                        })
+                    })
+                    it("can max", () => {
+                        cg("export fun test(a: Float64, b: Float64): Float64 = a.max(b)", ({test}) => {
+                            expect(test(25, 30)).toEqual(30)
+                        })
+                    })
+                    it("can copysign", () => {
+                        cg("export fun test(a: Float64, b: Float64): Float64 = a.copysign(b)", ({test}) => {
+                            expect(test(1, 23)).toEqual(1)
+                            expect(test(1, -23)).toEqual(-1)
+                        })
+                    })
+                })
+            })
         })
     })
     describe("examples", () => {

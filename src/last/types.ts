@@ -361,10 +361,10 @@ function capabilityMethods(type: Type, scope: Scope<Type>) {
         enter(scope, "floor", thisP, type)
         enter(scope, "ceil", thisP, type)
         enter(scope, "trunc", thisP, type)
-        enter(scope, "nearest", thisAndOther, type)
+        enter(scope, "nearest", thisP, type)
         enter(scope, "min", thisAndOther, type)
         enter(scope, "max", thisAndOther, type)
-        enter(scope, "copysign", thisP, type)
+        enter(scope, "copysign", thisAndOther, type)
     }
 }
 
