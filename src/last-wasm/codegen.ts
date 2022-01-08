@@ -2,7 +2,6 @@ import {
     ArrayLiteral, Assign, Call, CheckResult, Function, IfThenElse, Import, ImportFunction, Index, Last, LastKind, Let, LiteralKind,
     Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type, TypeKind, Var
 } from "../last"
-import { voidType } from "../types"
 import {
     error, required, unsupported
 } from "../utils"
