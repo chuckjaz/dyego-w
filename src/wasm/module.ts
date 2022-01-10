@@ -1,9 +1,11 @@
 import { ByteWriter } from "./bytewriter";
+import { Mapping } from "./codeblock";
+import { CodeSection } from "./codesection";
 import { Section } from "./section";
 
 export class Module {
     private sections: Section[] = [];
-    
+
     addSection(section: Section) {
         this.sections.push(section);
     }
@@ -15,5 +17,14 @@ export class Module {
                 section.write(writer);
             }
         }
+    }
+
+    mappings(): Mapping[] | undefined {
+        for (const section of this.sections) {
+            if (section instanceof CodeSection) {
+                return section.mappings()
+            }
+        }
+        return undefined
     }
 }
