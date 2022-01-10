@@ -1,3 +1,4 @@
+import { check } from "../utils";
 import { ByteWriter } from "./bytewriter";
 import { BlockType, FuncIndex, Inst, LabelIndex, LocalIndex, TableIndex, TypeIndex, ValueType } from "./wasm";
 
@@ -6,6 +7,11 @@ export abstract class Label {
 
     abstract readonly referenced: boolean
     abstract reference(): void
+}
+
+export interface Mapping {
+    offset: number;
+    location: Location;
 }
 
 export interface Generate {
@@ -40,12 +46,16 @@ export interface Generate {
     release(index: LocalIndex): void;
     currentLocals(): ValueType[];
 
-    write(writer: ByteWriter): void;
+    pushLocation(start: number | undefined, end: number | undefined): void
+    popLocation(): void
+
+    write(writer: ByteWriter, mappings?: Mapping[]): void;
 }
 
 interface WriteContext {
     writer: ByteWriter
     controlStack: GeneratedBlock[]
+    mappings?: Mapping[]
 }
 
 let labelId = 0
@@ -81,11 +91,52 @@ class LabelImpl extends Label {
     }
 }
 
-class LocalsDelegate {
-    locals: Locals;
+interface Location {
+    start?: number
+    end?: number
+}
 
-    constructor(locals: Locals) {
+class LocationStack {
+    stack: Location[] = []
+
+    pushLocation(start?: number, end?: number) {
+        this.stack.push({ start, end })
+    }
+
+    popLocation() {
+        const stack = this.stack
+        check(stack.length > 0)
+        const removed = stack.pop()
+        if (stack.length > 0) {
+            const l = stack.length - 1
+            const last = stack[stack.length - 1]
+            if (removed?.end && last.start && last.start < removed.end) {
+                stack[l] = { start: removed.end, end: last.end }
+            }
+        }
+    }
+
+    top(): Location {
+        const stack = this.stack
+        let start: number | undefined = undefined
+        let end: number | undefined = undefined
+        for (let i = stack.length - 1; i >= 0; i--) {
+            const loc = stack[i]
+            start = start ?? loc.start
+            end = end ?? loc.end
+            if (start === undefined && end === end) break
+        }
+        return { start, end };
+    }
+}
+
+class Delegate {
+    locals: Locals;
+    stack: LocationStack
+
+    constructor(locals: Locals, stack: LocationStack) {
         this.locals = locals;
+        this.stack = stack;
     }
 
     parameter(type: ValueType): LocalIndex {
@@ -103,14 +154,24 @@ class LocalsDelegate {
     currentLocals(): ValueType[] {
         return this.locals.currentLocals()
     }
+
+    pushLocation(start: number | undefined, end: number | undefined) {
+        return this.stack.pushLocation(start, end)
+    }
+
+    popLocation() {
+        this.stack.popLocation()
+    }
 }
 
-class BasicBlock extends LocalsDelegate {
+class BasicBlock extends Delegate {
     block = new ByteWriter(32);
     isDone: boolean = false;
+    location: Location | undefined;
+    mappings: Mapping[] = [];
 
-    constructor(locals: Locals) {
-        super(locals);
+    constructor(locals: Locals, stack: LocationStack) {
+        super(locals, stack);
     }
 
     size(): number {
@@ -118,16 +179,19 @@ class BasicBlock extends LocalsDelegate {
     }
 
     inst(instruction: number) {
+        this.updateLocation();
         this.block.writeByte(instruction);
     }
 
     prefixInst(instuction: number) {
+        this.updateLocation();
         const block = this.block;
         block.writeByte(Inst.Extended);
         block.write32u(instuction);
     }
 
     vectorInst(instruction: number) {
+        this.updateLocation();
         const block = this.block;
         block.writeByte(Inst.Vector);
         block.write32u(instruction);
@@ -168,7 +232,40 @@ class BasicBlock extends LocalsDelegate {
     }
 
     writeTo(context: WriteContext) {
+        const location = this.location
+        const mappings = context.mappings
+        if (location && mappings) {
+            const offset = context.writer.current;
+            for (const mapping of this.mappings) {
+                mappings.push({ offset: offset + mapping.offset, location: mapping.location })
+            }
+        }
         context.writer.write(this.block);
+    }
+
+    private updateLocation() {
+        let location = this.stack.top();
+        const previous = this.location
+        if (location && previous !== location) {
+            if (previous) {
+                const newStart = location.start
+                const newEnd = location.end
+                const previousStart = previous.start
+                const previousEnd = previous.end
+                if (
+                    newStart === undefined || newEnd === undefined ||
+                    previousStart === undefined || previousEnd === undefined
+                ) return
+                if (newStart < previousStart && previousEnd < newEnd) {
+                    location = { start: previousEnd, end: newEnd }
+                }
+            }
+
+            if (!previous || previous.start != location.start) {
+                this.mappings.push({ offset: this.block.current, location });
+            }
+            this.location = location;
+        }
     }
 }
 
@@ -288,16 +385,16 @@ type GeneratedBlock = GenerateImpl | BasicBlock | Branch | BranchTable | End;
 
 let genId = 0
 
-class GenerateImpl extends LocalsDelegate implements Generate {
+class GenerateImpl extends Delegate implements Generate {
     private id = genId++
     private current: BasicBlock;
     private blocks: GeneratedBlock[] = [];
     private tail: GeneratedBlock | undefined;
 
-    constructor(locals: Locals, label: LabelImpl, tail?: GeneratedBlock) {
-        super(locals);
+    constructor(locals: Locals, stack: LocationStack, label: LabelImpl, tail?: GeneratedBlock) {
+        super(locals, stack);
         label.bind(this)
-        const current = new BasicBlock(locals);
+        const current = new BasicBlock(locals, stack);
         this.current = current;
         this.blocks.push(current);
         this.tail = tail;
@@ -370,7 +467,7 @@ class GenerateImpl extends LocalsDelegate implements Generate {
     }
 
     if(type: BlockType, label?: Label): Generate {
-        const thenBlock = new GenerateImpl(this.locals, labelOf(label), new End())
+        const thenBlock = new GenerateImpl(this.locals, this.stack, labelOf(label), new End())
         thenBlock.inst(Inst.If)
         thenBlock.index(type)
         this.advance(thenBlock)
@@ -378,11 +475,11 @@ class GenerateImpl extends LocalsDelegate implements Generate {
     }
 
     if_else(type: BlockType, label?: Label): { then: Generate; else: Generate } {
-        const thenBlock = new GenerateImpl(this.locals, labelOf(label))
+        const thenBlock = new GenerateImpl(this.locals, this.stack, labelOf(label))
         thenBlock.inst(Inst.If)
         thenBlock.index(type)
         this.advance(thenBlock)
-        const elseBlock = new GenerateImpl(this.locals, new LabelImpl(), new End())
+        const elseBlock = new GenerateImpl(this.locals, this.stack, new LabelImpl(), new End())
         elseBlock.inst(Inst.Else)
         this.advance(elseBlock)
         return { then: thenBlock, else: elseBlock }
@@ -404,14 +501,15 @@ class GenerateImpl extends LocalsDelegate implements Generate {
         this.current.inst(Inst.Return);
     }
 
-    write(writer: ByteWriter) {
-        this.writeTo({ writer, controlStack: [this] })
+    write(writer: ByteWriter, mappings?: Mapping[]) {
+        this.writeTo({ writer, controlStack: [this], mappings })
     }
 
     writeTo(context: WriteContext) {
         const nestedBlock = {
             writer: context.writer,
-            controlStack: [this, ...context.controlStack]
+            controlStack: [this, ...context.controlStack],
+            mappings: context.mappings
         }
         for (const block of this.blocks) {
             block.writeTo(nestedBlock)
@@ -423,7 +521,7 @@ class GenerateImpl extends LocalsDelegate implements Generate {
     private advance(block: GeneratedBlock) {
         const blocks = this.blocks;
         const current = this.current;
-        const newCurrent = new BasicBlock(this.locals);
+        const newCurrent = new BasicBlock(this.locals, this.stack);
         blocks.push(block);
         blocks.push(newCurrent);
         this.current = newCurrent;
@@ -431,7 +529,7 @@ class GenerateImpl extends LocalsDelegate implements Generate {
 
     private newBlock(inst: number, type: BlockType, label?: Label): Generate {
         const blockLabel = labelOf(label);
-        const newBlock = new GenerateImpl(this.locals, blockLabel, new End());
+        const newBlock = new GenerateImpl(this.locals, this.stack, blockLabel, new End());
         newBlock.inst(inst);
         newBlock.current.block.write32u(type);
         this.advance(newBlock);
@@ -464,7 +562,7 @@ function labelOf(label: Label | undefined): LabelImpl {
 }
 
 export function gen(): Generate {
-    return new GenerateImpl(new Locals(), new LabelImpl());
+    return new GenerateImpl(new Locals(), new LocationStack(), new LabelImpl());
 }
 
 export function label(): Label {

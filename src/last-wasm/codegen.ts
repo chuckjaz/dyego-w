@@ -7,14 +7,14 @@ import {
 } from "../utils"
 import {
     ByteWriter, CodeSection, DataSection, ExportKind, ExportSection, FunctionSection, gen, ImportSection, Inst, label,
-    Label, MemorySection, Module as WasmModule, Section, StartSection, TypeIndex, TypeSection, ValueType
+    Label, Mapping, MemorySection, Module as WasmModule, Section, StartSection, TypeIndex, TypeSection, ValueType
 } from "../wasm"
 import {
     ArrayLiteralGenNode, AssignGenNode, BigIntConstGenNode, BlockGenNode, BodyGenNode, BranchTableGenNode, ClampGenNode,
     CompareGenNode, DataAllocator, DataGenNode, DoubleConstGenNode, DropGenNode, emptyGenNode, flattenTypes,
     FunctionGenNode, GenNode, GenType, genTypeOf, GotoGenNode, i32GenType, LocalAllocator, LocationAllocator,
     MemoryGenNode, NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
-    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode
+    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode,
 } from "./gennode"
 
 interface Scopes {
@@ -23,7 +23,12 @@ interface Scopes {
     alloc: LocationAllocator
 }
 
-export function codegen(lastModule: Module, checkResult: CheckResult, wasmModule: WasmModule) {
+export function codegen(
+    lastModule: Module,
+    checkResult: CheckResult,
+    wasmModule: WasmModule,
+    mappings: boolean = false
+) {
     const { types, exported } = checkResult
     const genTypes = new Map<Type, GenType>()
     const typeSection = new TypeSection()
@@ -281,7 +286,7 @@ export function codegen(lastModule: Module, checkResult: CheckResult, wasmModule
             case LastKind.ArrayLiteral:
                 return arrayLitToGenNode(node, scopes)
             case LastKind.Reference:
-                return required(scopes.nodes.find(node.name), node)
+                return required(scopes.nodes.find(node.name), node).reference(node)
             case LastKind.Select:
                 return selectToGenNode(node, scopes)
             case LastKind.Index:
@@ -401,11 +406,14 @@ export function codegen(lastModule: Module, checkResult: CheckResult, wasmModule
         if (body.type.needsClamp()) {
             body = new ClampGenNode(node, body)
         }
+        g.pushLocation(body.location?.start, body.location?.end)
         body.load(g)
         g.inst(Inst.End)
+        g.popLocation()
         const bytes = new ByteWriter()
-        g.write(bytes)
-        codeSection.allocate(g.currentLocals(), bytes)
+        const localMapping: Mapping[] | undefined = mappings ? [] : undefined
+        g.write(bytes, localMapping)
+        codeSection.allocate(g.currentLocals(), bytes, localMapping)
 
         if (exported.has(node.name)) {
             exportSection.allocate(node.name, ExportKind.Func, funcIndex)
@@ -414,10 +422,10 @@ export function codegen(lastModule: Module, checkResult: CheckResult, wasmModule
         return funcGenNode
     }
 
-    function callToGenNode(tree: Call, scopes: Scopes): GenNode {
-        const target = lastToGenNode(tree.target, scopes)
-        const args = tree.arguments.map(a => lastToGenNode(a, scopes))
-        return target.call(args)
+    function callToGenNode(node: Call, scopes: Scopes): GenNode {
+        const target = lastToGenNode(node.target, scopes)
+        const args = node.arguments.map(a => lastToGenNode(a, scopes))
+        return target.call(args, node)
     }
 
     function varToGenNode(node: Var, scopes: Scopes): GenNode {

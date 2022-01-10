@@ -1,8 +1,9 @@
 import * as fs from 'fs'
-
-import { check, Diagnostic, Scope } from '../last';
+import { FileSet } from '../files';
+import { check, Diagnostic, Locatable, Scope } from '../last';
 import { parse, Scanner } from '../last-parser';
-import { ByteWriter, Module } from '../wasm';
+import { SourceMap } from '../source-map';
+import { ByteWriter, Mapping, Module } from '../wasm';
 import { codegen } from './codegen';
 
 describe("last codegen", () => {
@@ -1162,13 +1163,13 @@ describe("last codegen", () => {
 
 })
 
-function report(text: string, name: string, diagnostics: Diagnostic[]): never {
+function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet): never {
     const messages: string[] = []
     for (const diagnostic of diagnostics) {
-        const position = diagnostic.location.start
-        if (position) {
-            const { line, column } = lcOf(text, position);
-            messages.push(`${name}:${line}:${column}: ${diagnostic.message}`);
+        const location = diagnostic.location
+        if (location.start) {
+            const position = fileSet.position(location)
+            messages.push(`${position?.display()}: ${diagnostic.message}`);
         } else {
             messages.push(diagnostic.message)
         }
@@ -1177,22 +1178,48 @@ function report(text: string, name: string, diagnostics: Diagnostic[]): never {
 }
 
 function cg(text: string, cb: (exports: any) => void, name: string = "<text>"): any {
+    let fileSet = new FileSet()
     function s<T>(value: T | Diagnostic[]): T {
-        if (Array.isArray(value)) report(text, name, value)
+        if (Array.isArray(value)) report(text, name, value, fileSet)
         return value
     }
 
     let writer: ByteWriter
-    const scanner = new Scanner(text + "\0")
-    const module = s(parse(scanner))
+    const fileBuilder = fileSet.buildFile(name, text.length)
+    const scanner = new Scanner(text + "\0", fileBuilder)
+    fileBuilder.build()
+    const module = s(parse(scanner, fileBuilder))
     const checkResult = s(check(module))
     const wasmModule = new Module()
 
-    codegen(module, checkResult, wasmModule)
+    codegen(module, checkResult, wasmModule, true)
     writer = new ByteWriter()
     wasmModule.write(writer)
     const bytes = writer.extract()
     fs.writeFileSync("out/tmp.wasm", bytes)
+
+    const sourceMap = new SourceMap("out/tmp.wasm");
+    const fileNameIndexes = new Map<string, number>();
+    const mappings = wasmModule.mappings()
+    if (mappings) {
+        for (const mapping of mappings) {
+            const position = fileSet.position(mapping.location)
+            if (position?.isValid) {
+                var fileIndex: number
+                const fileName = `../${position.fileName}`
+                if (fileNameIndexes.has(fileName)) {
+                    fileIndex = fileNameIndexes.get(fileName)!!
+                } else {
+                    fileIndex = sourceMap.addFile(fileName)
+                    fileNameIndexes.set(fileName, fileIndex)
+                }
+                sourceMap.addMapping(mapping.offset, fileIndex, position.line, position.column)
+            }
+        }
+        const sourceMapText = sourceMap.toMap()
+        fs.writeFileSync("out/tmp.wasm.map", sourceMapText, "utf8")
+    }
+
     expect(WebAssembly.validate(bytes)).toBeTrue();
     const mod = new WebAssembly.Module(bytes);
     const inst = new WebAssembly.Instance(mod);
@@ -1200,23 +1227,7 @@ function cg(text: string, cb: (exports: any) => void, name: string = "<text>"): 
 }
 
 function cgf(name: string, cb: (exports: any) => void): any {
-    const text = fs.readFileSync(`examples/${name}`, 'utf-8')
-    cg(text, cb, name)
-}
-
-function lcOf(text: string, position: number): { line: number, column: number} {
-    let line = 1;
-    let start = 0;
-    let index = 0;
-    for (; index < position; index++) {
-        switch(text[index]) {
-            case `\r`:
-                if (text[index + 1] == `\n`) index++
-            case '\n':
-                start = index + 1;
-                line++
-                break;
-        }
-    }
-    return { line, column: index - start + 1 }
+    const fileName = `examples/${name}`
+    const text = fs.readFileSync(fileName, 'utf-8')
+    cg(text, cb, fileName)
 }

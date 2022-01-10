@@ -10,9 +10,10 @@ export interface GenNode {
     store(value: GenNode, g: Generate): void
     storeTo(symbol: GenNode, g: Generate): void
     addr(g: Generate): void
-    call(args: GenNode[]): GenNode
+    call(args: GenNode[], location?: Locatable): GenNode
     select(index: number | string): GenNode
     index(index: GenNode): GenNode
+    reference(location: Locatable): GenNode
     addressOf(): GenNode
     simplify(): GenNode
     number(): number | undefined
@@ -930,8 +931,8 @@ class LocalGenNode implements GenNode {
         unsupported(this.location)
     }
 
-    call(args: GenNode[]): GenNode {
-        unsupported(this.location)
+    call(args: GenNode[], location?: Locatable): GenNode {
+        unsupported(location ?? this.location)
     }
 
     select(index: number | string): GenNode {
@@ -946,6 +947,11 @@ class LocalGenNode implements GenNode {
     index(index: GenNode): GenNode {
         unsupported(this.location)
     }
+
+    reference(location: Locatable): GenNode {
+        return new LocalGenNode(location, this.type, this.locals)
+    }
+
 
     addressOf(): GenNode {
         unsupported(this.location, "addressOf is not supported on this symbol")
@@ -1027,6 +1033,10 @@ class EmptyGenNode extends LoadonlyGenNode implements GenNode {
         return true
     }
 
+    reference(location: Locatable): GenNode {
+        return this
+    }
+
     simplify(): GenNode {
         return this
     }
@@ -1047,8 +1057,14 @@ export class ClampGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate): void {
+        g.pushLocation(this.location.start, this.location.end)
         this.target.load(g)
         this.type.clamp(this.location, g)
+        g.popLocation()
+    }
+
+    reference(location: Locatable): GenNode {
+        return new ClampGenNode(location, this.target)
     }
 
     simplify(): GenNode {
@@ -1078,6 +1094,10 @@ export class NumberConstGenNode extends LoadonlyGenNode implements GenNode {
         g.snumber(BigInt(value))
     }
 
+    reference(location: Locatable): GenNode {
+        return new NumberConstGenNode(location, this.type, this.value)
+    }
+
     simplify(): GenNode {
         return this
     }
@@ -1099,7 +1119,7 @@ export class BigIntConstGenNode extends LoadonlyGenNode implements GenNode {
     type: GenType
     value: bigint
 
-    constructor(location: Locatable | undefined, type: GenType,  value: bigint) {
+    constructor(location: Locatable | undefined, type: GenType, value: bigint) {
         super(location)
         this.type = type
         this.location = location
@@ -1109,6 +1129,10 @@ export class BigIntConstGenNode extends LoadonlyGenNode implements GenNode {
     load(g: Generate): void {
         g.inst(Inst.i64_const)
         g.snumber(this.value)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new BigIntConstGenNode(location, this.type, this.value)
     }
 
     simplify(): GenNode { return this }
@@ -1136,6 +1160,10 @@ export class DoubleConstGenNode extends LoadonlyGenNode implements GenNode {
     load(g: Generate): void {
         g.inst(Inst.f64_const)
         g.float64(this.value)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new DoubleConstGenNode(location, this.type, this.value)
     }
 
     simplify(): GenNode {
@@ -1173,7 +1201,9 @@ export class StructLiteralGenNode extends LoadonlyGenNode implements GenNode {
     load(g: Generate) {
         const fields = this.fields
         for (const field of fields) {
+            g.pushLocation(field.location?.start, field.location?.end)
             field.load(g)
+            g.popLocation()
         }
     }
 
@@ -1181,8 +1211,15 @@ export class StructLiteralGenNode extends LoadonlyGenNode implements GenNode {
         const fields = this.fields
         const len = fields.length
         for (let i = 0; i < len; i++) {
-            fields[i].storeTo(symbol.select(i), g)
+            const field = fields[i]
+            g.pushLocation(field.location?.start, field.location?.end)
+            field.storeTo(symbol.select(i), g)
+            g.popLocation()
         }
+    }
+
+    reference(location: Locatable): GenNode {
+        return new StructLiteralGenNode(location, this.type, this.fields)
     }
 
     simplify(): GenNode {
@@ -1228,6 +1265,10 @@ export class ArrayLiteralGenNode extends LoadonlyGenNode implements GenNode {
         }
     }
 
+    reference(location: Locatable): GenNode {
+        return new ArrayLiteralGenNode(location, this.type, this.elements)
+    }
+
     simplify(): GenNode {
         const elements = this.elements
         const simple = simplified(elements)
@@ -1261,6 +1302,10 @@ export class AssignGenNode extends LoadonlyGenNode implements GenNode {
         this.value.storeTo(this.target, g)
     }
 
+    reference(location: Locatable): GenNode {
+        return new AssignGenNode(location, this.target, this.value)
+    }
+
     simplify(): GenNode {
         const target = this.target
         const value = this.value
@@ -1290,6 +1335,10 @@ export class UnaryOpGenNode extends LoadonlyGenNode implements GenNode {
     load(g: Generate) {
         this.target.load(g)
         this.type.op(this.location, this.op, g)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new UnaryOpGenNode(location, this.type, this.target, this.op)
     }
 
     simplify(): GenNode {
@@ -1340,6 +1389,10 @@ export class OpGenNode extends LoadonlyGenNode implements GenNode {
         this.left.load(g)
         this.right.load(g)
         this.type.op(this.location, this.op, g)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new OpGenNode(location, this.type, this.left, this.right, this.op)
     }
 
     simplify(): GenNode {
@@ -1435,10 +1488,16 @@ class InstGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate) {
+        g.pushLocation(this.location?.start, this.location?.end)
         for (const arg of this.args) {
             arg.load(g)
         }
         g.inst(this.inst)
+        g.popLocation()
+    }
+
+    reference(location: Locatable): GenNode {
+        return new InstGenNode(location, this.type, this.inst, this.args)
     }
 
     simplify(): GenNode {
@@ -1466,8 +1525,13 @@ class BuiltinsGenNode extends LoadonlyGenNode implements GenNode {
         unsupported(this.location)
     }
 
-    call(args: GenNode[]) {
-        let result: GenNode = new InstGenNode(this.location, this.type, this.inst, [this.target, ...args])
+    call(args: GenNode[], location?: Locatable) {
+        let result: GenNode = new InstGenNode(
+            location ?? this.location,
+            this.type,
+            this.inst,
+            [this.target, ...args]
+        )
         const offset = this.offset
         if (offset !== undefined) {
             result = new OpGenNode(
@@ -1479,6 +1543,10 @@ class BuiltinsGenNode extends LoadonlyGenNode implements GenNode {
             )
         }
         return result
+    }
+
+    reference(location: Locatable): GenNode {
+        return new BuiltinsGenNode(location, this.type, this.inst, this.target, this.offset)
     }
 
     simplify(): GenNode {
@@ -1504,11 +1572,17 @@ class ComplexGenNode extends LoadonlyGenNode implements GenNode {
         this.args = args
     }
 
+    reference(location: Locatable): GenNode {
+        return new ComplexGenNode(location, this.type, this.args, this.gen)
+    }
+
     load(g: Generate) {
+        g.pushLocation(this.location?.start, this.location?.end)
         for (const symbol of this.args) {
             symbol.load(g)
         }
         this.gen(g)
+        g.popLocation()
     }
 
     simplify(): GenNode {
@@ -1536,12 +1610,16 @@ class BuiltinComplexGenNode extends LoadonlyGenNode implements GenNode {
         unsupported(this.location)
     }
 
+    reference(location: Locatable): GenNode {
+        return new BuiltinComplexGenNode(location, this.type, this.gen)
+    }
+
     simplify(): GenNode {
         return this
     }
 
-    call(args: GenNode[]) {
-        return new ComplexGenNode(this.location, this.type, args, this.gen)
+    call(args: GenNode[], location?: Locatable) {
+        return new ComplexGenNode(location ?? this.location, this.type, args, this.gen)
     }
 }
 
@@ -1915,6 +1993,10 @@ export class CompareGenNode extends LoadonlyGenNode implements GenNode {
         return new CompareGenNode(this.location, leftSimple, rightSimple, this.op)
     }
 
+    reference(location: Locatable): GenNode {
+        return new CompareGenNode(location, this.left, this.right, this.op)
+    }
+
     tryNot(): GenNode | undefined {
         let newOp: LastKind | undefined = undefined
         switch (this.op) {
@@ -1943,8 +2025,14 @@ export class GotoGenNode extends LoadonlyGenNode implements GenNode {
         label.reference()
     }
 
+    reference(location: Locatable): GenNode {
+        return new GotoGenNode(location, this.label)
+    }
+
     load(g: Generate) {
+        g.pushLocation(this.location?.start, this.location?.end)
         g.br(this.label)
+        g.popLocation()
     }
 
     simplify(): GenNode {
@@ -1970,8 +2058,14 @@ export class BranchTableGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate) {
+        g.pushLocation(this.location?.start, this.location?.end)
         this.expression.load(g)
         g.table(this.labels, this.elseLabel)
+        g.popLocation()
+    }
+
+    reference(location: Locatable): GenNode {
+        return new BranchTableGenNode(location, this.expression, this.labels, this.elseLabel)
     }
 
     simplify(): GenNode {
@@ -1998,11 +2092,17 @@ export class ReturnGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate) {
+        g.pushLocation(this.location?.start, this.location?.end)
         const expr = this.expr
         if (expr) {
             expr.load(g)
         }
         g.return()
+        g.popLocation()
+    }
+
+    reference(location: Locatable): GenNode {
+        return new ReturnGenNode(location, this.expr)
     }
 
     simplify(): GenNode {
@@ -2033,9 +2133,15 @@ class CallGenNode extends LoadonlyGenNode implements GenNode {
         g.index(this.funcIndex)
     }
 
+    reference(location: Locatable): GenNode {
+        return new CallGenNode(location, this.type, this.funcIndex, this.args)
+    }
+
     storeTo(symbol: GenNode, g: Generate) {
+        g.pushLocation(this.location?.start, this.location?.end)
         this.load(g)
         symbol.pop(g)
+        g.popLocation()
     }
 
     simplify(): GenNode {
@@ -2063,7 +2169,12 @@ export class IfThenGenNode extends LoadonlyGenNode implements GenNode {
         this.else = e
     }
 
+    reference(location: Locatable): GenNode {
+        return new IfThenGenNode(location, this.type, this.condition, this.then, this.else)
+    }
+
     load(g: Generate) {
+        g.pushLocation(this.location?.start, this.location?.end)
         const type = this.type
         const blockType = type.parts.piece ?? 0x40
         this.condition.load(g)
@@ -2077,6 +2188,7 @@ export class IfThenGenNode extends LoadonlyGenNode implements GenNode {
             const block = g.if(blockType)
             thenGenNode.load(block)
         }
+        g.popLocation()
     }
 
     simplify(): GenNode {
@@ -2111,10 +2223,18 @@ export class LoopGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate): void {
+        g.pushLocation(this.location?.start, this.location?.end)
         const loopBlock = g.loop(0x40, this.branchLabel)
         for (const node of this.nodes) {
+            g.pushLocation(node.location?.start, node.location?.end)
             node.load(loopBlock)
+            g.popLocation()
         }
+        g.popLocation()
+    }
+
+    reference(location: Locatable): GenNode {
+        return new LoopGenNode(location, this.type, this.nodes, this.branchLabel)
     }
 
     simplify(): GenNode {
@@ -2139,9 +2259,17 @@ export class BodyGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate): void {
+        g.pushLocation(this.location?.start, this.location?.end)
         for (const symbol of this.nodes) {
+            g.pushLocation(symbol.location?.start, symbol.location?.end)
             symbol.load(g)
+            g.popLocation()
         }
+        g.popLocation()
+    }
+
+    reference(location: Locatable): GenNode {
+        return new BodyGenNode(location, this.type, this.nodes)
     }
 
     simplify(): GenNode {
@@ -2169,18 +2297,26 @@ export class BlockGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate): void {
+        g.pushLocation(this.location?.start, this.location?.end)
         const type = this.type
         const blockType = type.parts.piece ?? 0x40
         const body = g.block(blockType, this.label)
         for (const symbol of this.nodes) {
+            g.pushLocation(symbol.location?.start, this.location?.end)
             symbol.load(body)
+            g.popLocation()
         }
+        g.popLocation()
+    }
+
+    reference(location: Locatable): GenNode {
+        return new BlockGenNode(location, this.type, this.nodes, this.label)
     }
 
     simplify(): GenNode {
         const nodes = this.nodes
         const simple = simplified(nodes)
-        if (simple.length == 1 && !this.label.referenced) return simple[0]
+        if (simple.length == 1 && !this.label.referenced) return simple[0].reference(this.location)
         if (nodes === simple)
             return this
         return new BlockGenNode(this.location, this.type, simple, this.label)
@@ -2203,12 +2339,16 @@ export class FunctionGenNode extends LoadonlyGenNode implements GenNode {
         unsupported(this.location)
     }
 
+    reference(location: Locatable): GenNode {
+        return new FunctionGenNode(location, this.type, this.funcIndex)
+    }
+
     simplify(): GenNode {
         return this
     }
 
-    call(args: GenNode[]): GenNode {
-        return new CallGenNode(this.location, this.type, this.funcIndex, args)
+    call(args: GenNode[], location?: Locatable): GenNode {
+        return new CallGenNode(location ?? this.location, this.type, this.funcIndex, args)
     }
 }
 
@@ -2233,6 +2373,10 @@ class ScaledOffsetGenNode extends LoadonlyGenNode implements GenNode {
         this.scale.load(g)
         g.inst(Inst.i32_mul)
         g.inst(Inst.i32_add)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new ScaledOffsetGenNode(location, this.base, this.i, this.scale)
     }
 
     simplify(): GenNode {
@@ -2303,8 +2447,8 @@ export class DataGenNode implements GenNode {
         this.address.load(g)
     }
 
-    call(args: GenNode[]): GenNode {
-        unsupported(this.location)
+    call(args: GenNode[], location?: Locatable): GenNode {
+        unsupported(location ?? this.location)
     }
 
     select(index: number): GenNode {
@@ -2325,6 +2469,10 @@ export class DataGenNode implements GenNode {
         const sizeGenNode = new NumberConstGenNode(this.location, i32GenType, size)
         const offsetAddress = new ScaledOffsetGenNode(this.location, this.address, index, sizeGenNode)
         return new DataGenNode(this.location, element, offsetAddress)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new DataGenNode(location, this.type, this.address)
     }
 
     addressOf(): GenNode {
@@ -2358,6 +2506,10 @@ export class MemoryGenNode extends LoadonlyGenNode implements GenNode {
 
     load(g: Generate) { }
 
+    reference(location: Locatable): GenNode {
+        return this
+    }
+
     simplify(): GenNode {
         return this
     }
@@ -2379,6 +2531,10 @@ export class DropGenNode extends LoadonlyGenNode implements GenNode {
     load(g: Generate) {
         this.target.load(g)
         this.dropType.drop(this.location, g)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new DropGenNode(location, this.type, this.target)
     }
 
     simplify(): GenNode {
