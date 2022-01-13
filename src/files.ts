@@ -14,6 +14,7 @@ export interface File {
     fileName: string
     size: number
     position(loc: Locatable): Position
+    pos(offset: number): number
 }
 
 // A source file builder
@@ -41,17 +42,21 @@ export class FileSet {
     // Produce a source file builder for a file of size.
     buildFile(fileName: string, size: number): FileBuilder {
         const base = this.lastBase
-        this.lastBase += size
+        this.lastBase += size + 1
         const index = this.bases.length
         this.bases.push(base)
         this.files.push(undefined as any as File)
-        return new FileBuilderImpl(fileName, size, base, this, index)
+        return new FileBuilderImpl(fileName, size + 1, base, this, index)
     }
 
     // Find the source file associated with loc, if there is one.
-    file(loc: Locatable): File | undefined {
-        if (loc.start) {
-            const index = find(this.bases, loc.start)
+    file(locOrName: Locatable | string): File | undefined {
+        if (typeof locOrName === "string") {
+            for (const file of this.files) {
+                if (file.fileName == locOrName) return file
+            }
+        } else if (locOrName.start) {
+            const index = find(this.bases, locOrName.start)
             return this.files[index]
         }
     }
@@ -161,6 +166,10 @@ class FileImpl implements File {
         } else {
             return new PositionImpl(this.fileName, -1, -1, -1, -1)
         }
+    }
+
+    pos(offset: number): number {
+        return offset + this.base
     }
 
     private positionOf(start: number, end?: number): Position {

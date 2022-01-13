@@ -107,6 +107,7 @@ export class Scanner {
                             case "as": result = Token.As; break
                             case "null": result = Token.Null; break
                             case "block": result = Token.Block; break
+                            case "sizeof": result = Token.SizeOf; break
                         }
                         break
                     }
@@ -340,6 +341,9 @@ export class Scanner {
                 case "^":
                     result = Token.Circumflex
                     break
+                case "~":
+                    result = Token.Tilde
+                    break
                 case "(":
                     result = Token.LParen
                     break
@@ -378,6 +382,7 @@ export class Scanner {
                     }
                     break
                 default:
+                    this.message = `Unrecognized character "${text[i-1]}"`
                     result = Token.Error
                     break
             }

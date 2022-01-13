@@ -257,7 +257,7 @@ export interface As extends LastNode { kind: LastKind.As, left: Expression, righ
 export interface AddressOf extends LastNode, Unary { kind: LastKind.AddressOf }
 
 /** Size of the type expression target */
-export interface SizeOf extends LastNode, Unary { kind: LastKind.SizeOf }
+export interface SizeOf extends LastNode { kind: LastKind.SizeOf; target: TypeExpression }
 
 /** Dereference a pointer */
 export interface Dereference extends LastNode, Unary { kind: LastKind.Dereference }

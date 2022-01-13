@@ -1,4 +1,4 @@
-import { required } from "../utils";
+import { required, check as chk } from "../utils";
 import { BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral, TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind, StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
@@ -136,7 +136,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Let: {
                 const type = required(scope.find(declaration.name))
                 const valueType = checkExpression(declaration.value, scopes)
-                mustMatch(declaration, type, valueType)
+                mustMatch(declaration.value, type, valueType)
                 return voidType
             }
             case LastKind.Var: {
@@ -144,30 +144,37 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 if (value) {
                     const type = required(scope.find(declaration.name))
                     const valueType = checkExpression(value, scopes)
-                    mustMatch(declaration, type, valueType)
+                    mustMatch(value, type, valueType)
                 }
                 return voidType
             }
             case LastKind.Type: return voidType
             case LastKind.Function: {
-                const functionType = required(scope.find(declaration.name))
-                if (functionType.kind != TypeKind.Function) {
-                    return errorType
-                }
+                const functionType = required(scope.find(declaration.name)) as FunctionType
+                chk(functionType.kind == TypeKind.Function)
                 const resultType = functionType.result
                 const bodyScope = new Scope(scope)
                 bodyScope.enter("$$result", resultType)
                 functionType.parameters.forEach((name, type) => {
-                    if (type.kind != TypeKind.Location) {
-                        type = { kind: TypeKind.Location, type }
-                    }
                     bodyScope.enter(name, type)
                 })
+                const body = declaration.body
                 const bodyType = checkBody(
                     declaration.body,
                     { scope: bodyScope, branchTargets: scopes.branchTargets }
                 )
-                mustMatch(declaration, resultType, bodyType)
+                if (
+                    bodyType.kind == TypeKind.Void && resultType.kind != TypeKind.Void &&
+                    resultType.kind != TypeKind.Error
+                ) {
+                    // Last statement must be a return
+                    const last = body[body.length - 1]
+                    if (last?.kind !== LastKind.Return) {
+                        report(last ?? declaration, "Last statement must be a return or an expresion")
+                    }
+                } else {
+                    mustMatch(body[body.length - 1], resultType, bodyType)
+                }
                 return voidType
             }
         }
@@ -202,6 +209,8 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 break
             case LastKind.Equal:
             case LastKind.NotEqual:
+                type = binary(expression, expression.left, expression.right, Capabilities.Equatable, scopes, booleanType)
+                break
             case LastKind.GreaterThan:
             case LastKind.GreaterThanEqual:
             case LastKind.LessThan:
@@ -355,7 +364,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         function fieldTypeOf(type: StructType): Type {
             const fieldType = type.fields.find(node.name)
             if (!fieldType) {
-                report(node, `Type ${typeToString(targetType)} does not have member "${node.name}"`)
+                report(node.target, `Type ${typeToString(targetType)} does not have member "${node.name}"`)
                 return errorType
             }
             if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
@@ -483,6 +492,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
 
     function requireCapability(type: Type, required: Capabilities, node: Expression) {
         if ((capabilitesOf(type) & required) != required) {
+            if (type.kind == TypeKind.Error) return;
             let name = "operator";
             switch (node.kind) {
                 case LastKind.Add: name = `"+"`; break;
@@ -500,11 +510,15 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 case LastKind.LessThan: name = `"<"`; break;
                 case LastKind.LessThanEqual: name = `"<="`; break;
                 case LastKind.NotEqual: name = `"!="`; break;
-                default: name = nameOfLastKind(node.kind)
+                default:
+                    if ((required & Capabilities.Callable) != 0) {
+                        report(node, `An expression of type ${typeToString(type)} is not callable`)
+                        return
+                    }
+                    name = nameOfLastKind(node.kind)
+                    break
             }
-            if (type.kind !== TypeKind.Error) {
-                report(node, `Operator ${name} not support for type ${typeToString(type)}`);
-            }
+            report(node, `Operator ${name} not supported for type ${typeToString(type)}`);
         }
     }
 
@@ -577,7 +591,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const targetBlock = scopes.branchTargets.find(target ?? "$$top")
         if (!targetBlock) {
             if (target) {
-                report(location, `Branch target ${target} not found`)
+                report(location, `Branch target "${target}" not found`)
             } else {
                 report(location, "Not in a block or loop")
             }
@@ -589,6 +603,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         for (const parameter of parameterNodes) {
             if (parameters.has(parameter.name)) {
                 report(parameter, `Duplicate parameter name`)
+                continue
             }
             const type = typeExpr(parameter.type, scopes)
             const parameterType: Type = { kind: TypeKind.Location, type }
@@ -603,7 +618,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Reference: {
                 const result = scopes.scope.find(node.name)
                 if (!result)  {
-                    report(node, `Type ${node.name} not found.`)
+                    report(node, `Type "${node.name}" not found`)
                     return errorType
                 }
                 if (result.kind == TypeKind.Location) {
@@ -657,7 +672,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         }
         return undefined
     }
-
 
     function bind(node: Last, type: Type) {
         required(types.get(node) === undefined, node)
