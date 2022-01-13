@@ -5,16 +5,18 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "test": "jasmine"
+    "test": "jasmine",
+    "cover": "c8 --reporter html node_modules/jasmine/bin/jasmine.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/jasmine": "^3.10.2",
-    "c8": "^7.10.0",
+    "@types/node": "^16.11.10",
+    "c8": "^7.11.0",
     "jasmine": "^3.10.0",
-    "typescript": "^4.5.2",
-    "@types/node": "^16.11.10"
+    "jasmine-spec-reporter": "^7.0.0",
+    "typescript": "^4.5.2"
   }
 }

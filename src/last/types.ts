@@ -72,14 +72,15 @@ export const enum Capabilities {
     Rotatable = 1 << 2,
     Negatable = 1 << 3,
     Floatable = 1 << 4,
-    Comparable = 1 << 5,
-    Logical = 1 << 6,
-    Indexable = 1 << 7,
-    Pointer = 1 << 8,
-    Callable = 1 << 9,
-    Loadable = 1 << 10,
-    Storeable = 1 << 11,
-    Builtins = 1 << 12,
+    Equatable = 1 << 5,
+    Comparable = 1 << 6,
+    Logical = 1 << 7,
+    Indexable = 1 << 8,
+    Pointer = 1 << 9,
+    Callable = 1 << 10,
+    Loadable = 1 << 11,
+    Storeable = 1 << 12,
+    Builtins = 1 << 13,
 }
 
 export interface I8 {
@@ -219,20 +220,20 @@ export function capabilitesOf(type: Type): Capabilities {
         case TypeKind.I16:
         case TypeKind.U8:
         case TypeKind.U16:
-            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
-                Capabilities.Bitwizeable;
+            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
+                Capabilities.Negatable | Capabilities.Bitwizeable;
         case TypeKind.I32:
         case TypeKind.I64:
         case TypeKind.U32:
         case TypeKind.U64:
-            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
-                Capabilities.Bitwizeable | Capabilities.Rotatable;
+            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
+                Capabilities.Negatable | Capabilities.Bitwizeable | Capabilities.Rotatable;
         case TypeKind.F32:
         case TypeKind.F64:
-            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Negatable |
-                Capabilities.Floatable;
+            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
+                Capabilities.Negatable | Capabilities.Floatable;
         case TypeKind.Boolean:
-            return Capabilities.Logical;
+            return Capabilities.Logical | Capabilities.Equatable;
         case TypeKind.Array:
             return Capabilities.Indexable;
         case TypeKind.Function:
@@ -240,8 +241,8 @@ export function capabilitesOf(type: Type): Capabilities {
         case TypeKind.Location:
             return Capabilities.Loadable | Capabilities.Storeable | capabilitesOf(type.type);
         case TypeKind.Pointer:
-            return Capabilities.Pointer | Capabilities.Comparable | Capabilities.Loadable |
-                Capabilities.Storeable;
+            return Capabilities.Pointer | Capabilities.Comparable | Capabilities.Equatable |
+                Capabilities.Loadable | Capabilities.Storeable;
         case TypeKind.Null:
             return Capabilities.Comparable;
         case TypeKind.Struct:

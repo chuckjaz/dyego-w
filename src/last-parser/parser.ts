@@ -4,7 +4,7 @@ import {
     Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32,
     LiteralFloat64, LiteralInt16, LiteralInt32, LiteralInt64, LiteralInt8, LiteralKind, LiteralNull, LiteralUInt16,
     LiteralUInt32, LiteralUInt64, LiteralUInt8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
-    PointerConstructor, Reference, Remainder, Return, Select, StructFieldLiteral, StructLiteral, StructTypeLiteral,
+    PointerConstructor, Reference, Remainder, Return, Select, SizeOf, StructFieldLiteral, StructLiteral, StructTypeLiteral,
     Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var
 } from "../last";
 import { Scanner } from "../last-parser";
@@ -48,19 +48,24 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
     }
 
     function importItems(module: string): ImportItem[] {
-        return sequence(() => importItem(module), importSet, importSet, comma)
+        return sequence(() => importItem(module), importItemSet, importItemSet, comma)
     }
 
     function importItem(module: string): ImportItem {
-        const start = pos.start
-        const name = expectName()
-        if (token == Token.LParen) {
-            return importFunction(start, module, name)
+        switch (token) {
+            case Token.Var:
+                return importVariable(module)
+            case Token.Fun:
+                return importFunction(module)
+            default:
+                throw new Error("Unexpected token")
         }
-        return importVariable(start, module, name)
     }
 
-    function importFunction(start: number, module: string, name: string): ImportFunction {
+    function importFunction(module: string): ImportFunction {
+        const start = pos.start
+        expect(Token.Fun)
+        const name = expectName()
         expect(Token.LParen)
         const parameters = parameterList()
         expect(Token.RParen)
@@ -74,7 +79,10 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         return l<ImportFunction>(start, { kind: LastKind.ImportFunction, module, name, parameters, result, as })
     }
 
-    function importVariable(start: number, module: string, name: string): ImportVariable {
+    function importVariable(module: string): ImportVariable {
+        const start = pos.start
+        expect(Token.Var)
+        const name = expectName()
         expect(Token.Colon)
         const type = typeExpression()
         let as: string | undefined = undefined
@@ -461,12 +469,19 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 const target = primitiveExpression()
                 return l<Not>(start, { kind: LastKind.Not, target })
             }
+            case Token.Tilde: {
+                next()
+                const target = primitiveExpression()
+                return l<Negate>(start, { kind: LastKind.Negate, target })
+            }
             case Token.Amp: {
                 next()
                 const target = simpleExpression()
                 return l<AddressOf>(start, { kind: LastKind.AddressOf, target })
             }
             case Token.If: return ifExpression()
+            case Token.SizeOf: return sizeOfExpression()
+            case Token.Block: return blockStatement()
             case Token.LBrack: return array()
             case Token.LBrace: return struct()
             case Token.LParen: {
@@ -531,6 +546,13 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         return l<IfThenElse>(start, { kind: LastKind.IfThenElse, condition, then: thenExpr, else: elseExpr })
     }
 
+    function sizeOfExpression(): SizeOf {
+        const start = pos.start
+        expect(Token.SizeOf)
+        const target = typeExpression()
+        return l<SizeOf>(start, { kind: LastKind.SizeOf, target })
+    }
+
     function array(): ArrayLiteral {
         const start = pos.start
         expect(Token.LBrack)
@@ -561,12 +583,6 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         const body = sequence(bodyElement, bodyElementFirstSet, rbraceSet)
         expect(Token.RBrace)
         return body
-    }
-
-    function block(): Block {
-        const start = pos.start
-        const body = statements()
-        return l<Block>(start, { kind: LastKind.Block, body })
     }
 
     function bodyElement(): BodyElement {
@@ -752,6 +768,7 @@ function tokenText(token: Token): string {
         case Token.Loop: return "a `loop` reserved word"
         case Token.Branch: return "a `branch` reserved word"
         case Token.Return: return "a `return` reserved word"
+        case Token.SizeOf: return "a `sizeof` reserved word"
         case Token.Dot: return "a '.' operator"
         case Token.Dash: return "a '-' operator"
         case Token.Plus: return "a '+' operator"
@@ -763,6 +780,7 @@ function tokenText(token: Token): string {
         case Token.Equal: return "an '=' operator"
         case Token.Colon: return "a ':' operator"
         case Token.Bang: return "a '!' operator"
+        case Token.Tilde: return "a '~' operator"
         case Token.Circumflex: return "a '^' operator"
         case Token.And: return "an '&&' operator"
         case Token.Amp: return "an '&' operator"
@@ -801,6 +819,7 @@ function unionOf(a: boolean[], b: boolean[]): boolean[] {
 
 
 const importSet = setOf(Token.Import)
+const importItemSet = setOf(Token.Fun, Token.Var)
 const identSet = setOf(Token.Identifier)
 const rparenSet = setOf(Token.RParen)
 const rbrackSet = setOf(Token.RBrack)
