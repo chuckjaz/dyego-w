@@ -47,11 +47,11 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         return l<Import>(start, { kind: LastKind.Import, imports })
     }
 
-    function importItems(module: string): ImportItem[] {
+    function importItems(module: Reference): ImportItem[] {
         return sequence(() => importItem(module), importItemSet, importItemSet, comma)
     }
 
-    function importItem(module: string): ImportItem {
+    function importItem(module: Reference): ImportItem {
         switch (token) {
             case Token.Var:
                 return importVariable(module)
@@ -62,7 +62,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         }
     }
 
-    function importFunction(module: string): ImportFunction {
+    function importFunction(module: Reference): ImportFunction {
         const start = pos.start
         expect(Token.Fun)
         const name = expectName()
@@ -71,7 +71,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         expect(Token.RParen)
         expect(Token.Colon)
         const result = typeExpression()
-        let as: string | undefined = undefined
+        let as: Reference | undefined = undefined
         if (token == Token.As) {
             next()
             as = expectName()
@@ -79,13 +79,13 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         return l<ImportFunction>(start, { kind: LastKind.ImportFunction, module, name, parameters, result, as })
     }
 
-    function importVariable(module: string): ImportVariable {
+    function importVariable(module: Reference): ImportVariable {
         const start = pos.start
         expect(Token.Var)
         const name = expectName()
         expect(Token.Colon)
         const type = typeExpression()
-        let as: string | undefined = undefined
+        let as: Reference | undefined = undefined
         if (token == Token.As) {
             next()
             as = expectName()
@@ -140,8 +140,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         const start = pos.start
         switch (token) {
             case Token.Identifier: {
-                const name = expectName()
-                return l<Reference>(start, { kind: LastKind.Reference, name })
+                return expectName()
             }
             case Token.Lt: {
                 next()
@@ -157,7 +156,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 return result
             }
             default:
-                return l<Reference>(start, { kind: LastKind.Reference, name: expectName() })
+                return expectName()
         }
     }
 
@@ -391,10 +390,8 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
     function primitiveExpression(): Expression {
         const start = pos.start
         switch (token) {
-            case Token.Identifier: {
-                const name = expectName()
-                return l<Reference>(start, { kind: LastKind.Reference, name })
-            }
+            case Token.Identifier:
+                return expectName()
             case Token.Int8: {
                 const value = scanner.value
                 next()
@@ -609,7 +606,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
     function loop(): Loop {
         const start = pos.start
         expect(Token.Loop)
-        let name: string | undefined = undefined
+        let name: Reference | undefined = undefined
         if (token == Token.Identifier) {
             name = expectName()
         }
@@ -622,7 +619,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
     function blockStatement(): Block {
         const start = pos.start
         expect(Token.Block)
-        let name: string | undefined = undefined
+        let name: Reference | undefined = undefined
         if (token == Token.Identifier) {
             name = expectName()
         }
@@ -644,7 +641,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
             const elseTarget = expectName()
             return l<BranchIndexed>(start, { kind: LastKind.BranchIndexed, condition, targets, else: elseTarget })
         } else {
-            let target: string | undefined = undefined
+            let target: Reference | undefined = undefined
             if (token == Token.Identifier) {
                 target = expectName()
             }
@@ -662,12 +659,13 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         return l<Return>(start, { kind: LastKind.Return, value })
     }
 
-    function expectName(): string {
+    function expectName(): Reference {
+        const start = pos.start
         const result = expect(Token.Identifier)
         if (typeof result !== "string") {
-            return "<error>"
+            return { kind: LastKind.Reference, name: "<error>" }
         }
-        return result
+        return l<Reference>(start, { kind: LastKind.Reference, name: result })
     }
 
     function sequence<T>(element: () => T, firstSet: boolean[], followSet: boolean[] = [], separator = semi): T[] {
@@ -769,6 +767,7 @@ function tokenText(token: Token): string {
         case Token.Branch: return "a `branch` reserved word"
         case Token.Return: return "a `return` reserved word"
         case Token.SizeOf: return "a `sizeof` reserved word"
+        case Token.Global: return "a `global` reserved word"
         case Token.Dot: return "a '.' operator"
         case Token.Dash: return "a '-' operator"
         case Token.Plus: return "a '+' operator"

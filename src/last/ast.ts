@@ -39,6 +39,7 @@ export const enum LastKind {
     Call,
     Let,
     Var,
+    Global,
     Type,
     TypeSelect,
     StructTypeLiteral,
@@ -92,6 +93,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.Call: return "Call"
         case LastKind.Let: return "Let"
         case LastKind.Var: return "Var"
+        case LastKind.Global: return "Global"
         case LastKind.Type: return "Type"
         case LastKind.TypeSelect: return "TypeSelect"
         case LastKind.StructTypeLiteral: return "StructTypeLiteral"
@@ -321,7 +323,7 @@ export interface StructLiteral extends LastNode {
 /** A field of a structured type initializer ({f: ...}) */
 export interface Field extends LastNode {
     kind: LastKind.Field
-    name: string
+    name: Reference
     value: Expression
 }
 
@@ -334,14 +336,14 @@ export interface ArrayLiteral extends LastNode {
 /** A block of statements or expresions ({ ... }). Branches to a block branch to after the block */
 export interface Block extends LastNode {
     kind: LastKind.Block
-    name?: string
+    name?: Reference
     body: BodyElement[]
 }
 
 /** A block of statements or expressions. Branches to a loop branch to the top of the loop  */
 export interface Loop extends LastNode {
     kind: LastKind.Loop
-    name?: string
+    name?: Reference
     body: BodyElement[]
 }
 
@@ -356,15 +358,15 @@ export interface IfThenElse extends LastNode {
 /** Branch to the target block or loop or the closest nested block or loop if the target is undefined */
 export interface Branch extends LastNode {
     kind: LastKind.Branch
-    target?: string
+    target?: Reference
 }
 
 /** Branch based on the unsigned integer index value of condition into targets or to else if the number is not in range  */
 export interface BranchIndexed extends LastNode {
     kind: LastKind.BranchIndexed
     condition: Expression
-    targets: string[]
-    else: string
+    targets: Reference[]
+    else: Reference
 }
 
 /** Return from the enclosing function with an optional value  */
@@ -383,7 +385,7 @@ export interface Reference extends LastNode {
 export interface Select extends LastNode {
     kind: LastKind.Select
     target: Expression
-    name: string
+    name: Reference
 }
 
 /** Selet the 0 based targt index an array */
@@ -403,7 +405,7 @@ export interface Assign extends LastNode {
 /** Declare a function with the given name, parameters, result type and statements or expressions */
 export interface Function extends LastNode {
     kind: LastKind.Function
-    name: string
+    name: Reference
     parameters: Parameter[]
     result: TypeExpression
     body: BodyElement[]
@@ -412,7 +414,7 @@ export interface Function extends LastNode {
 /** Declare a parameter of a function or function import */
 export interface Parameter extends LastNode {
     kind: LastKind.Parameter
-    name: string
+    name: Reference
     type: TypeExpression
 }
 
@@ -426,7 +428,7 @@ export interface Call extends LastNode {
 /** Declare a constant expresion of the given name, type and value */
 export interface Let extends LastNode {
     kind: LastKind.Let
-    name: string
+    name: Reference
     type: TypeExpression
     value: Expression
 }
@@ -434,7 +436,15 @@ export interface Let extends LastNode {
 /** Declare a variable with the given name and type with an optional initializer. */
 export interface Var extends LastNode {
     kind: LastKind.Var
-    name: string
+    name: Reference
+    type: TypeExpression
+    value?: Expression
+}
+
+/** Declare a global varaible with the given name and type with an optional initializer */
+export interface Global extends LastNode {
+    kind: LastKind.Global
+    name: Reference
     type: TypeExpression
     value?: Expression
 }
@@ -442,7 +452,7 @@ export interface Var extends LastNode {
 /** Declare a type with given name and type (typealias) */
 export interface TypeDeclaration extends LastNode {
     kind: LastKind.Type
-    name: string
+    name: Reference
     type: TypeExpression
 }
 
@@ -450,7 +460,7 @@ export interface TypeDeclaration extends LastNode {
 export interface TypeSelect extends LastNode {
     kind: LastKind.TypeSelect
     target: TypeExpression
-    name: string
+    name: Reference
 }
 
 /** Declare a structured type (struct) */
@@ -462,7 +472,7 @@ export interface StructTypeLiteral extends LastNode {
 /** Declare a field of a structured type with the given name and type */
 export interface StructFieldLiteral extends LastNode {
     kind: LastKind.StructFieldLiteral
-    name: string
+    name: Reference
     type: TypeExpression
 }
 
@@ -487,9 +497,9 @@ export interface Exported extends LastNode {
 
 /** Import the given name from the given module (abstract), optionally renaming it */
 export interface ImportDescription {
-    module: string
-    name: string
-    as?: string
+    module: Reference
+    name: Reference
+    as?: Reference
 }
 
 /** A list of import (import) */

@@ -46,7 +46,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             switch (declaration.kind) {
                 case LastKind.Type:
                     const instance: UnknownType = { kind: TypeKind.Unknown }
-                    enter(declaration, declaration.name, instance, scope)
+                    enter(declaration, declaration.name.name, instance, scope)
                     break
             }
         }
@@ -61,19 +61,19 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const scope = scopes.scope
         switch(declaration.kind) {
             case LastKind.Exported:
-                exported.add(declaration.target.name)
+                exported.add(declaration.target.name.name)
                 enterDeclaration(declaration.target, scopes)
                 break
             case LastKind.Let: {
                 const type = typeExpr(declaration.type, scopes)
-                enter(declaration, declaration.name, type, scope)
+                enter(declaration, declaration.name.name, type, scope)
                 bind(declaration, type)
                 break
             }
             case LastKind.Var: {
                 const type = typeExpr(declaration.type, scopes)
                 const addressable = scope === moduleScope
-                enter(declaration, declaration.name, { kind: TypeKind.Location, type, addressable }, scope)
+                enter(declaration, declaration.name.name, { kind: TypeKind.Location, type, addressable }, scope)
                 bind(declaration, type)
                 break
             }
@@ -81,18 +81,18 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 const parameters = funcParameters(declaration.parameters, scopes)
                 const result = typeExpr(declaration.result, scopes)
                 const type: FunctionType = { kind: TypeKind.Function, parameters, result }
-                enter(declaration, declaration.name, type, scope)
+                enter(declaration, declaration.name.name, type, scope)
                 bind(declaration, type)
                 break
             }
             case LastKind.Type: {
-                const preentered = required(scope.find(declaration.name))
+                const preentered = required(scope.find(declaration.name.name))
                 const type = typeExpr(declaration.type, scopes);
                 if (type.kind == TypeKind.Struct) {
-                    type.name = declaration.name;
+                    type.name = declaration.name.name;
                 }
                 bind(declaration, type)
-                renter(declaration, declaration.name, type, scopes.scope)
+                renter(declaration, declaration.name.name, type, scopes.scope)
                 if (preentered.kind == TypeKind.Unknown) {
                     fixup(preentered, type)
                 }
@@ -110,12 +110,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                         const parameters = funcParameters(importItem.parameters, scopes)
                         const result = typeExpr(importItem.result, scopes)
                         const type: FunctionType = { kind: TypeKind.Function, parameters, result }
-                        enter(importItem, importItem.as ?? importItem.name, type, scope)
+                        enter(importItem, (importItem.as ?? importItem.name).name, type, scope)
                         break
                     }
                     case LastKind.ImportVariable: {
                         const type = typeExpr(importItem.type, scopes)
-                        enter(importItem, importItem.as ?? importItem.name, type, scope)
+                        enter(importItem, (importItem.as ?? importItem.name).name, type, scope)
                         break
                     }
                 }
@@ -134,7 +134,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         declaration = noExport(declaration)
         switch (declaration.kind) {
             case LastKind.Let: {
-                const type = required(scope.find(declaration.name))
+                const type = required(scope.find(declaration.name.name))
                 const valueType = checkExpression(declaration.value, scopes)
                 mustMatch(declaration.value, type, valueType)
                 return voidType
@@ -142,7 +142,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Var: {
                 const value = declaration.value
                 if (value) {
-                    const type = required(scope.find(declaration.name))
+                    const type = required(scope.find(declaration.name.name))
                     const valueType = checkExpression(value, scopes)
                     mustMatch(value, type, valueType)
                 }
@@ -150,7 +150,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             }
             case LastKind.Type: return voidType
             case LastKind.Function: {
-                const functionType = required(scope.find(declaration.name)) as FunctionType
+                const functionType = required(scope.find(declaration.name.name)) as FunctionType
                 chk(functionType.kind == TypeKind.Function)
                 const resultType = functionType.result
                 const bodyScope = new Scope(scope)
@@ -311,10 +311,10 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const fields = new Scope<Type>()
         for (const field of node.fields) {
             const fieldType = checkExpression(field.value, scopes)
-            if (fields.has(field.name)) {
+            if (fields.has(field.name.name)) {
                 report(field, `Duplicate field name`)
             } else {
-                fields.enter(field.name, { kind: TypeKind.Location, type: fieldType })
+                fields.enter(field.name.name, { kind: TypeKind.Location, type: fieldType })
             }
         }
         return { kind: TypeKind.Struct, fields }
@@ -362,9 +362,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const originalTarget = checkExpression(node.target, scopes)
         const targetType = read(originalTarget)
         function fieldTypeOf(type: StructType): Type {
-            const fieldType = type.fields.find(node.name)
+            const fieldType = type.fields.find(node.name.name)
             if (!fieldType) {
-                report(node.target, `Type ${typeToString(targetType)} does not have member "${node.name}"`)
+                report(node.name, `Type ${typeToString(targetType)} does not have member "${node.name.name}"`)
                 return errorType
             }
             if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
@@ -380,9 +380,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 return fieldTypeOf(refType);
             default:
                 const builtins = builtInMethodsOf(targetType)
-                const memberType = builtins.find(node.name)
+                const memberType = builtins.find(node.name.name)
                 if (!memberType) {
-                    report(node, `Type ${typeToString(targetType)} does not have a member "${node.name}"`)
+                    report(node.name, `Type ${typeToString(targetType)} does not have a member "${node.name.name}"`)
                     return errorType
                 }
                 if (memberType.kind == TypeKind.Function) {
@@ -527,7 +527,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const blockBranchTargets = new Scope(scopes.branchTargets)
         const name = block.name
         if (name) {
-            enter(block, name, block, blockBranchTargets)
+            enter(block, name.name, block, blockBranchTargets)
         }
         enter(block, "$$top", block, blockBranchTargets)
         return checkBody(block.body, { scope: blockScope, branchTargets: blockBranchTargets})
@@ -557,16 +557,16 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 type = assign(node, scopes)
                 break
             case LastKind.Branch:
-                validateBranchTarget(node, node.target, scopes)
+                validateBranchTarget(node, node.target?.name, scopes)
                 type = voidType
                 break
             case LastKind.BranchIndexed: {
                 const conditionType = checkExpression(node.condition, scopes)
                 mustMatch(node.condition, i32Type, conditionType)
                 for (const target of node.targets) {
-                    validateBranchTarget(node, target, scopes)
+                    validateBranchTarget(node, target.name, scopes)
                 }
-                validateBranchTarget(node, node.else, scopes)
+                validateBranchTarget(node, node.else.name, scopes)
                 type = voidType
                 break
             }
@@ -601,14 +601,14 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function funcParameters(parameterNodes: Parameter[], scopes: Scopes): Scope<Type> {
         const parameters = new Scope<Type>()
         for (const parameter of parameterNodes) {
-            if (parameters.has(parameter.name)) {
+            if (parameters.has(parameter.name.name)) {
                 report(parameter, `Duplicate parameter name`)
                 continue
             }
             const type = typeExpr(parameter.type, scopes)
             const parameterType: Type = { kind: TypeKind.Location, type }
             bind(parameter, parameterType)
-            parameters.enter(parameter.name, parameterType)
+            parameters.enter(parameter.name.name, parameterType)
         }
         return parameters
     }
@@ -648,7 +648,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function structTypeLiteral(tree: StructTypeLiteral, scopes: Scopes): Type {
         const fields = new Scope<Type>()
         for (const field of tree.fields) {
-            if (fields.has(field.name)) {
+            if (fields.has(field.name.name)) {
                 report(field, `Dupicate symbol`)
             }
             const fieldType = typeExpr(field.type, scopes)
@@ -656,7 +656,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             if (unknown) {
                 report(field.type, `Fields cannot be of an incomplete or recursive type ${unknown.name}`);
             }
-            fields.enter(field.name, fieldType)
+            fields.enter(field.name.name, fieldType)
         }
         return { kind: TypeKind.Struct, fields }
     }

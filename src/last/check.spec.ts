@@ -192,7 +192,7 @@ describe("check", () => {
                 type Point = < x: Int, y: Int >;
 
                 fun test(): Int {
-                    return !{Type Point does not have member "z"}!getPoint().z;
+                    return getPoint().!{Type Point does not have member "z"}!z;
                 }
             `)
         })
@@ -207,7 +207,7 @@ describe("check", () => {
         })
         it("can detect an reference to an invalid builtin", () => {
             d(`
-                fun test(a: Int): Int = !{Type Int does not have a member "invalidBuiltin"}!a.invalidBuiltin();
+                fun test(a: Int): Int = a.!{Type Int does not have a member "invalidBuiltin"}!invalidBuiltin();
             `)
         })
         it("can detect assigning a value non-location", () => {

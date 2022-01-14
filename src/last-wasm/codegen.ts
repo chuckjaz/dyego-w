@@ -110,13 +110,13 @@ export function codegen(
                     case LastKind.ImportFunction:
                         const typeIndex = typeIndexOf(item)
                         const funcIndex = importSection.importFunction(
-                            item.module,
-                            item.name,
+                            item.module.name,
+                            item.name.name,
                             typeIndex
                         )
                         const resultType = typeOf(item)
                         const functionGenNode = new FunctionGenNode(item, resultType, funcIndex)
-                        scopes.nodes.enter(item.as ?? item.name, functionGenNode)
+                        scopes.nodes.enter((item.as ?? item.name).name, functionGenNode)
                         break
                 }
             }
@@ -236,21 +236,21 @@ export function codegen(
                 if (name) {
                     const branches = new Scope<Label>(scopes.branchTargets)
                     blockLabel = label()
-                    branches.enter(name, blockLabel)
+                    branches.enter(name.name, blockLabel)
                     blockScopes = {...scopes, branchTargets: branches }
                 }
                 return blockElementsToGenNode(node, node.body, blockScopes, blockLabel)
             }
             case LastKind.Branch: {
-                const l = required(scopes.branchTargets.find(node.target ?? "$top"))
+                const l = required(scopes.branchTargets.find(node.target?.name ?? "$top"))
                 return new GotoGenNode(node, l)
             }
             case LastKind.BranchIndexed: {
                 const condition = lastToGenNode(node.condition, scopes);
                 const labels = node.targets.map(
-                    name => required(scopes.branchTargets.find(name))
+                    name => required(scopes.branchTargets.find(name.name))
                 )
-                const elseLabel = required(scopes.branchTargets.find(node.else))
+                const elseLabel = required(scopes.branchTargets.find(node.else.name))
                 return new BranchTableGenNode(node, condition, labels, elseLabel)
             }
             case LastKind.Return: {
@@ -339,10 +339,10 @@ export function codegen(
             target = new DataGenNode(tree, typeOfType(tree, targetType), target)
         }
         if (targetType.kind == TypeKind.Struct)
-            return target.select(tree.name)
+            return target.select(tree.name.name)
         else {
             const type = typeOf(tree)
-            return builtinGenNodeFor(tree, targetType, type, tree.name, target)
+            return builtinGenNodeFor(tree, targetType, type, tree.name.name, target)
         }
     }
 
@@ -385,7 +385,7 @@ export function codegen(
         // Add parameters
         for (const parameter of node.parameters) {
             const type = typeOf(parameter)
-            nodes.enter(parameter.name, alloc.parameter(parameter, type))
+            nodes.enter(parameter.name.name, alloc.parameter(parameter, type))
         }
 
         // Create the function type
@@ -399,7 +399,7 @@ export function codegen(
         // Allow the function to call itself if it is named
         const functionName = node.name
         if (functionName)
-            scopes.nodes.enter(functionName, funcGenNode)
+            scopes.nodes.enter(functionName.name, funcGenNode)
 
         // Generate the body
         let body = statementsToBodyGenNode(resultType, node.body, functionScopes).simplify()
@@ -415,8 +415,8 @@ export function codegen(
         g.write(bytes, localMapping)
         codeSection.allocate(g.currentLocals(), bytes, localMapping)
 
-        if (exported.has(node.name)) {
-            exportSection.allocate(node.name, ExportKind.Func, funcIndex)
+        if (exported.has(node.name.name)) {
+            exportSection.allocate(node.name.name, ExportKind.Func, funcIndex)
         }
 
         return funcGenNode
@@ -435,7 +435,7 @@ export function codegen(
         const value = nodeValue ? lastToGenNode(nodeValue, scopes) : emptyGenNode
         const type = typeOf(node)
         const varGenNode = alloc.allocate(node, type, value)
-        nodes.enter(node.name, varGenNode)
+        nodes.enter(node.name.name, varGenNode)
         if (nodeValue)
             return new AssignGenNode(node, varGenNode, value)
         else return emptyGenNode
@@ -443,7 +443,7 @@ export function codegen(
 
     function letToGenNode(tree: Let, scopes: Scopes): GenNode {
         const symbol = lastToGenNode(tree.value, scopes)
-        scopes.nodes.enter(tree.name, symbol)
+        scopes.nodes.enter(tree.name.name, symbol)
         return emptyGenNode
     }
 
@@ -469,7 +469,7 @@ export function codegen(
         const branchTargets = new Scope<Label>(scopes.branchTargets)
         branchTargets.enter("$top", branchLabel)
         if (name) {
-            branchTargets.enter(name, branchLabel)
+            branchTargets.enter(name.name, branchLabel)
         }
         const type = typeOf(node)
         const body = statementsToGenNode(type, node.body, { nodes, alloc, branchTargets })
