@@ -27,6 +27,7 @@ export const enum Token {
     Branch,
     Return,
     SizeOf,
+    Global,
     Dot,
     Dash,
     Plus,
