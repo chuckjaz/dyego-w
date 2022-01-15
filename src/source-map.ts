@@ -22,7 +22,7 @@ export class SourceMap {
         this.mappings.push({ offset, fileIndex, line, column, name })
     }
 
-    toMap(): string {
+    toMap(sourceContent?: string): string {
         const mappingArray = this.mappings.sort((a, b) => a.offset - b.offset)
         let previousOffset = 0
         let previousLine = 0
@@ -56,7 +56,9 @@ export class SourceMap {
             names: this.names,
             mappings
         }
-
+        if (sourceContent) {
+            mapData.sourceContent = sourceContent
+        }
         if (this.target) mapData.file = this.target
         if (this.sourceRoot) mapData.sourceRoot = this.sourceRoot
 
@@ -92,6 +94,7 @@ interface SourceMapData {
     sources: string[]
     names: string[]
     mappings: string
+    sourceContent?: string
 }
 
 interface Mapping {
