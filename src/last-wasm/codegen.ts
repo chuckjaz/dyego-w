@@ -464,11 +464,11 @@ export function codegen(
         const alloc = scopes.alloc
         const nodes = scopes.nodes
         const nodeValue = node.value
-        const value = nodeValue ? lastToGenNode(nodeValue, scopes) : emptyGenNode
+        const value = nodeValue ? lastToGenNode(nodeValue, scopes) : undefined
         const type = typeOf(node)
         const varGenNode = alloc.allocate(node, type, value)
         nodes.enter(node.name.name, varGenNode)
-        if (nodeValue)
+        if (value)
             return new AssignGenNode(node, varGenNode, value)
         else return emptyGenNode
     }

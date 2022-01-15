@@ -270,6 +270,21 @@ describe("check", () => {
             `)
         })
     })
+    describe("pointers", () => {
+        it("can check a pointer converted to an UInt", () => {
+            t(`
+                var a: Int;
+                var b: Int^ = &a;
+                var c: UInt = b as UInt;
+            `)
+        })
+        it("can check a conversion of a UInt to a pointer", () => {
+            t(`
+                var a: UInt;
+                var b: Int^ = a as Int^;
+            `)
+        })
+    })
 })
 
 function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet | undefined): never {

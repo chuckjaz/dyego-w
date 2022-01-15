@@ -3,7 +3,7 @@ import { BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameO
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
 import { Scope } from "./scope";
-import { globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType, ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type, u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf } from "./types";
+import { globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType, ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type, u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType } from "./types";
 
 const builtins = new Scope<Type>(globals)
 
@@ -266,9 +266,14 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 break
             case LastKind.As: {
                 const leftType = checkExpression(expression.left, scopes)
-                expectPointer(expression.left, leftType)
                 const rightType = typeExpr(expression.right, scopes)
-                type = expectPointer(expression.right, rightType)
+                if (rightType.kind == TypeKind.U32) {
+                    expectPointer(expression.left, leftType)
+                    type = rightType
+                } else {
+                    expectPointerOrPointerSized(expression.left, leftType)
+                    type = expectPointerOrPointerSized(expression.right, rightType)
+                }
                 break
             }
         }
@@ -283,7 +288,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     ): Type {
         const type = checkExpression(target, scopes)
         if (type.kind == TypeKind.Location && type.addressable) {
-            return { kind: TypeKind.Pointer, target: type }
+            return { kind: TypeKind.Pointer, target: type.type }
         }
         report(node, "The value does not have an address")
         return errorType
@@ -377,6 +382,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const originalTarget = checkExpression(node.target, scopes)
         const targetType = read(originalTarget)
         function fieldTypeOf(type: StructType): Type {
+            if ((type as Type).kind == TypeKind.Error) return type
             const fieldType = type.fields.find(node.name.name)
             if (!fieldType) {
                 report(node.name, `Type ${typeToString(targetType)} does not have member "${node.name.name}"`)
@@ -390,9 +396,15 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         switch (targetType.kind) {
             case TypeKind.Struct:
                 return fieldTypeOf(targetType);
-            case TypeKind.Pointer:
-                const refType = expectStruct(targetType.target, node.target);
-                return fieldTypeOf(refType);
+            case TypeKind.Pointer: {
+                const builtins = builtInMethodsOf(targetType)
+                const memberType = builtins.find(node.name.name)
+                if (!memberType) {
+                    const refType = expectStruct(targetType.target, node.target);
+                    return fieldTypeOf(refType);
+                }
+                // fallthrough
+            }
             default:
                 const builtins = builtInMethodsOf(targetType)
                 const memberType = builtins.find(node.name.name)
@@ -866,14 +878,23 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         return expectPointer(location, from);
     }
 
+    function expectPointerOrPointerSized(location: Locatable, type: Type): PointerType {
+        if ((capabilitesOf(type) & (Capabilities.Pointer | Capabilities.PointerSized)) == 0) {
+            expectPointer(location, type)
+        }
+        const effectiveType = read(type)
+        return effectiveType.kind == TypeKind.Pointer ? effectiveType : voidPointerType
+    }
+
     function expectPointer(location: Locatable, type: Type): PointerType {
-        if (type.kind != TypeKind.Pointer) {
-            if (type.kind != TypeKind.Error) {
+        const effectiveType = read(type)
+        if (effectiveType.kind != TypeKind.Pointer) {
+            if (effectiveType.kind != TypeKind.Error) {
                 report(location, `Expected type ${typeToString(type)} be a pointer was ${nameOfTypeKind(type.kind)}`)
             }
             return errorType as any as PointerType
         }
-        return type
+        return effectiveType
     }
 
     function read(type: Type): Type {

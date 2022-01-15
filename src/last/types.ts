@@ -81,6 +81,7 @@ export const enum Capabilities {
     Loadable = 1 << 11,
     Storeable = 1 << 12,
     Builtins = 1 << 13,
+    PointerSized = 1 << 14,
 }
 
 export interface I8 {
@@ -191,7 +192,7 @@ export const u64Type: Type = { kind: TypeKind.U64 }
 export const f32Type: Type = { kind: TypeKind.F32 }
 export const f64Type: Type = { kind: TypeKind.F64 }
 export const nullType: Type = { kind: TypeKind.Null }
-export const voidPointerType: Type = { kind: TypeKind.Pointer, target: voidType }
+export const voidPointerType: PointerType = { kind: TypeKind.Pointer, target: voidType }
 export const memoryType: Type = { kind: TypeKind.Memory }
 
 export const globals: Scope<Type> = new Scope();
@@ -224,8 +225,11 @@ export function capabilitesOf(type: Type): Capabilities {
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
                 Capabilities.Negatable | Capabilities.Bitwizeable;
         case TypeKind.I32:
-        case TypeKind.I64:
         case TypeKind.U32:
+            return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
+                Capabilities.Negatable | Capabilities.Bitwizeable | Capabilities.Rotatable |
+                Capabilities.PointerSized;
+        case TypeKind.I64:
         case TypeKind.U64:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
                 Capabilities.Negatable | Capabilities.Bitwizeable | Capabilities.Rotatable;
@@ -274,7 +278,7 @@ export function typeToString(type: Type): string {
         case TypeKind.U16:
             return `UInt16`
         case TypeKind.U32:
-            return `UInt32`
+            return `UInt`
         case TypeKind.U64:
             return `UInt64`
         case TypeKind.F32:
@@ -467,12 +471,14 @@ function conversionMethods(type: Type, scope: Scope<Type>) {
 const builtinCache = new Map<TypeKind, Scope<Type>>()
 
 export function builtInMethodsOf(type: Type): Scope<Type> {
-    let scope = builtinCache.get(type.kind)
+    let scope = type.kind != TypeKind.Pointer ? builtinCache.get(type.kind) : null
     if (!scope) {
         scope = new Scope<Type>()
         capabilityMethods(type, scope)
         conversionMethods(type, scope)
-        builtinCache.set(type.kind, scope)
+        if (type.kind != TypeKind.Pointer) {
+            builtinCache.set(type.kind, scope)
+        }
     }
     return scope
 }

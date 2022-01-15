@@ -1047,6 +1047,15 @@ describe("last codegen", () => {
                             expect(test(15)).toBe(15)
                         })
                     })
+                    it("can convert to a Pointer", () => {
+                        cg(`
+                            var a: Int;
+                            var b: Int^ = &a;
+                            export fun test(): UInt = b as UInt;
+                        `, ({test}) => {
+                            expect(test()).toEqual(4)
+                        })
+                    })
                 })
             })
             describe("i64", () => {
@@ -1673,7 +1682,7 @@ function cg(text: string, cb: (exports: any) => void, name: string = "<text>"): 
                 sourceMap.addMapping(mapping.offset, fileIndex, position.line, position.column)
             }
         }
-        const sourceMapText = sourceMap.toMap()
+        const sourceMapText = sourceMap.toMap(name == "<text>" ? text : undefined)
         fs.writeFileSync("out/tmp.wasm.map", sourceMapText, "utf8")
     }
 
