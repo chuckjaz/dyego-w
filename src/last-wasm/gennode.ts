@@ -1,6 +1,7 @@
 import { booleanType, i32Type, LastKind, Locatable, memoryType, nameOfLastKind, Type, TypeDeclaration, TypeKind, typeToString, voidPointerType, voidType } from "../last";
 import { check, error, required, unsupported } from "../utils";
-import { ByteWriter, DataSection, FuncIndex, gen, Generate, Inst, Label, LocalIndex, NumberType, ReferenceType, ValueType } from "../wasm";
+import { ByteWriter, DataSection, ExportKind, ExportSection, FuncIndex, gen, Generate, Inst, Label, LocalIndex, Mut, NumberType, ReferenceType, ValueType } from "../wasm";
+import { GlobalSection } from "../wasm/globalsection";
 
 export interface GenNode {
     type: GenType
@@ -24,6 +25,7 @@ export interface GenNode {
 interface GenTypeParts {
     piece?: ValueType
     fields?: GenType[]
+    names?: string[]
     element?: GenType
     size?: number
     void?: boolean
@@ -223,6 +225,45 @@ export class GenType {
 
         doStore(this.parts)
         returnTmpLocals()
+    }
+
+    popToGlobals(g: Generate, indexes: LocalIndexes) {
+        if (typeof indexes == "number") {
+            g.inst(Inst.Global_set)
+            g.index(indexes)
+        } else {
+            const fields = required(this.parts.fields)
+            for (let i = fields.length - 1; i >= 0; i--) {
+                fields[i].popToGlobals(g, indexes[i])
+            }
+        }
+    }
+
+    loadGlobal(g: Generate, indexes: LocalIndexes) {
+        if (typeof indexes == "number") {
+            g.inst(Inst.Local_get)
+            g.index(indexes)
+        } else {
+            const fields = required(this.parts.fields)
+            check(fields.length == indexes.length)
+            for (let i = 0; i < fields.length; i++) {
+                fields[i].loadGlobal(g, indexes[i])
+            }
+        }
+    }
+
+    storeGlobal(g: Generate, value: GenNode, indexes: LocalIndexes) {
+        if (typeof indexes == "number") {
+            value.load(g)
+            g.inst(Inst.Global_set)
+            g.index(indexes)
+        } else {
+            const fields = required(this.parts.fields)
+            check(fields.length == indexes.length)
+            for (let i = 0; i < fields.length; i++) {
+                fields[i].storeGlobal(g, value.select(i), indexes[i])
+            }
+        }
     }
 
     popToLocals(g: Generate, localIndex: LocalIndexes) {
@@ -731,7 +772,7 @@ function sizeOfParts(parts: GenTypeParts): number {
     error("Invalid parts")
 }
 
-type LocalIndexes = LocalIndex | LocalIndexes[]
+export type LocalIndexes = LocalIndex | LocalIndexes[]
 type LocalTypes = ValueType | LocalTypes[]
 
 export function flattenTypes(types: LocalTypes): ValueType[] {
@@ -779,8 +820,12 @@ export function genTypeOf(location: Locatable | undefined, type: Type, cache?: M
                 size: type.size
             })
         case TypeKind.Struct:
-            const fields = type.fields.map((name, t) => genTypeOf(location, t, cached))
-            return new GenType(type, { fields })
+            const names: string[] = []
+            const fields = type.fields.map((name, t) => {
+                names.push(name)
+                return genTypeOf(location, t, cached)
+            })
+            return new GenType(type, { fields, names })
         case TypeKind.Location:
             return genTypeOf(location, type.type, cache)
         case TypeKind.Function:
@@ -900,6 +945,124 @@ export class LocalAllocator implements LocationAllocator {
     }
 }
 
+export class GlobalsAllocator implements LocationAllocator {
+    section: GlobalSection
+
+    constructor(section: GlobalSection) {
+        this.section = section
+    }
+
+    parameter(location: Locatable, type: GenType): GenNode {
+        unsupported(location, "Parameters cannot be allocated as a global")
+    }
+
+    allocate(location: Locatable, type: GenType, init: GenNode): GlobalGenNode {
+        const section = this.section
+        function typesToIndexes(parts: LocalTypes, init: GenNode): LocalIndexes {
+            if (typeof parts == "number") {
+                const g = gen()
+                init.load(g)
+                const expr = new ByteWriter()
+                g.inst(Inst.End)
+                g.write(expr)
+                return section.allocate(parts, Mut.Var, expr)
+            } else {
+                return parts.map((parts, index) => typesToIndexes(parts, init.select(index)))
+            }
+        }
+        return new GlobalGenNode(location, type, typesToIndexes(type.locals(location), init))
+    }
+
+    release(node: GenNode): void { }
+}
+
+export class GlobalGenNode implements GenNode {
+    type: GenType
+    location: Locatable
+    indexes: LocalIndexes
+
+    constructor(location: Locatable, type: GenType, indexes: LocalIndexes) {
+        this.type = type
+        this.location = location
+        this.indexes = indexes
+    }
+
+    load(g: Generate): void {
+        this.type.loadGlobal(g, this.indexes)
+    }
+
+    pop(g: Generate) {
+        this.type.popToGlobals(g, this.indexes)
+    }
+
+    store(value: GenNode, g: Generate): void {
+        this.type.storeGlobal(g, value, this.indexes)
+    }
+
+    storeTo(node: GenNode, g: Generate) {
+        node.store(this, g)
+    }
+
+    addr(g: Generate) {
+        unsupported(this.location)
+    }
+
+    call(args: GenNode[], location?: Locatable): GenNode {
+        unsupported(location ?? this.location)
+    }
+
+    select(index: string | number): GenNode {
+        const indexes = this.indexes
+        if (typeof indexes === "number") {
+            unsupported(this.location)
+        }
+        const {type, index: actualIndex} = this.type.select(this.location, index)
+        return new GlobalGenNode(this.location, type, indexes[actualIndex])
+    }
+
+    export(location: Locatable, name: string, section: ExportSection) {
+        const indexes = this.indexes
+        if (typeof indexes == "number") {
+            section.allocate(name, ExportKind.Global, indexes)
+        } else {
+            const type = this.type.type
+            const names = required(this.type.parts.names)
+            for (const fieldName of names) {
+                const field = this.select(fieldName) as GlobalGenNode
+                field.export(location, `${name}$${fieldName}`, section)
+            }
+        }
+    }
+
+    index(index: GenNode): GenNode {
+        unsupported(this.location)
+    }
+
+    reference(location: Locatable): GenNode {
+        return new GlobalGenNode(location, this.type, this.indexes)
+    }
+
+    addressOf(): GenNode {
+        unsupported(this.location)
+    }
+
+    simplify(): GenNode {
+        return this
+    }
+
+    tryNot(): GenNode | undefined {
+        return undefined
+    }
+
+    number(): number | undefined {
+        return undefined
+    }
+
+    initMemory(bytes: ByteWriter): boolean {
+        return false
+    }
+}
+
 class LocalGenNode implements GenNode {
     type: GenType
     location: Locatable
@@ -923,8 +1086,8 @@ class LocalGenNode implements GenNode {
         this.type.storeLocal(g, value, this.locals)
     }
 
-    storeTo(symbol: GenNode, g: Generate): void {
-        symbol.store(this, g)
+    storeTo(node: GenNode, g: Generate): void {
+        node.store(this, g)
     }
 
     addr(g: Generate): void {
@@ -951,7 +1114,6 @@ class LocalGenNode implements GenNode {
     reference(location: Locatable): GenNode {
         return new LocalGenNode(location, this.type, this.locals)
     }
-
 
     addressOf(): GenNode {
         unsupported(this.location, "addressOf is not supported on this symbol")
@@ -1220,6 +1382,14 @@ export class StructLiteralGenNode extends LoadonlyGenNode implements GenNode {
 
     reference(location: Locatable): GenNode {
         return new StructLiteralGenNode(location, this.type, this.fields)
+    }
+
+    select(index: string | number): GenNode {
+        if (typeof index === "number") {
+            return this.fields[index]
+        } else {
+            return this.fields[required(this.type.parts.names).indexOf(index)]
+        }
     }
 
     simplify(): GenNode {

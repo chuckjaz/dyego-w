@@ -1,5 +1,5 @@
 import {
-    ArrayLiteral, Assign, Call, CheckResult, Function, IfThenElse, Import, ImportFunction, Index, Last, LastKind, Let, LiteralKind,
+    ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last, LastKind, Let, LiteralKind,
     Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type, TypeKind, Var
 } from "../last"
 import {
@@ -7,20 +7,22 @@ import {
 } from "../utils"
 import {
     ByteWriter, CodeSection, DataSection, ExportKind, ExportSection, FunctionSection, gen, ImportSection, Inst, label,
-    Label, Mapping, MemorySection, Module as WasmModule, Section, StartSection, TypeIndex, TypeSection, ValueType
+    Label, Mapping, MemorySection, Module as WasmModule, Mut, Section, StartSection, TypeIndex, TypeSection, ValueType
 } from "../wasm"
+import { GlobalSection } from "../wasm/globalsection"
 import {
     ArrayLiteralGenNode, AssignGenNode, BigIntConstGenNode, BlockGenNode, BodyGenNode, BranchTableGenNode, ClampGenNode,
     CompareGenNode, DataAllocator, DataGenNode, DoubleConstGenNode, DropGenNode, emptyGenNode, flattenTypes,
     FunctionGenNode, GenNode, GenType, genTypeOf, GotoGenNode, i32GenType, LocalAllocator, LocationAllocator,
     MemoryGenNode, NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
-    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode,
+    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode, GlobalsAllocator, LocalIndexes, GlobalGenNode,
 } from "./gennode"
 
 interface Scopes {
     branchTargets: Scope<Label>
     nodes: Scope<GenNode>
     alloc: LocationAllocator
+    globals: GlobalsAllocator
 }
 
 export function codegen(
@@ -54,10 +56,14 @@ export function codegen(
 
     const rootScope = new Scope<GenNode>()
     rootScope.enter("memory", new MemoryGenNode({ start: 0 }))
+
+    const globalSection = new GlobalSection(importSection.globalsCount)
+    const globalsAllocator = new GlobalsAllocator(globalSection)
     const rootScopes: Scopes = {
         branchTargets: new Scope<Label>(),
         nodes: rootScope,
-        alloc: dataAllocator
+        alloc: dataAllocator,
+        globals: globalsAllocator,
     }
 
     genImports(lastModule.imports, rootScopes)
@@ -98,6 +104,7 @@ export function codegen(
     addSection(importSection)
     addSection(funcSection)
     addSection(memorySection)
+    addSection(globalSection)
     addSection(exportSection)
     addSection(startSection)
     addSection(codeSection)
@@ -107,7 +114,7 @@ export function codegen(
         for (const importStatement of imports) {
             for (const item of importStatement.imports) {
                 switch (item.kind) {
-                    case LastKind.ImportFunction:
+                    case LastKind.ImportFunction: {
                         const typeIndex = typeIndexOf(item)
                         const funcIndex = importSection.importFunction(
                             item.module.name,
@@ -118,6 +125,28 @@ export function codegen(
                         const functionGenNode = new FunctionGenNode(item, resultType, funcIndex)
                         scopes.nodes.enter((item.as ?? item.name).name, functionGenNode)
                         break
+                    }
+                    case LastKind.ImportVariable: {
+                        const type = typeOf(item)
+
+                        function typeToIndexes(indexes: LocalIndexes): LocalIndexes {
+                            if (typeof indexes === "number") {
+                                return importSection.importGlobal(
+                                    item.module.name,
+                                    item.name.name,
+                                    Mut.Var,
+                                    indexes
+                                )
+                            } else {
+                                return indexes.map(typeToIndexes)
+                            }
+                        }
+
+                        const indexes = typeToIndexes(type.locals(item))
+                        const global = new GlobalGenNode(item, type, indexes)
+                        scopes.nodes.enter((item.as ?? item.name).name, global)
+                        break
+                    }
                 }
             }
         }
@@ -301,6 +330,8 @@ export function codegen(
                 return varToGenNode(node, scopes)
             case LastKind.Let:
                 return letToGenNode(node, scopes)
+            case LastKind.Global:
+                return globalToGenNode(node, scopes)
             case LastKind.IfThenElse:
                 return ifThenElseGenNode(node, scopes)
             case LastKind.Loop:
@@ -379,8 +410,9 @@ export function codegen(
         // Create the function scopes
         const alloc = new LocalAllocator(g)
         const nodes = new Scope<GenNode>(scopes.nodes)
+        const globals = scopes.globals
         const branchTargets = new Scope<Label>()
-        const functionScopes: Scopes = { alloc, nodes, branchTargets }
+        const functionScopes: Scopes = { alloc, nodes, globals, branchTargets }
 
         // Add parameters
         for (const parameter of node.parameters) {
@@ -447,6 +479,19 @@ export function codegen(
         return emptyGenNode
     }
 
+    function globalToGenNode(node: Global, scopes: Scopes): GenNode {
+        const alloc = scopes.globals
+        const nodes = scopes.nodes
+        const value = lastToGenNode(node.value, scopes)
+        const type = typeOf(node)
+        nodes.enter(node.name.name, value)
+        const result = alloc.allocate(node, type, value)
+        if (exported.has(node.name.name)) {
+            result.export(node, node.name.name, exportSection)
+        }
+        return result
+    }
+
     function ifThenElseGenNode(node: IfThenElse, scopes: Scopes): GenNode {
         const condition = lastToGenNode(node.condition, scopes)
         let type = typeOf(node)
@@ -466,13 +511,14 @@ export function codegen(
         const name = node.name
         const nodes = scopes.nodes
         const alloc = scopes.alloc
+        const globals = scopes.globals
         const branchTargets = new Scope<Label>(scopes.branchTargets)
         branchTargets.enter("$top", branchLabel)
         if (name) {
             branchTargets.enter(name.name, branchLabel)
         }
         const type = typeOf(node)
-        const body = statementsToGenNode(type, node.body, { nodes, alloc, branchTargets })
+        const body = statementsToGenNode(type, node.body, { nodes, alloc, globals, branchTargets })
         return new LoopGenNode(node, voidGenType, body, branchLabel)
     }
 

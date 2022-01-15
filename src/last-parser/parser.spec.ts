@@ -19,6 +19,11 @@ describe("parser", () => {
             pe("last/n-body.last.dg")
         })
     })
+    describe("globals", () => {
+        it("can parse a global declaration", () => {
+            p("global a: Int = 1")
+        })
+    })
 })
 
 function p(text: string, name: string = "<text>"): Module {

@@ -1,6 +1,6 @@
 import {
     Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, Block, BodyElement, Branch, BranchIndexed,
-    Call, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, IfThenElse,
+    Call, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, Global, IfThenElse,
     Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32,
     LiteralFloat64, LiteralInt16, LiteralInt32, LiteralInt64, LiteralInt8, LiteralKind, LiteralNull, LiteralUInt16,
     LiteralUInt32, LiteralUInt64, LiteralUInt8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
@@ -181,8 +181,10 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 return l<Exported>(start, { kind: LastKind.Exported, target })
             }
             case Token.Fun:
-            case Token.Var:
+            case Token.Global:
                 return exportable()
+            case Token.Var:
+                return varDeclaration()
             case Token.Let:
                 return letDeclaration()
             case Token.Type:
@@ -198,8 +200,8 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         switch (token) {
             case Token.Fun:
                 return functionDeclaration()
-            case Token.Var:
-                return varDeclaration()
+            case Token.Global:
+                return globalDeclaration()
             default:
                 report("Expected a let or var declaration")
                 return undefined as any as Exportable
@@ -229,6 +231,17 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
             value = expression()
         }
         return l<Var>(start, { kind: LastKind.Var, name, type, value })
+    }
+
+    function globalDeclaration(): Global {
+        const start = pos.start
+        expect(Token.Global)
+        const name = expectName()
+        expect(Token.Colon)
+        const type = typeExpression()
+        expect(Token.Equal)
+        const value = expression()
+        return l<Global>(start, { kind: LastKind.Global, name, type, value })
     }
 
     function typeDeclaration(): TypeDeclaration {
@@ -825,7 +838,7 @@ const rbrackSet = setOf(Token.RBrack)
 const rbraceSet = setOf(Token.RBrace)
 
 const gtSet = setOf(Token.Gt)
-const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Type, Token.Export)
+const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Global, Token.Type, Token.Export)
 const expressionFirstSet = setOf(Token.Identifier, Token.Int8, Token.Int16, Token.Int32, Token.Int64,
     Token.UInt8, Token.UInt16, Token.UInt32, Token.UInt64, Token.Float32, Token.Float64, Token.Null, Token.True,
     Token.False, Token.Dash, Token.Plus, Token.If, Token.Amp, Token.LBrack, Token.LBrace)

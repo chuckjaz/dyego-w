@@ -1,5 +1,5 @@
 import { required, check as chk } from "../utils";
-import { BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral, TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind, StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement } from "./ast";
+import { BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral, TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind, StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
 import { Scope } from "./scope";
@@ -77,6 +77,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 bind(declaration, type)
                 break
             }
+            case LastKind.Global: {
+                const type = typeExpr(declaration.type, scopes)
+                enter(declaration, declaration.name.name, { kind: TypeKind.Location, type }, scope)
+                bind(declaration, type)
+                break
+            }
             case LastKind.Function: {
                 const parameters = funcParameters(declaration.parameters, scopes)
                 const result = typeExpr(declaration.result, scopes)
@@ -140,6 +146,15 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 return voidType
             }
             case LastKind.Var: {
+                const value = declaration.value
+                if (value) {
+                    const type = required(scope.find(declaration.name.name))
+                    const valueType = checkExpression(value, scopes)
+                    mustMatch(value, type, valueType)
+                }
+                return voidType
+            }
+            case LastKind.Global: {
                 const value = declaration.value
                 if (value) {
                     const type = required(scope.find(declaration.name.name))
@@ -829,11 +844,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
 
     function mustMatch(location: Locatable, to: Type, from: Type): Type {
         if (!equivilent(from, to)) {
-            if (from.kind == TypeKind.Struct && to.kind == TypeKind.Struct) {
-                return unify(location, from, to)
+            const effectiveTo = to.kind == TypeKind.Location ? to.type : to
+            const effectiveFrom = from.kind == TypeKind.Location ? from.type : from
+            if (effectiveFrom.kind == TypeKind.Struct && effectiveTo.kind == TypeKind.Struct) {
+                return unify(location, effectiveFrom, effectiveTo)
             }
-            if (from.kind == TypeKind.Null || to.kind == TypeKind.Null) {
-                return nullTypeMatch(location, from, to)
+            if (effectiveFrom.kind == TypeKind.Null || effectiveTo.kind == TypeKind.Null) {
+                return nullTypeMatch(location, effectiveFrom, effectiveTo)
             }
             report(location, `Expected type ${typeToString(to)}, received ${typeToString(from)}`);
         }
@@ -881,7 +898,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         })
     }
 
-    function noExport(declaration: Declaration): Var | Let | TypeNode | Function {
+    function noExport(declaration: Declaration): Var | Let | Global | TypeNode | Function {
         if (declaration.kind == LastKind.Exported) return declaration.target
         return declaration
     }

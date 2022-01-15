@@ -50,7 +50,7 @@ describe("check", () => {
             })
         })
         describe("var", () => {
-            it("can detecte a type error", () => {
+            it("can detect a type error", () => {
                 d("var a: Int64 = !{Expected type Int64, received Int}!10;")
             })
         })
@@ -71,6 +71,21 @@ describe("check", () => {
                         !{Last statement must be a return or an expresion}!let a: Int = 10;
                     }
                 `)
+            })
+        })
+        describe("global", () => {
+            it("declare a global", () => {
+                t("global a: Int = 10;")
+            })
+            it("can the value in an exprssion", () => {
+                t(`
+                    global a: Int = 10;
+
+                    fun test(): Int = a + 10;
+                `)
+            })
+            it("detect an type mismatch", () => {
+                d("global a: Int = !{Expected type Int, received Float64}!1.0")
             })
         })
     })
