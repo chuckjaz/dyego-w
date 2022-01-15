@@ -54,7 +54,7 @@ describe("last codegen", () => {
             expect(exports.test()).toBe(45)
         })
     })
-    it("can declare globals", () => {
+    it("can declare top level vars", () => {
         cg(`
             var d: Int = 42;
             export fun test(): Int {
@@ -64,7 +64,7 @@ describe("last codegen", () => {
             expect(exports.test()).toBe(42);
         })
     })
-    it("can declare a global that requires init", () => {
+    it("can declare a top level var that requires init", () => {
         cg(`
             var a: Int = 12;
             var b: Int = 30;
@@ -76,7 +76,24 @@ describe("last codegen", () => {
             expect(exports.test()).toBe(42)
         })
     })
-    it("can declare a global initalized array", () => {
+    it("can declare a global variable", () => {
+        cg(`
+            export global a: Int = 42;
+        `, ({a}) => {
+            expect(a.value).toBe(42)
+        })
+    })
+    it("can export a structured type", () => {
+        cg(`
+            type Point = < x: Int, y: Int>
+
+            export global point: Point = { x: 10, y: 20 }
+        `, exports => {
+            expect(exports['point$x'].value).toBe(10)
+            expect(exports['point$y'].value).toBe(20)
+        })
+    })
+    it("can declare a var initalized array", () => {
         cg(`
             var values: Int[5] = [1, 2, 3, 4, 5];
 

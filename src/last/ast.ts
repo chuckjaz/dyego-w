@@ -184,8 +184,8 @@ export type Literal =
     LiteralBoolean |
     LiteralNull
 
-export type Exportable = Var | Function
-export type Declaration = Let | Var | TypeDeclaration | Function | Exported
+export type Exportable = Global | Function
+export type Declaration = Let | Var | Global | TypeDeclaration | Function | Exported
 export type Statement = Let | Var | TypeDeclaration | Loop | Block | Branch | BranchIndexed | Return | Assign
 export type BodyElement = Statement | Expression
 export type TypeExpression = Reference | TypeSelect | StructTypeLiteral | ArrayConstructor | PointerConstructor
@@ -446,7 +446,7 @@ export interface Global extends LastNode {
     kind: LastKind.Global
     name: Reference
     type: TypeExpression
-    value?: Expression
+    value: Expression
 }
 
 /** Declare a type with given name and type (typealias) */

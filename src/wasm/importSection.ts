@@ -1,12 +1,17 @@
 import { ByteWriter } from "./bytewriter";
 import { writeLimits } from "./memorySection";
 import { Section, writeSized } from "./section";
-import { FuncIndex, GlobalIndex, MemIndex, MemType, SectionIndex, TableIndex, TypeIndex } from "./wasm";
+import { FuncIndex, GlobalIndex, MemIndex, MemType, Mut, SectionIndex, TableIndex, TypeIndex, ValueType } from "./wasm";
+
+interface GlobalType {
+    mut: Mut;
+    type: ValueType
+}
 
 interface GlobalImport {
     module: string;
     name: string;
-    item: GlobalIndex;
+    item: GlobalType;
 }
 
 interface TableImport {
@@ -34,7 +39,6 @@ export class ImportSection implements Section {
     private tables: TableImport[] = []
     private memories: MemoryImport[] = []
     private funcs: TypeImport[] = []
-    private globalsMap: Map<string, GlobalIndex> = new Map()
     private tablesMap: Map<string, TableIndex> = new Map()
     private memoriesMap: Map<string, MemIndex> = new Map()
     private funcsMap: Map<string, FuncIndex> = new Map()
@@ -47,12 +51,12 @@ export class ImportSection implements Section {
     get index(): SectionIndex { return SectionIndex.Import }
 
     empty(): boolean {
-        return this.globals.length == 0 && this.tables.length == 0 && this.memories.length == 0 && 
+        return this.globals.length == 0 && this.tables.length == 0 && this.memories.length == 0 &&
             this.funcs.length == 0;
     }
 
-    importGlobal(module: string, name: string, index: GlobalIndex): GlobalIndex {
-        return this.allocate<GlobalIndex>(module, name, index, numberToString, this.globals, this.globalsMap);
+    importGlobal(module: string, name: string, mut: Mut, type: ValueType): GlobalIndex {
+        return this.allocateSlot<GlobalType>(module, name, { type, mut }, this.globals);
     }
 
     importTable(module: string, name: string, index: TableIndex): TableIndex {
@@ -78,7 +82,7 @@ export class ImportSection implements Section {
             const len = globals.length + tables.length + memories.length + funcs.length;
             writer.write32u(len);
             for (const imp of globals) {
-                writeImport(writer, imp);
+                writeGlobalImport(writer, imp);
             }
             for (const imp of tables) {
                 writeImport(writer, imp);
@@ -93,8 +97,8 @@ export class ImportSection implements Section {
     }
 
     private allocate<T>(
-        module: string, 
-        name: string, 
+        module: string,
+        name: string,
         item: T,
         itemToString: (item: T) => string,
         a: Import<T>[],
@@ -109,6 +113,17 @@ export class ImportSection implements Section {
         }
         return index;
     }
+
+    private allocateSlot<T>(
+        module: string,
+        name: string,
+        item: T,
+        a: Import<T>[]
+    ): number {
+        const result = a.length
+        a.push({ module, name, item })
+        return result
+    }
 }
 
 function numberToString(value: number) {
@@ -122,11 +137,18 @@ function memTypeToString(value: MemType) {
 function writeImport(writer: ByteWriter, imp: Import<number>) {
     writer.writeName(imp.module);
     writer.writeName(imp.name);
-    writer.write32u(imp.item) 
+    writer.write32u(imp.item)
 }
 
 function writeMemoryImport(writer: ByteWriter, imp: MemoryImport) {
     writer.writeName(imp.module);
     writer.writeName(imp.name);
     writeLimits(writer, imp.item);
+}
+
+function writeGlobalImport(writer: ByteWriter, imp: GlobalImport) {
+    writer.writeName(imp.module)
+    writer.writeName(imp.name)
+    writer.writeByte(imp.item.mut)
+    writer.writeByte(imp.item.type)
 }

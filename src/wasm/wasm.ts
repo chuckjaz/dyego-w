@@ -30,8 +30,6 @@ export const enum Mut {
     Var = 0x01
 }
 
-export type Global = { type: ValueType, mut: Mut }[];
-
 export const enum EmptyBlock {
     Empty = 0x40,
 }
@@ -321,7 +319,7 @@ export const enum Inst {
     v128_store16_lane = 89,
     v128_store32_lane = 90,
     v128_store64_lane = 91,
-    
+
     v128_const = 12,
 
     i8x16_shuffle = 13,
@@ -402,7 +400,7 @@ export const enum Inst {
     f64x2_gt = 74,
     f64x2_le = 75,
     f64x2_ge = 76,
-    
+
     v128_not = 77,
     v128_and = 78,
     v128_andnot = 79,
