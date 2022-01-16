@@ -14,7 +14,7 @@ export interface GenNode {
     call(args: GenNode[], location?: Locatable): GenNode
     select(index: number | string): GenNode
     index(index: GenNode): GenNode
-    reference(location: Locatable): GenNode
+    reference(location: Locatable, type?: GenType): GenNode
     addressOf(): GenNode
     simplify(): GenNode
     number(): number | undefined
@@ -1038,8 +1038,8 @@ export class GlobalGenNode implements GenNode {
         unsupported(this.location)
     }
 
-    reference(location: Locatable): GenNode {
-        return new GlobalGenNode(location, this.type, this.indexes)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new GlobalGenNode(location, type ?? this.type, this.indexes)
     }
 
     addressOf(): GenNode {
@@ -1111,8 +1111,8 @@ class LocalGenNode implements GenNode {
         unsupported(this.location)
     }
 
-    reference(location: Locatable): GenNode {
-        return new LocalGenNode(location, this.type, this.locals)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new LocalGenNode(location, type ?? this.type, this.locals)
     }
 
     addressOf(): GenNode {
@@ -1256,8 +1256,8 @@ export class NumberConstGenNode extends LoadonlyGenNode implements GenNode {
         g.snumber(BigInt(value))
     }
 
-    reference(location: Locatable): GenNode {
-        return new NumberConstGenNode(location, this.type, this.value)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new NumberConstGenNode(location, type ?? this.type, this.value)
     }
 
     simplify(): GenNode {
@@ -1293,8 +1293,8 @@ export class BigIntConstGenNode extends LoadonlyGenNode implements GenNode {
         g.snumber(this.value)
     }
 
-    reference(location: Locatable): GenNode {
-        return new BigIntConstGenNode(location, this.type, this.value)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new BigIntConstGenNode(location, type ?? this.type, this.value)
     }
 
     simplify(): GenNode { return this }
@@ -1324,8 +1324,8 @@ export class DoubleConstGenNode extends LoadonlyGenNode implements GenNode {
         g.float64(this.value)
     }
 
-    reference(location: Locatable): GenNode {
-        return new DoubleConstGenNode(location, this.type, this.value)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new DoubleConstGenNode(location, type ?? this.type, this.value)
     }
 
     simplify(): GenNode {
@@ -1380,8 +1380,8 @@ export class StructLiteralGenNode extends LoadonlyGenNode implements GenNode {
         }
     }
 
-    reference(location: Locatable): GenNode {
-        return new StructLiteralGenNode(location, this.type, this.fields)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new StructLiteralGenNode(location, type ?? this.type, this.fields)
     }
 
     select(index: string | number): GenNode {
@@ -1435,8 +1435,8 @@ export class ArrayLiteralGenNode extends LoadonlyGenNode implements GenNode {
         }
     }
 
-    reference(location: Locatable): GenNode {
-        return new ArrayLiteralGenNode(location, this.type, this.elements)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new ArrayLiteralGenNode(location, type ?? this.type, this.elements)
     }
 
     simplify(): GenNode {
@@ -1507,8 +1507,8 @@ export class UnaryOpGenNode extends LoadonlyGenNode implements GenNode {
         this.type.op(this.location, this.op, g)
     }
 
-    reference(location: Locatable): GenNode {
-        return new UnaryOpGenNode(location, this.type, this.target, this.op)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new UnaryOpGenNode(location, type ?? this.type, this.target, this.op)
     }
 
     simplify(): GenNode {
@@ -1561,8 +1561,8 @@ export class OpGenNode extends LoadonlyGenNode implements GenNode {
         this.type.op(this.location, this.op, g)
     }
 
-    reference(location: Locatable): GenNode {
-        return new OpGenNode(location, this.type, this.left, this.right, this.op)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new OpGenNode(location, type ?? this.type, this.left, this.right, this.op)
     }
 
     simplify(): GenNode {
@@ -1666,11 +1666,44 @@ class InstGenNode extends LoadonlyGenNode implements GenNode {
         g.popLocation()
     }
 
-    reference(location: Locatable): GenNode {
-        return new InstGenNode(location, this.type, this.inst, this.args)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new InstGenNode(location, type ?? this.type, this.inst, this.args)
     }
 
     simplify(): GenNode {
+        return this
+    }
+}
+
+class NopCallGenNode extends LoadonlyGenNode implements GenNode {
+    location: Locatable
+    type: GenType
+    target: GenNode
+
+    constructor(location: Locatable, type: GenType, target: GenNode) {
+        super(location)
+        this.location = location
+        this.type = type
+        this.target = target
+    }
+
+    load(g: Generate) {
+        unsupported(this.location)
+    }
+
+    call(args: GenNode[], location?: Locatable) {
+        return location ? this.target.reference(location) : this.target
+    }
+
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new NopCallGenNode(location, type ?? this.type, this.target.reference(location, type))
+    }
+
+    simplify(): GenNode {
+        const target = this.target.simplify()
+        if (target !== this.target) {
+            return new NopCallGenNode(this.location, this.type, target)
+        }
         return this
     }
 }
@@ -1715,8 +1748,8 @@ class BuiltinsGenNode extends LoadonlyGenNode implements GenNode {
         return result
     }
 
-    reference(location: Locatable): GenNode {
-        return new BuiltinsGenNode(location, this.type, this.inst, this.target, this.offset)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new BuiltinsGenNode(location, type ?? this.type, this.inst, this.target, this.offset)
     }
 
     simplify(): GenNode {
@@ -1742,8 +1775,8 @@ class ComplexGenNode extends LoadonlyGenNode implements GenNode {
         this.args = args
     }
 
-    reference(location: Locatable): GenNode {
-        return new ComplexGenNode(location, this.type, this.args, this.gen)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new ComplexGenNode(location, type ?? this.type, this.args, this.gen)
     }
 
     load(g: Generate) {
@@ -1780,8 +1813,8 @@ class BuiltinComplexGenNode extends LoadonlyGenNode implements GenNode {
         unsupported(this.location)
     }
 
-    reference(location: Locatable): GenNode {
-        return new BuiltinComplexGenNode(location, this.type, this.gen)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new BuiltinComplexGenNode(location, type ?? this.type, this.gen)
     }
 
     simplify(): GenNode {
@@ -1800,7 +1833,7 @@ export function builtinGenNodeFor(
     name: string,
     target: GenNode
 ): GenNode {
-    let inst = Inst.Nop
+    let inst = Inst.Unreachable
     let offset: number | undefined = undefined
     let clamp = false
     if (type.kind == TypeKind.Location)
@@ -2101,12 +2134,240 @@ export function builtinGenNodeFor(
                     })
             }
             break
+        case "toInt8":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.U8:
+                case TypeKind.I16:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.Nop
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i32_wrap_i64
+                    break
+            }
+            break
+        case "toInt16":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                    inst = Inst.i32_extend8_s
+                    break
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.Nop
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i32_wrap_i64
+                    break
+            }
+            break
+        case "toInt":
+            switch (type.kind) {
+                case TypeKind.I8:
+                    inst = Inst.i32_extend8_s
+                    break
+                case TypeKind.I16:
+                    inst = Inst.i32_extend16_s
+                    break
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.Nop
+                    break
+                case TypeKind.U64:
+                case TypeKind.I64:
+                    inst = Inst.i32_wrap_i64
+                    break
+            }
+            break
+        case "toInt64":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.I32:
+                    clamp = true
+                    inst = Inst.i64_extend_i32_s
+                    break
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.U32:
+                    clamp = true
+                    inst = Inst.i64_extend_i32_u
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.Nop
+                    break
+            }
+            break
+        case "toUInt8":
+        case "toUInt16":
+            clamp = true
+            // fallthrough
+        case "toUInt":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.Nop
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.i32_wrap_i64
+                    break
+            }
+            break
+        case "toUInt64":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.I32:
+                case TypeKind.U32:
+                    inst = Inst.i64_extend_i32_u
+                    break
+                case TypeKind.I64:
+                case TypeKind.U64:
+                    inst = Inst.Nop
+                    break
+            }
+            break
+        case "toFloat32":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                    clamp = true
+                case TypeKind.I32:
+                    inst = Inst.f32_convert_i32_s
+                    break
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.U32:
+                    inst = Inst.f32_convert_i32_u
+                    break
+                case TypeKind.I64:
+                    inst = Inst.f32_convert_i64_s
+                    break
+                case TypeKind.U64:
+                    inst = Inst.f32_convert_i64_u
+                    break
+            }
+            break
+        case "toFloat64":
+            switch (type.kind) {
+                case TypeKind.I8:
+                case TypeKind.I16:
+                    clamp = true
+                case TypeKind.I32:
+                    inst = Inst.f64_convert_i32_s
+                    break
+                case TypeKind.U8:
+                case TypeKind.U16:
+                    clamp = true
+                case TypeKind.U32:
+                    inst = Inst.f64_convert_i32_u
+                    break
+                case TypeKind.I64:
+                    inst = Inst.f64_convert_i64_s
+                    break
+                case TypeKind.U64:
+                    inst = Inst.f64_convert_i64_u
+                    break
+            }
+            break
+        case "truncToInt32":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.i32_trunc_f32_s
+                    break
+                case TypeKind.F64:
+                    inst = Inst.i32_trunc_f64_s
+                    break
+            }
+            break
+        case "truncToUInt32":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.i32_trunc_f32_u
+                    break
+                case TypeKind.F64:
+                    inst = Inst.i32_trunc_f64_u
+                    break
+            }
+            break
+        case "truncToInt64":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.i64_trunc_f32_s
+                    break
+                case TypeKind.F64:
+                    inst = Inst.i64_trunc_f64_s
+                    break
+            }
+            break
+        case "truncToUInt64":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.i64_trunc_f32_u
+                    break
+                case TypeKind.F64:
+                    inst = Inst.i64_trunc_f64_u
+                    break
+            }
+            break
+        case "promoteToFloat64":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.f64_promote_f32
+                    break
+            }
+            break
+        case "reinterpretToUInt32":
+            switch (type.kind) {
+                case TypeKind.F32:
+                    inst = Inst.i32_reinterpret_f32
+                    break
+            }
+            break
+        case "demoteToFloat32":
+            switch (type.kind) {
+                case TypeKind.F64:
+                    inst = Inst.f32_demote_f64
+                    break
+            }
+            break
+        case "reinterpretToUInt64":
+            switch (type.kind) {
+                case TypeKind.F64:
+                    inst = Inst.i64_reinterpret_f64
+                    break
+            }
+            break
     }
     if (clamp && target.type.needsClamp()) {
         target = new ClampGenNode(location, target)
     }
-    if (inst == Inst.Nop) unsupported(location, `${name} for type ${typeToString(type)}`)
+    if (inst == Inst.Unreachable) unsupported(location, `${name} for type ${typeToString(type)}`)
 
+    if (inst == Inst.Nop) {
+        return new NopCallGenNode(location, result, target.reference(location, result))
+    }
     return new BuiltinsGenNode(location, result, inst, target, offset)
 }
 
@@ -2116,17 +2377,18 @@ export const zeroGenNode = new NumberConstGenNode(undefined, i32GenType, 0)
 
 export class CompareGenNode extends LoadonlyGenNode implements GenNode {
     location: Locatable
-    type = booleanGenType
+    type: GenType
     left: GenNode
     right: GenNode
     op: LastKind
 
-    constructor(location: Locatable, left: GenNode, right: GenNode, op: LastKind) {
+    constructor(location: Locatable, left: GenNode, right: GenNode, op: LastKind, type?: GenType) {
         super(location)
         this.location = location
         this.left = left.simplify()
         this.right = right.simplify()
         this.op = op
+        this.type = type ?? booleanGenType
     }
 
     load(g: Generate): void {
@@ -2163,8 +2425,8 @@ export class CompareGenNode extends LoadonlyGenNode implements GenNode {
         return new CompareGenNode(this.location, leftSimple, rightSimple, this.op)
     }
 
-    reference(location: Locatable): GenNode {
-        return new CompareGenNode(location, this.left, this.right, this.op)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new CompareGenNode(location, this.left, this.right, this.op, type ?? this.type)
     }
 
     tryNot(): GenNode | undefined {
@@ -2303,8 +2565,8 @@ class CallGenNode extends LoadonlyGenNode implements GenNode {
         g.index(this.funcIndex)
     }
 
-    reference(location: Locatable): GenNode {
-        return new CallGenNode(location, this.type, this.funcIndex, this.args)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new CallGenNode(location, type ?? this.type, this.funcIndex, this.args)
     }
 
     storeTo(symbol: GenNode, g: Generate) {
@@ -2339,8 +2601,8 @@ export class IfThenGenNode extends LoadonlyGenNode implements GenNode {
         this.else = e
     }
 
-    reference(location: Locatable): GenNode {
-        return new IfThenGenNode(location, this.type, this.condition, this.then, this.else)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new IfThenGenNode(location, type ?? this.type, this.condition, this.then, this.else)
     }
 
     load(g: Generate) {
@@ -2403,8 +2665,8 @@ export class LoopGenNode extends LoadonlyGenNode implements GenNode {
         g.popLocation()
     }
 
-    reference(location: Locatable): GenNode {
-        return new LoopGenNode(location, this.type, this.nodes, this.branchLabel)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new LoopGenNode(location, type ?? this.type, this.nodes, this.branchLabel)
     }
 
     simplify(): GenNode {
@@ -2438,8 +2700,8 @@ export class BodyGenNode extends LoadonlyGenNode implements GenNode {
         g.popLocation()
     }
 
-    reference(location: Locatable): GenNode {
-        return new BodyGenNode(location, this.type, this.nodes)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new BodyGenNode(location, type ?? this.type, this.nodes)
     }
 
     simplify(): GenNode {
@@ -2479,8 +2741,8 @@ export class BlockGenNode extends LoadonlyGenNode implements GenNode {
         g.popLocation()
     }
 
-    reference(location: Locatable): GenNode {
-        return new BlockGenNode(location, this.type, this.nodes, this.label)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new BlockGenNode(location, type ?? this.type, this.nodes, this.label)
     }
 
     simplify(): GenNode {
@@ -2509,8 +2771,8 @@ export class FunctionGenNode extends LoadonlyGenNode implements GenNode {
         unsupported(this.location)
     }
 
-    reference(location: Locatable): GenNode {
-        return new FunctionGenNode(location, this.type, this.funcIndex)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new FunctionGenNode(location, type ?? this.type, this.funcIndex)
     }
 
     simplify(): GenNode {
@@ -2641,8 +2903,8 @@ export class DataGenNode implements GenNode {
         return new DataGenNode(this.location, element, offsetAddress)
     }
 
-    reference(location: Locatable): GenNode {
-        return new DataGenNode(location, this.type, this.address)
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new DataGenNode(location, type ?? this.type, this.address)
     }
 
     addressOf(): GenNode {
