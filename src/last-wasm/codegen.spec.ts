@@ -221,6 +221,53 @@ describe("last codegen", () => {
                         })
                     })
                 })
+                describe("conversion", () => {
+                    it("can convert to Int16", () => {
+                        cg(`export fun test(a: Int8): Int16 = a.toInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int", () => {
+                        cg(`export fun test(a: Int8): Int = a.toInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int64", () => {
+                        cg(`export fun test(a: Int8): Int64 = a.toInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to UInt8", () => {
+                        cg(`export fun test(a: Int8): UInt8 = a.toUInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt16", () => {
+                        cg(`export fun test(a: Int8): UInt16 = a.toUInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt32", () => {
+                        cg(`export fun test(a: Int8): UInt = a.toUInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt64", () => {
+                        cg(`export fun test(a: Int8): UInt64 = a.toUInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: Int8): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: Int8): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                })
             })
             describe("u8", () => {
                 it("can add", () => {
@@ -323,6 +370,53 @@ describe("last codegen", () => {
                     it("can bitwise xor", () => {
                         cg("export fun test(a: UInt8, b: UInt8): UInt8 = a.bitXor(b)", ({test}) => {
                             expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
+                })
+                describe("conversion", () => {
+                    it("can convert to Int8", () => {
+                        cg(`export fun test(a: UInt8): Int8 = a.toInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int16", () => {
+                        cg(`export fun test(a: UInt8): Int16 = a.toInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int", () => {
+                        cg(`export fun test(a: UInt8): Int = a.toInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int64", () => {
+                        cg(`export fun test(a: UInt8): Int64 = a.toInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to UInt16", () => {
+                        cg(`export fun test(a: UInt8): UInt16 = a.toUInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt32", () => {
+                        cg(`export fun test(a: UInt8): UInt = a.toUInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt64", () => {
+                        cg(`export fun test(a: UInt8): UInt64 = a.toUInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: UInt8): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: UInt8): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15)).toBe(15)
                         })
                     })
                 })
@@ -431,6 +525,53 @@ describe("last codegen", () => {
                         })
                     })
                 })
+                describe("conversion", () => {
+                    it("can convert to Int8", () => {
+                        cg(`export fun test(a: Int16): Int8 = a.toInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int", () => {
+                        cg(`export fun test(a: Int16): Int = a.toInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int64", () => {
+                        cg(`export fun test(a: Int16): Int64 = a.toInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to UInt8", () => {
+                        cg(`export fun test(a: Int16): UInt8 = a.toUInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt16", () => {
+                        cg(`export fun test(a: Int16): UInt16 = a.toUInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt32", () => {
+                        cg(`export fun test(a: Int16): UInt = a.toUInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt64", () => {
+                        cg(`export fun test(a: Int16): UInt64 = a.toUInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: Int16): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: Int16): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                })
             })
             describe("u16", () => {
                 it("can add", () => {
@@ -533,6 +674,53 @@ describe("last codegen", () => {
                     it("can bitwise xor", () => {
                         cg("export fun test(a: UInt16, b: UInt16): UInt16 = a.bitXor(b)", ({test}) => {
                             expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
+                })
+                describe("conversion", () => {
+                    it("can convert to Int8", () => {
+                        cg(`export fun test(a: UInt16): Int8 = a.toInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int16", () => {
+                        cg(`export fun test(a: UInt16): Int16 = a.toInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int", () => {
+                        cg(`export fun test(a: UInt16): Int = a.toInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int64", () => {
+                        cg(`export fun test(a: UInt16): Int64 = a.toInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to UInt8", () => {
+                        cg(`export fun test(a: UInt16): UInt8 = a.toUInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt32", () => {
+                        cg(`export fun test(a: UInt16): UInt = a.toUInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt64", () => {
+                        cg(`export fun test(a: UInt16): UInt64 = a.toUInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: UInt16): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: UInt16): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15)).toBe(15)
                         })
                     })
                 })
@@ -651,6 +839,53 @@ describe("last codegen", () => {
                         })
                     })
                 })
+                describe("conversion", () => {
+                    it("can convert to Int8", () => {
+                        cg(`export fun test(a: Int): Int8 = a.toInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int16", () => {
+                        cg(`export fun test(a: Int): Int16 = a.toInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int64", () => {
+                        cg(`export fun test(a: Int): Int64 = a.toInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to UInt8", () => {
+                        cg(`export fun test(a: Int): UInt8 = a.toUInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt16", () => {
+                        cg(`export fun test(a: Int): UInt16 = a.toUInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt32", () => {
+                        cg(`export fun test(a: Int): UInt = a.toUInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt64", () => {
+                        cg(`export fun test(a: Int): UInt64 = a.toUInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: Int): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: Int): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                })
             })
             describe("u32", () => {
                 it("can add", () => {
@@ -763,6 +998,53 @@ describe("last codegen", () => {
                     it("can bitwise xor", () => {
                         cg("export fun test(a: UInt32, b: UInt32): UInt32 = a.bitXor(b)", ({test}) => {
                             expect(test(23, 7)).toEqual(23 ^ 7)
+                        })
+                    })
+                })
+                describe("conversion", () => {
+                    it("can convert to Int8", () => {
+                        cg(`export fun test(a: UInt): Int8 = a.toInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int16", () => {
+                        cg(`export fun test(a: UInt): Int16 = a.toInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int", () => {
+                        cg(`export fun test(a: UInt): Int = a.toInt()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int64", () => {
+                        cg(`export fun test(a: UInt): Int64 = a.toInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to UInt8", () => {
+                        cg(`export fun test(a: UInt): UInt8 = a.toUInt8()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt16", () => {
+                        cg(`export fun test(a: UInt): UInt16 = a.toUInt16()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt64", () => {
+                        cg(`export fun test(a: UInt): UInt64 = a.toUInt64()`, ({test}) => {
+                            expect(test(15)).toBe(15n)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: UInt): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: UInt): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15)).toBe(15)
                         })
                     })
                 })
@@ -881,6 +1163,53 @@ describe("last codegen", () => {
                         })
                     })
                 })
+                describe("conversion", () => {
+                    it("can convert to Int8", () => {
+                        cg(`export fun test(a: Int64): Int8 = a.toInt8()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int16", () => {
+                        cg(`export fun test(a: Int64): Int16 = a.toInt16()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int", () => {
+                        cg(`export fun test(a: Int64): Int = a.toInt()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt8", () => {
+                        cg(`export fun test(a: Int64): UInt8 = a.toUInt8()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt16", () => {
+                        cg(`export fun test(a: Int64): UInt16 = a.toUInt16()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt", () => {
+                        cg(`export fun test(a: Int64): UInt = a.toUInt()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt64", () => {
+                        cg(`export fun test(a: Int64): UInt64 = a.toUInt64()`, ({test}) => {
+                            expect(test(15n)).toBe(15n)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: Int64): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: Int64): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                })
             })
             describe("u64", () => {
                 it("can add", () => {
@@ -996,6 +1325,53 @@ describe("last codegen", () => {
                         })
                     })
                 })
+                describe("conversion", () => {
+                    it("can convert to Int8", () => {
+                        cg(`export fun test(a: UInt64): Int8 = a.toInt8()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int16", () => {
+                        cg(`export fun test(a: UInt64): Int16 = a.toInt16()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int", () => {
+                        cg(`export fun test(a: UInt64): Int = a.toInt()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Int64", () => {
+                        cg(`export fun test(a: UInt64): Int64 = a.toInt64()`, ({test}) => {
+                            expect(test(15n)).toBe(15n)
+                        })
+                    })
+                    it("can convert to UInt8", () => {
+                        cg(`export fun test(a: UInt64): UInt8 = a.toUInt8()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt16", () => {
+                        cg(`export fun test(a: UInt64): UInt16 = a.toUInt16()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to UInt", () => {
+                        cg(`export fun test(a: UInt64): UInt = a.toUInt()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float32", () => {
+                        cg(`export fun test(a: UInt64): Float32 = a.toFloat32()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                    it("can convert to Float64", () => {
+                        cg(`export fun test(a: UInt64): Float64 = a.toFloat64()`, ({test}) => {
+                            expect(test(15n)).toBe(15)
+                        })
+                    })
+                })
             })
             describe("float32", () => {
                 it("can add", () => {
@@ -1068,6 +1444,38 @@ describe("last codegen", () => {
                         })
                     })
                 })
+                describe("conversions", () => {
+                    it("can truncToInt32", () => {
+                        cg("export fun test(a: Float32): Int32 = a.truncToInt32()", ({test}) => {
+                            expect(test(15.5)).toBe(15)
+                        })
+                    })
+                    it("can truncToUInt32", () => {
+                        cg("export fun test(a: Float32): UInt32 = a.truncToUInt32()", ({test}) => {
+                            expect(test(15.5)).toBe(15)
+                        })
+                    })
+                    it("can truncToInt64", () => {
+                        cg("export fun test(a: Float32): Int64 = a.truncToInt64()", ({test}) => {
+                            expect(test(15.5)).toBe(15n)
+                        })
+                    })
+                    it("can truncToUInt64", () => {
+                        cg("export fun test(a: Float32): UInt64 = a.truncToUInt64()", ({test}) => {
+                            expect(test(15.5)).toBe(15n)
+                        })
+                    })
+                    it("can promoteToFloat64", () => {
+                        cg("export fun test(a: Float32): Float64 = a.promoteToFloat64()", ({test}) => {
+                            expect(test(15.5)).toBe(15.5)
+                        })
+                    })
+                    it("can reinterpretToUInt32", () => {
+                        cg("export fun test(a: Float32): UInt = a.reinterpretToUInt32()", ({test}) => {
+                            expect(test(10)).toBe(1092616192)
+                        })
+                    })
+                })
             })
             describe("float64", () => {
                 it("can add", () => {
@@ -1137,6 +1545,38 @@ describe("last codegen", () => {
                         cg("export fun test(a: Float64, b: Float64): Float64 = a.copysign(b)", ({test}) => {
                             expect(test(1, 23)).toEqual(1)
                             expect(test(1, -23)).toEqual(-1)
+                        })
+                    })
+                })
+                describe("conversions", () => {
+                    it("can truncToInt32", () => {
+                        cg("export fun test(a: Float64): Int32 = a.truncToInt32()", ({test}) => {
+                            expect(test(15.5)).toBe(15)
+                        })
+                    })
+                    it("can truncToUInt32", () => {
+                        cg("export fun test(a: Float64): UInt32 = a.truncToUInt32()", ({test}) => {
+                            expect(test(15.5)).toBe(15)
+                        })
+                    })
+                    it("can truncToInt64", () => {
+                        cg("export fun test(a: Float64): Int64 = a.truncToInt64()", ({test}) => {
+                            expect(test(15.5)).toBe(15n)
+                        })
+                    })
+                    it("can truncToUInt64", () => {
+                        cg("export fun test(a: Float64): UInt64 = a.truncToUInt64()", ({test}) => {
+                            expect(test(15.5)).toBe(15n)
+                        })
+                    })
+                    it("can promoteToFloat64", () => {
+                        cg("export fun test(a: Float64): Float32 = a.demoteToFloat32()", ({test}) => {
+                            expect(test(15.5)).toBe(15.5)
+                        })
+                    })
+                    it("can reinterpretToUInt32", () => {
+                        cg("export fun test(a: Float64): UInt64 = a.reinterpretToUInt64()", ({test}) => {
+                            expect(test(10)).toBe(4621819117588971520n)
                         })
                     })
                 })
