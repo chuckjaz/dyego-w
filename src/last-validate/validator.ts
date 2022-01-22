@@ -104,7 +104,7 @@ export function validate(module: Module): Diagnostic[] {
                 validateExpression(declaration.value)
                 break
             case LastKind.Var:
-                requiredMembers(declaration, 'name', 'type')
+                requiredMembers(declaration, 'name')
                 validateReference(declaration.name)
                 if (declaration.type) {
                     validateTypeExpression(declaration.type)
