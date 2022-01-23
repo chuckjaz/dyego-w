@@ -192,7 +192,7 @@ export type TypeExpression = Reference | TypeSelect | StructTypeLiteral | ArrayC
 export type ImportItem = ImportFunction | ImportVariable
 export type BranchTarget = Loop | Block
 export type Last = Declaration | Statement | Expression | TypeExpression | Import | Parameter | ImportItem | Field |
-    StructFieldLiteral
+    StructFieldLiteral | Module
 
 export interface Binary {
     left: Expression
