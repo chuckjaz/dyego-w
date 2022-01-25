@@ -1592,6 +1592,36 @@ describe("last codegen", () => {
             })
         })
     })
+    describe("imports", () => {
+        it("can import a function", () => {
+            cg(`
+                import host {
+                    fun getValue(): Int
+                }
+
+                export fun test(): Int = getValue();
+            `, ({test}) => {
+                expect(test()).toEqual(42)
+            }, "<text>", {
+                host: {
+                    getValue: () => 42
+                }
+            })
+        })
+        it("can import a variable", () => {
+            cg(`
+                import host { var value: Int }
+
+                export fun test(): Int = value
+            `, ({test}) => {
+                expect(test()).toEqual(42)
+            }, "<text>", {
+                host: {
+                    value: new WebAssembly.Global({ mutable: true, value: "i32" }, 42)
+                }
+            })
+        })
+    })
     describe("examples", () => {
         it("can run the n-body benchmark", () => {
             cgf('last/n-body.last.dg', ({offsetMomentum}) => {
@@ -1626,7 +1656,6 @@ describe("last codegen", () => {
             })
         })
     })
-
 })
 
 function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet): never {
@@ -1643,7 +1672,7 @@ function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: 
     throw new Error(messages.join("\n"))
 }
 
-function cg(text: string, cb: (exports: any) => void, name: string = "<text>"): any {
+function cg(text: string, cb: (exports: any) => void, name: string = "<text>", imports?: WebAssembly.Imports): any {
     let fileSet = new FileSet()
     function s<T>(value: T | Diagnostic[]): T {
         if (Array.isArray(value)) report(text, name, value, fileSet)
@@ -1688,7 +1717,7 @@ function cg(text: string, cb: (exports: any) => void, name: string = "<text>"): 
 
     expect(WebAssembly.validate(bytes)).toBeTrue();
     const mod = new WebAssembly.Module(bytes);
-    const inst = new WebAssembly.Instance(mod);
+    const inst = new WebAssembly.Instance(mod, imports);
     cb(inst.exports)
 }
 
