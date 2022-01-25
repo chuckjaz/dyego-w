@@ -74,7 +74,6 @@ export class ImportSection implements Section {
     write(writer: ByteWriter) {
         writer.write32u(SectionIndex.Import);
         writeSized(writer, writer => {
-            writer.write32u(SectionIndex.Import);
             const globals = this.globals;
             const tables = this.tables;
             const memories = this.memories;
@@ -85,13 +84,13 @@ export class ImportSection implements Section {
                 writeGlobalImport(writer, imp);
             }
             for (const imp of tables) {
-                writeImport(writer, imp);
+                writeTableImport(writer, imp);
             }
             for (const imp of memories) {
                 writeMemoryImport(writer, imp);
             }
             for (const imp of funcs) {
-                writeImport(writer, imp);
+                writeFuncImport(writer, imp);
             }
         });
     }
@@ -134,21 +133,31 @@ function memTypeToString(value: MemType) {
     return `${value.min}:${value.max ?? 'e'}`
 }
 
-function writeImport(writer: ByteWriter, imp: Import<number>) {
+function writeFuncImport(writer: ByteWriter, imp: Import<number>) {
     writer.writeName(imp.module);
     writer.writeName(imp.name);
-    writer.write32u(imp.item)
+    writer.write32u(0);
+    writer.write32u(imp.item);
+}
+
+function writeTableImport(writer: ByteWriter, imp: Import<number>) {
+    writer.writeName(imp.module);
+    writer.writeName(imp.name);
+    writer.write32u(1)
+    writer.write32u(imp.item);
 }
 
 function writeMemoryImport(writer: ByteWriter, imp: MemoryImport) {
     writer.writeName(imp.module);
     writer.writeName(imp.name);
+    writer.write32u(2)
     writeLimits(writer, imp.item);
 }
 
 function writeGlobalImport(writer: ByteWriter, imp: GlobalImport) {
     writer.writeName(imp.module)
     writer.writeName(imp.name)
-    writer.writeByte(imp.item.mut)
+    writer.write32u(3)
     writer.writeByte(imp.item.type)
+    writer.writeByte(imp.item.mut)
 }

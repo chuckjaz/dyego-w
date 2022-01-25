@@ -241,7 +241,7 @@ export class GenType {
 
     loadGlobal(g: Generate, indexes: LocalIndexes) {
         if (typeof indexes == "number") {
-            g.inst(Inst.Local_get)
+            g.inst(Inst.Global_get)
             g.index(indexes)
         } else {
             const fields = required(this.parts.fields)

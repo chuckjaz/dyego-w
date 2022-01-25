@@ -117,11 +117,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                         const result = typeExpr(importItem.result, scopes)
                         const type: FunctionType = { kind: TypeKind.Function, parameters, result }
                         enter(importItem, (importItem.as ?? importItem.name).name, type, scope)
+                        bind(importItem, type)
                         break
                     }
                     case LastKind.ImportVariable: {
                         const type = typeExpr(importItem.type, scopes)
                         enter(importItem, (importItem.as ?? importItem.name).name, type, scope)
+                        bind(importItem, type)
                         break
                     }
                 }
