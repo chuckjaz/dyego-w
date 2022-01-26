@@ -223,12 +223,18 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         const start = pos.start
         expect(Token.Var)
         const name = expectName()
-        expect(Token.Colon)
-        const type = typeExpression()
+        let type: TypeExpression | undefined = undefined
+        if (token == Token.Colon) {
+            expect(Token.Colon)
+            type = typeExpression()
+        }
         let value: Expression | undefined = undefined
         if (token == Token.Equal) {
             next()
             value = expression()
+        }
+        if (!type && !value) {
+            report("A value or type is required")
         }
         return l<Var>(start, { kind: LastKind.Var, name, type, value })
     }

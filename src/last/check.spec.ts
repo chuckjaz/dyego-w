@@ -53,6 +53,12 @@ describe("check", () => {
             it("can detect a type error", () => {
                 d("var a: Int64 = !{Expected type Int64, received Int}!10;")
             })
+            it("can infer a type", () => {
+                t("var a = 10")
+            })
+            it("can detect a type error with an inferred type", () => {
+                d("var a = 10; var b: Int64 = !{Expected type Int64, received Int}!a")
+            })
         })
         describe("fun", () => {
             it("can detect a result error", () => {
