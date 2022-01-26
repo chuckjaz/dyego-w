@@ -71,7 +71,14 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 break
             }
             case LastKind.Var: {
-                const type = typeExpr(declaration.type, scopes)
+                const typeExp = declaration.type
+                const initializer = declaration.value
+                const type = typeExp ?
+                    typeExpr(typeExp, scopes) : initializer ?
+                        checkExpression(initializer, scopes) : (function() {
+                            report(declaration, "A type or an initializer is required")
+                            return errorType
+                        })();
                 const addressable = scope === moduleScope
                 enter(declaration, declaration.name.name, { kind: TypeKind.Location, type, addressable }, scope)
                 bind(declaration, type)

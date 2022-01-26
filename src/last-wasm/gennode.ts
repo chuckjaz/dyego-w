@@ -231,7 +231,7 @@ export class GenType {
         if (typeof indexes == "number") {
             g.inst(Inst.Global_set)
             g.index(indexes)
-        } else {
+        } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
             for (let i = fields.length - 1; i >= 0; i--) {
                 fields[i].popToGlobals(g, indexes[i])
@@ -243,7 +243,7 @@ export class GenType {
         if (typeof indexes == "number") {
             g.inst(Inst.Global_get)
             g.index(indexes)
-        } else {
+        } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
             check(fields.length == indexes.length)
             for (let i = 0; i < fields.length; i++) {
@@ -257,7 +257,7 @@ export class GenType {
             value.load(g)
             g.inst(Inst.Global_set)
             g.index(indexes)
-        } else {
+        } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
             check(fields.length == indexes.length)
             for (let i = 0; i < fields.length; i++) {
@@ -270,7 +270,7 @@ export class GenType {
         if (typeof localIndex == "number") {
             g.inst(Inst.Local_set)
             g.index(localIndex)
-        } else {
+        } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
             for (let i = fields.length - 1; i >= 0; i--) {
                 fields[i].popToLocals(g, localIndex[i])
@@ -282,7 +282,7 @@ export class GenType {
         if (typeof localIndex == "number") {
             g.inst(Inst.Local_get)
             g.index(localIndex)
-        } else {
+        } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
             check(fields.length == localIndex.length)
             for (let i = 0; i < fields.length; i++) {
@@ -296,7 +296,7 @@ export class GenType {
             value.load(g)
             g.inst(Inst.Local_set)
             g.index(localIndex)
-        } else {
+        } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
             check(fields.length == localIndex.length)
             for (let i = 0; i < fields.length; i++) {

@@ -177,10 +177,12 @@ export function codegen(
             const node = nodes[i]
             statements.push(statementToGenNode(node, scopes))
         }
-        if (containerType.parts.void) {
-            statements.push(statementToGenNode(nodes[prev], scopes))
-        } else {
-            statements.push(lastToGenNode(nodes[prev], scopes))
+        if (prev >= 0) {
+            if (containerType.parts.void) {
+                statements.push(statementToGenNode(nodes[prev], scopes))
+            } else  {
+                statements.push(lastToGenNode(nodes[prev], scopes))
+            }
         }
         return statements
     }

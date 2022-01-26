@@ -1656,6 +1656,23 @@ describe("last codegen", () => {
             })
         })
     })
+    describe("variables", () => {
+        it("can assign void to an inferred value", () => {
+            cg(`
+                fun t(): Void { }
+
+                fun c(v: Int): Void { }
+
+                export fun test(): Void {
+                    var a = t()
+                    c(10)
+                    a;
+                }
+            `, ({test}) => {
+                test()
+            })
+        })
+    })
 })
 
 function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet): never {

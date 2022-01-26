@@ -437,7 +437,7 @@ export interface Let extends LastNode {
 export interface Var extends LastNode {
     kind: LastKind.Var
     name: Reference
-    type: TypeExpression
+    type?: TypeExpression
     value?: Expression
 }
 
