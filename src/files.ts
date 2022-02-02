@@ -15,6 +15,7 @@ export interface File {
     size: number
     position(loc: Locatable): Position
     pos(offset: number): number
+    lineText(start: number, end: number): string | undefined
 }
 
 // A source file builder
@@ -40,13 +41,13 @@ export class FileSet {
     files: File[] = []
 
     // Produce a source file builder for a file of size.
-    buildFile(fileName: string, size: number): FileBuilder {
+    buildFile(fileName: string, size: number, text?: string): FileBuilder {
         const base = this.lastBase
         this.lastBase += size + 1
         const index = this.bases.length
         this.bases.push(base)
         this.files.push(undefined as any as File)
-        return new FileBuilderImpl(fileName, size + 1, base, this, index)
+        return new FileBuilderImpl(fileName, size + 1, base, this, index, text)
     }
 
     // Find the source file associated with loc, if there is one.
@@ -76,13 +77,22 @@ class FileBuilderImpl implements FileBuilder {
     lines: number[] = [0]
     fileSet: FileSet
     index: number
+    text?: string
 
-    constructor(fileName: string, size: number, base: number, fileSet: FileSet, index: number) {
+    constructor(
+        fileName: string,
+        size: number,
+        base: number,
+        fileSet: FileSet,
+        index: number,
+        text?: string
+    ) {
         this.fileName = fileName
         this.size = size
         this.base = base
         this.fileSet = fileSet
         this.index = index
+        this.text = text
     }
 
     addLine(offset: number): void {
@@ -109,7 +119,7 @@ class FileBuilderImpl implements FileBuilder {
     }
 
     build(): File {
-        const file = new FileImpl(this.fileName, this.size, this.base, this.lines)
+        const file = new FileImpl(this.fileName, this.size, this.base, this.lines, this.text)
         this.fileSet.files[this.index] = file
         return file
     }
@@ -148,14 +158,16 @@ class PositionImpl implements Position {
 class FileImpl implements File {
     fileName: string
     size: number
+    text?: string
     private base: number
     private lines: number[]
 
-    constructor(fileName: string, size: number, base: number, lines: number[]) {
+    constructor(fileName: string, size: number, base: number, lines: number[], text?: string) {
         this.fileName = fileName
         this.size = size
         this.base = base
         this.lines = lines
+        this.text = text
     }
 
     position(loc: Locatable): Position {
@@ -170,6 +182,21 @@ class FileImpl implements File {
 
     pos(offset: number): number {
         return offset + this.base
+    }
+
+    lineText(start: number, end: number): string | undefined {
+        const text = this.text
+        const lines = this.lines
+        const startLine = start - 1
+        const endLine = end - 1
+        if (text && startLine >= 0 && endLine < lines.length) {
+            const startPos = lines[startLine]
+            const endPos = lines[endLine]
+            if (startPos !== undefined && endPos !== undefined) {
+                return text.substring(startPos, endPos)
+            }
+        }
+        return undefined
     }
 
     private positionOf(start: number, end?: number): Position {

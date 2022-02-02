@@ -76,7 +76,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 const type = typeExp ?
                     typeExpr(typeExp, scopes) : initializer ?
                         checkExpression(initializer, scopes) : (function() {
-                            report(declaration, "A type or an initializer is required")
+                            report(declaration, "A type or an initializer is required'")
                             return errorType
                         })();
                 const addressable = scope === moduleScope
@@ -93,8 +93,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Function: {
                 const parameters = funcParameters(declaration.parameters, scopes)
                 const result = typeExpr(declaration.result, scopes)
-                const type: FunctionType = { kind: TypeKind.Function, parameters, result }
-                enter(declaration, declaration.name.name, type, scope)
+                const name = declaration.name.name
+                const type: FunctionType = { kind: TypeKind.Function, name, parameters, result }
+                enter(declaration, name, type, scope)
                 bind(declaration, type)
                 break
             }
