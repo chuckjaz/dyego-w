@@ -1,3 +1,5 @@
+import { padding } from "./util"
+
 interface Option<T extends string | number | boolean> {
     name: string
     description: string
@@ -153,19 +155,6 @@ export class Flags {
         }
         return result
     }
-}
-
-
-function padding(value: number): string {
-    switch (value) {
-        case 0: return ""
-        case 1: return " "
-        case 2: return "  "
-        case 3: return "   "
-        case 4: return "    "
-    }
-    const n = value >> 1
-    return padding(n) + padding(n) + (value & 1 ? " " : "")
 }
 
 function splitOption(option: string): [string, string, string] | undefined {
