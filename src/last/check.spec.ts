@@ -291,6 +291,29 @@ describe("check", () => {
             `)
         })
     })
+
+    describe("negative tests", () => {
+        it("can report array locals", () => {
+            d(`
+                fun sum(a: Int[]^, size: Int): Int {
+                    return size
+                }
+                fun test(): Void {
+                    var a: !{Local arrays are not supported}!Int[2] = [1, 2];
+                    sum(!{The value does not have an address}!&a, 2);
+                }
+            `)
+        })
+        it("can report when taking the address of a local", () => {
+            d(`
+                fun t(a: Int^): Int = a^
+                fun test(): Void {
+                    var a: Int = 1;
+                    t(!{The value does not have an address}!&a)
+                }
+            `)
+        })
+    })
 })
 
 function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet | undefined): never {

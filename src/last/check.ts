@@ -159,6 +159,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 const value = declaration.value
                 if (value) {
                     const type = required(scope.find(declaration.name.name))
+                    if (scopes.scope !== moduleScope && isArrayType(type)) {
+                        report(declaration.type ?? declaration, "Local arrays are not supported")
+                    }
                     const valueType = checkExpression(value, scopes)
                     mustMatch(value, type, valueType)
                 }
@@ -198,7 +201,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                         report(last ?? declaration, "Last statement must be a return or an expresion")
                     }
                 } else {
-                    mustMatch(body[body.length - 1], resultType, bodyType)
+                    if (resultType.kind != TypeKind.Void) {
+                        mustMatch(body[body.length - 1], resultType, bodyType)
+                    }
                 }
                 return voidType
             }
@@ -933,4 +938,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         if (declaration.kind == LastKind.Exported) return declaration.target
         return declaration
     }
+}
+
+function isArrayType(type: Type): boolean {
+    switch (type.kind) {
+        case TypeKind.Array: return true
+        case TypeKind.Location: return isArrayType(type.type)
+    }
+    return false
 }
