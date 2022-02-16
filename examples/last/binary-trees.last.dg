@@ -6,7 +6,7 @@ var top: Node^ = memory.top() as Node^;
 fun newNode(left: Node^, right: Node^): Node^ {
     var node: Node^ = freeList;
     if (node != null) {
-        freeList = node.left
+        freeList = node^.left
     } else {
         node = top;
         var newTop: Node^ = top + 1;
@@ -15,22 +15,22 @@ fun newNode(left: Node^, right: Node^): Node^ {
         }
         top = newTop;
     }
-    node.left = left;
-    node.right = right;
+    node^.left = left;
+    node^.right = right;
     node;
 }
 
 export fun freeTree(tree: Node^): Void {
     if (tree != null) {
-        freeTree(tree.left);
-        freeTree(tree.right);
-        tree.left = freeList;
+        freeTree(tree^.left);
+        freeTree(tree^.right);
+        tree^.left = freeList;
         freeList = tree;
     }
 }
 
 export fun itemCheck(node: Node^): Int =
-    if (node.left == null) 1 else 1 + itemCheck(node.left) + itemCheck(node.right)
+    if (node^.left == null) 1 else 1 + itemCheck(node^.left) + itemCheck(node^.right)
 
 export fun bottomUpTree(depth: Int): Node^ =
     if (depth > 0) newNode(bottomUpTree(depth - 1), bottomUpTree(depth - 1))

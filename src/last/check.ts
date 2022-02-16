@@ -1,9 +1,17 @@
 import { required, check as chk } from "../utils";
-import { BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral, TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind, StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global } from "./ast";
+import {
+    BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
+    TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind,
+    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global
+} from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
 import { Scope } from "./scope";
-import { globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType, ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type, u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType } from "./types";
+import {
+    globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType,
+    ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type,
+    u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType
+} from "./types";
 
 const builtins = new Scope<Type>(globals)
 
@@ -411,15 +419,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         switch (targetType.kind) {
             case TypeKind.Struct:
                 return fieldTypeOf(targetType);
-            case TypeKind.Pointer: {
-                const builtins = builtInMethodsOf(targetType)
-                const memberType = builtins.find(node.name.name)
-                if (!memberType) {
-                    const refType = expectStruct(targetType.target, node.target);
-                    return fieldTypeOf(refType);
-                }
-                // fallthrough
-            }
             default:
                 const builtins = builtInMethodsOf(targetType)
                 const memberType = builtins.find(node.name.name)
