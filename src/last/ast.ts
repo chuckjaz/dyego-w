@@ -16,6 +16,13 @@ export const enum LastKind {
     LessThanEqual,
     And,
     Or,
+    BitAnd,
+    BitOr,
+    BitXor,
+    BitShl,
+    BitShr,
+    BitRotr,
+    BitRotl,
     As,
     AddressOf,
     SizeOf,
@@ -70,6 +77,13 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.LessThanEqual: return "LessThanEqual"
         case LastKind.And: return "And"
         case LastKind.Or: return "Or"
+        case LastKind.BitAnd: return "BitAnd"
+        case LastKind.BitOr: return "BitOr"
+        case LastKind.BitXor: return "BitXor"
+        case LastKind.BitShl: return "BitShl"
+        case LastKind.BitShr: return "BitShr"
+        case LastKind.BitRotr: return "BitRotr"
+        case LastKind.BitRotl: return "BitRotl"
         case LastKind.As: return "As"
         case LastKind.AddressOf: return "AddressOf"
         case LastKind.SizeOf: return "SizeOf"
@@ -156,6 +170,13 @@ export type Expression =
     LessThanEqual |
     And |
     Or |
+    BitAnd |
+    BitOr |
+    BitXor |
+    BitShl |
+    BitShr |
+    BitRotr |
+    BitRotl |
     As |
     AddressOf |
     SizeOf |
@@ -251,6 +272,27 @@ export interface And extends LastNode, Binary { kind: LastKind.And }
 
 /** Logical or (||) of left and right (full evaluation, no short-circuit) */
 export interface Or extends LastNode, Binary { kind: LastKind.Or }
+
+/** Bitwise and (&) of left and right */
+export interface BitAnd extends LastNode, Binary { kind: LastKind.BitAnd }
+
+/** Bitwise or (|) of left and right */
+export interface BitOr extends LastNode, Binary { kind: LastKind.BitOr }
+
+/** Bitwise xor (^) of left and right */
+export interface BitXor extends LastNode, Binary { kind: LastKind.BitXor }
+
+/** Bitwise shift right (shr) of left and right */
+export interface BitShr extends LastNode, Binary { kind: LastKind.BitShr }
+
+/** Bitwise shift left (shl) of left and right */
+export interface BitShl extends LastNode, Binary { kind: LastKind.BitShl }
+
+/** Bitwise rotate right (rotr) of left and right */
+export interface BitRotr extends LastNode, Binary { kind: LastKind.BitRotr }
+
+/** Bitwise rotate left (rotl) of left and right */
+export interface BitRotl extends LastNode, Binary { kind: LastKind.BitRotl }
 
 /** Cast of a pointer left to type expression right  */
 export interface As extends LastNode { kind: LastKind.As, left: Expression, right: TypeExpression }

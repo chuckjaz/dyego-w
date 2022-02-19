@@ -109,6 +109,11 @@ export class Scanner {
                             case "block": result = Token.Block; break
                             case "sizeof": result = Token.SizeOf; break
                             case "global": result = Token.Global; break
+                            case "shl": result = Token.Shl; break
+                            case "shr": result = Token.Shr; break
+                            case "ror": result = Token.Ror; break
+                            case "rol": result = Token.Rol; break
+                            case "xor": result = Token.Xor; break
                         }
                         break
                     }

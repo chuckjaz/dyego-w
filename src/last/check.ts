@@ -218,6 +218,24 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         }
     }
 
+    function widenType(type: Type): Type {
+        switch (type.kind) {
+            case TypeKind.Location: return widenType(type.type)
+            case TypeKind.I8:
+            case TypeKind.I16:
+            case TypeKind.I32:
+            case TypeKind.U8:
+            case TypeKind.U16:
+            case TypeKind.U32:
+                return i32Type
+            case TypeKind.I64:
+            case TypeKind.U64:
+                return i64Type
+            default:
+                return type
+        }
+    }
+
     function checkExpression(expression: Expression, scopes: Scopes): Type {
         let type: Type
         switch (expression.kind) {
@@ -232,6 +250,23 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Divide:
             case LastKind.Remainder:
                 type = binary(expression, expression.left, expression.right, Capabilities.Numeric, scopes)
+                break
+            case LastKind.BitAnd:
+            case LastKind.BitOr:
+            case LastKind.BitXor:
+                type = binary(expression, expression.left, expression.right, Capabilities.Bitwizeable, scopes)
+                break
+            case LastKind.BitShl:
+            case LastKind.BitShr:
+            case LastKind.BitRotr:
+            case LastKind.BitRotl:
+                type = binaryWidenRight(
+                    expression,
+                    expression.left,
+                    expression.right,
+                    Capabilities.Bitwizeable,
+                    scopes
+                )
                 break
             case LastKind.Negate:
                 type = unary(expression, expression.target, Capabilities.Negatable, scopes)
@@ -517,6 +552,21 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const type = mustMatch(node, leftType, rightType);
         requireCapability(leftType, capabilities, node);
         return result ?? type
+    }
+
+    function binaryWidenRight(
+        node: Expression,
+        left: Expression,
+        right: Expression,
+        capabilities: Capabilities,
+        scopes: Scopes
+    ): Type {
+        const leftType = checkExpression(left, scopes)
+        const rightType = checkExpression(right, scopes)
+        const expectedRightType = widenType(leftType)
+        requireCapability(leftType, capabilities, node)
+        mustMatch(node, expectedRightType, rightType)
+        return leftType
     }
 
     function unary(
