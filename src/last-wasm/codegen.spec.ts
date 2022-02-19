@@ -169,16 +169,6 @@ describe("last codegen", () => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
-                    it("can bitwise ror", () => {
-                        cg("export fun test(a: Int8, b: Int32): Int8 = a ror b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 >> 2)
-                        })
-                    })
-                    it("can bitwise rol", () => {
-                        cg("export fun test(a: Int8, b: Int32): Int8 = a rol b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 << 2)
-                        })
-                    })
                 })
                 it("can compare", () => {
                     cg("export fun test(a: Int8, b: Int8): Boolean = a > b", ({test}) => {
@@ -330,16 +320,6 @@ describe("last codegen", () => {
                     })
                     it("can bitwise shl", () => {
                         cg("export fun test(a: UInt8, b: Int32): UInt8 = a shl b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 << 2)
-                        })
-                    })
-                    it("can bitwise ror", () => {
-                        cg("export fun test(a: UInt8, b: Int32): UInt8 = a ror b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 >> 2)
-                        })
-                    })
-                    it("can bitwise rol", () => {
-                        cg("export fun test(a: UInt8, b: Int32): UInt8 = a rol b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
@@ -497,16 +477,6 @@ describe("last codegen", () => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
-                    it("can bitwise ror", () => {
-                        cg("export fun test(a: Int16, b: Int32): Int16 = a ror b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 >> 2)
-                        })
-                    })
-                    it("can bitwise rol", () => {
-                        cg("export fun test(a: Int8, b: Int32): Int8 = a rol b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 << 2)
-                        })
-                    })
                 })
                 it("can compare", () => {
                     cg("export fun test(a: Int16, b: Int16): Boolean = a > b", ({test}) => {
@@ -658,16 +628,6 @@ describe("last codegen", () => {
                     })
                     it("can bitwise shl", () => {
                         cg("export fun test(a: UInt16, b: Int32): UInt16 = a shl b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 << 2)
-                        })
-                    })
-                    it("can bitwise ror", () => {
-                        cg("export fun test(a: UInt16, b: Int32): UInt16 = a ror b", ({test}) => {
-                            expect(test(7, 2)).toEqual(7 >> 2)
-                        })
-                    })
-                    it("can bitwise rol", () => {
-                        cg("export fun test(a: UInt16, b: Int32): UInt16 = a rol b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })

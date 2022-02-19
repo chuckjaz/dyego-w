@@ -258,13 +258,21 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 break
             case LastKind.BitShl:
             case LastKind.BitShr:
+                type = binaryWidenRight(
+                    expression,
+                    expression.left,
+                    expression.right,
+                    Capabilities.Bitwizeable,
+                    scopes
+                )
+                break
             case LastKind.BitRotr:
             case LastKind.BitRotl:
                 type = binaryWidenRight(
                     expression,
                     expression.left,
                     expression.right,
-                    Capabilities.Bitwizeable,
+                    Capabilities.Rotatable,
                     scopes
                 )
                 break
