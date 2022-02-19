@@ -276,6 +276,242 @@ describe("check", () => {
             `)
         })
     })
+
+    describe('integers', () => {
+        describe("i8", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: Int8 = 1t; var b: Int8 = 2t; var v: Int8 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1")
+                })
+            })
+        })
+        describe("i16", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: Int16 = 1s; var b: Int16 = 2s; var v: Int16 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1")
+                })
+            })
+        })
+        describe("i32", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: Int32 = 1; var b: Int32 = 2; var v: Int32 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1")
+                })
+            })
+        })
+        describe("i64", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: Int64 = 1l; var b: Int64 = 2l; var v: Int64 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1l")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2l")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1l")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1l")
+                })
+            })
+        })
+        describe("u8", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: UInt8 = 1ut; var b: UInt8 = 2ut; var v: UInt8 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1")
+                })
+            })
+        })
+        describe("u16", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: UInt16 = 1us; var b: UInt16 = 2us; var v: UInt16 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1")
+                })
+            })
+        })
+        describe("u32", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: UInt32 = 1u; var b: UInt32 = 2u; var v: UInt32 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1")
+                })
+            })
+        })
+        describe("u64", () => {
+            describe("bitwise operators", () => {
+                function t(expr: string) {
+                    p(`var a: UInt64 = 1ul; var b: UInt64 = 2ul; var v: UInt64 = ${expr}`)
+                }
+
+                it("can check a bitwise and", () => {
+                    t("a & b")
+                })
+                it("can check a bitwise or", () => {
+                    t("a | b")
+                })
+                it("can check a bitwise xor", () => {
+                    t("a xor b")
+                })
+                it("can check a shr", () => {
+                    t("a shr 1l")
+                })
+                it("can check a shl", () => {
+                    t("a shl 2l")
+                })
+                it("can check a ror", () => {
+                    t("a ror 1l")
+                })
+                it("can check a rol", () => {
+                    t("a rol 1l")
+                })
+            })
+        })
+    })
+
     describe("pointers", () => {
         it("can check a pointer converted to an UInt", () => {
             t(`

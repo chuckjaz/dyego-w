@@ -1,5 +1,5 @@
 import {
-    Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, Block, BodyElement, Branch, BranchIndexed,
+    Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, BitAnd, BitOr, BitRotl, BitRotr, BitShl, BitShr, BitXor, Block, BodyElement, Branch, BranchIndexed,
     Call, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, Global, IfThenElse,
     Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32,
     LiteralFloat64, LiteralInt16, LiteralInt32, LiteralInt64, LiteralInt8, LiteralKind, LiteralNull, LiteralUInt16,
@@ -280,29 +280,62 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
 
     function expression(): Expression {
         const start = pos.start
-        let left = orExpression()
+        let left = andExpression()
+        while (token == Token.Or) {
+            next()
+            const right = andExpression()
+            left = l<Or>(start, { kind: LastKind.Or, left, right })
+        }
+        return left
+    }
+
+    function andExpression(): Expression {
+        const start = pos.start
+        let left = bitAndExpression()
         while (token == Token.And) {
             next()
-            const right = orExpression()
+            const right = bitAndExpression()
             left = l<And>(start, { kind: LastKind.And, left, right })
         }
         return left
     }
 
-    function orExpression(): Expression {
+    function bitAndExpression(): Expression {
+        const start = pos.start
+        let left = bitOrExpression()
+        while (token == Token.Amp) {
+            next()
+            const right = bitOrExpression()
+            left = l<BitAnd>(start, { kind: LastKind.BitAnd, left, right })
+        }
+        return left
+    }
+
+    function bitOrExpression(): Expression {
+        const start = pos.start
+        let left = bitXorExpression()
+        while (token == Token.Bar) {
+            next()
+            const right = bitXorExpression()
+            left = l<BitOr>(start, { kind: LastKind.BitOr, left, right })
+        }
+        return left
+    }
+
+    function bitXorExpression(): Expression {
         const start = pos.start
         let left = compareExpression()
-        while (token == Token.Or) {
+        while (token == Token.Xor) {
             next()
             const right = compareExpression()
-            left = l<Or>(start, { kind: LastKind.Or, left, right })
+            left = l<BitXor>(start, { kind: LastKind.BitXor, left, right })
         }
         return left
     }
 
     function compareExpression(): Expression {
         const start = pos.start
-        let left = addExpression()
+        let left = shiftExpression()
         let hasOp = false
         let op = LastKind.GreaterThan
         switch (token) {
@@ -315,8 +348,44 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         }
         if (hasOp) {
             next()
-            const right = addExpression()
+            const right = shiftExpression()
             return l<Expression>(start, { kind: op, left, right })
+        }
+        return left
+    }
+
+    function shiftExpression(): Expression {
+        const start = pos.start
+        let left = addExpression()
+        while (true) {
+            let op = LastKind.Branch
+            switch (token) {
+                case Token.Shl: {
+                    next()
+                    const right = addExpression()
+                    left = l<BitShl>(start, { kind: LastKind.BitShl, left, right })
+                    continue
+                }
+                case Token.Shr: {
+                    next()
+                    const right = addExpression()
+                    left = l<BitShr>(start, { kind: LastKind.BitShr, left, right })
+                    continue
+                }
+                case Token.Ror: {
+                    next()
+                    const right = addExpression()
+                    left = l<BitRotr>(start, { kind: LastKind.BitRotr, left, right })
+                    continue
+                }
+                case Token.Rol: {
+                    next()
+                    const right = addExpression()
+                    left = l<BitRotl>(start, { kind: LastKind.BitRotl, left, right })
+                    continue
+                }
+            }
+            break
         }
         return left
     }
@@ -787,6 +856,11 @@ function tokenText(token: Token): string {
         case Token.Return: return "a `return` reserved word"
         case Token.SizeOf: return "a `sizeof` reserved word"
         case Token.Global: return "a `global` reserved word"
+        case Token.Xor: return "a `xor` reserved word"
+        case Token.Shl: return "a `shl` reserved word"
+        case Token.Shr: return "a `shr` reserved word"
+        case Token.Ror: return "a `ror` reserved word"
+        case Token.Rol: return "a `rol` reserved word"
         case Token.Dot: return "a '.' operator"
         case Token.Dash: return "a '-' operator"
         case Token.Plus: return "a '+' operator"

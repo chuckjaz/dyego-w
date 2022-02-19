@@ -201,7 +201,14 @@ export function codegen(
             case LastKind.Subtract:
             case LastKind.Multiply:
             case LastKind.Divide:
-            case LastKind.Remainder: {
+            case LastKind.Remainder:
+            case LastKind.BitAnd:
+            case LastKind.BitOr:
+            case LastKind.BitXor:
+            case LastKind.BitRotl:
+            case LastKind.BitRotr:
+            case LastKind.BitShl:
+            case LastKind.BitShr: {
                 const left = lastToGenNode(node.left, scopes)
                 let right = lastToGenNode(node.right, scopes)
                 const type = typeOf(node)

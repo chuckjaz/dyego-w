@@ -453,6 +453,123 @@ export class GenType {
                         g.inst(Inst.i64_rem_u)
                         return
                 }
+                break
+            case LastKind.BitAnd:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_and)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_and)
+                        return
+                }
+                break
+            case LastKind.BitOr:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_or)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_or)
+                        return
+                }
+                break
+            case LastKind.BitXor:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_xor)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_xor)
+                        return
+                }
+                break
+            case LastKind.BitShl:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_shl)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_shl)
+                        return
+                }
+                break
+            case LastKind.BitShr:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                        g.inst(Inst.i32_shr_s)
+                        return
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_shr_u)
+                        return
+                    case TypeKind.I64:
+                        g.inst(Inst.i64_shr_s)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_shr_s)
+                        return
+                }
+                break
+            case LastKind.BitRotl:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_rotl)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_rotl)
+                        return
+                }
+                break
+            case LastKind.BitRotr:
+                switch (this.type.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_rotr)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_rotr)
+                        return
+                }
+                break
             case LastKind.Not:
                 switch (this.type.kind) {
                     case TypeKind.Boolean:

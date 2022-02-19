@@ -351,11 +351,6 @@ function capabilityMethods(type: Type, scope: Scope<Type>) {
         enter(scope, "countLeadingZeros", thisP, resultType)
         enter(scope, "countTrailingZeros", thisP, resultType)
         enter(scope, "countNonZeros", thisP, resultType)
-        enter(scope, "shiftLeft", thisAndValue, type)
-        enter(scope, "shiftRight", thisAndValue, type)
-        enter(scope, "bitAnd", thisAndOther, type)
-        enter(scope, "bitXor", thisAndOther, type)
-        enter(scope, "bitOr", thisAndOther, type)
     }
     if (capabilities & Capabilities.Rotatable) {
         enter(scope, "rotateLeft", thisAndValue, type)

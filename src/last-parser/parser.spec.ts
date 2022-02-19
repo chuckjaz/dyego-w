@@ -24,6 +24,31 @@ describe("parser", () => {
             p("global a: Int = 1")
         })
     })
+    describe("expressions", () => {
+        describe("bitwise", () => {
+            it("can parse a bitwise and", () => {
+                p("var v: Int = a & b")
+            })
+            it("can parse a bitwise or", () => {
+                p("var v: Int = a | b")
+            })
+            it("can parse a bitwise xor", () => {
+                p("var v: Int = a xor b")
+            })
+            it("can parse a bitwas shr", () => {
+                p("var v: Int = a shr b")
+            })
+            it("can parse a bitwas shl", () => {
+                p("var v: Int = a shl b")
+            })
+            it("can parse a bitwas ror", () => {
+                p("var v: Int = a ror b")
+            })
+            it("can parse a bitwas rol", () => {
+                p("var v: Int = a rol b")
+            })
+        })
+    })
 })
 
 function p(text: string, name: string = "<text>"): Module {
