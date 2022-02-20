@@ -276,6 +276,11 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                     scopes
                 )
                 break
+            case LastKind.CountLeadingZeros:
+            case LastKind.CountTrailingZeros:
+            case LastKind.CountNonZeros:
+                type = unary(expression, expression.target, Capabilities.Bitcountable, scopes)
+                break
             case LastKind.Negate:
                 type = unary(expression, expression.target, Capabilities.Negatable, scopes)
                 break

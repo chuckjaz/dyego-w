@@ -70,18 +70,19 @@ export const enum Capabilities {
     Numeric = 1 << 0,
     Bitwizeable = 1 << 1,
     Rotatable = 1 << 2,
-    Negatable = 1 << 3,
-    Floatable = 1 << 4,
-    Equatable = 1 << 5,
-    Comparable = 1 << 6,
-    Logical = 1 << 7,
-    Indexable = 1 << 8,
-    Pointer = 1 << 9,
-    Callable = 1 << 10,
-    Loadable = 1 << 11,
-    Storeable = 1 << 12,
-    Builtins = 1 << 13,
-    PointerSized = 1 << 14,
+    Bitcountable = 1 << 3,
+    Negatable = 1 << 4,
+    Floatable = 1 << 5,
+    Equatable = 1 << 6,
+    Comparable = 1 << 7,
+    Logical = 1 << 8,
+    Indexable = 1 << 9,
+    Pointer = 1 << 10,
+    Callable = 1 << 11,
+    Loadable = 1 << 12,
+    Storeable = 1 << 13,
+    Builtins = 1 << 14,
+    PointerSized = 1 << 15,
 }
 
 export interface I8 {
@@ -227,12 +228,13 @@ export function capabilitesOf(type: Type): Capabilities {
         case TypeKind.I32:
         case TypeKind.U32:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
-                Capabilities.Negatable | Capabilities.Bitwizeable | Capabilities.Rotatable |
-                Capabilities.PointerSized;
+                Capabilities.Negatable | Capabilities.Bitwizeable | Capabilities.Bitcountable |
+                Capabilities.Rotatable | Capabilities.PointerSized;
         case TypeKind.I64:
         case TypeKind.U64:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
-                Capabilities.Negatable | Capabilities.Bitwizeable | Capabilities.Rotatable;
+                Capabilities.Negatable | Capabilities.Bitwizeable | Capabilities.Rotatable |
+                Capabilities.Bitcountable;
         case TypeKind.F32:
         case TypeKind.F64:
             return Capabilities.Numeric | Capabilities.Comparable | Capabilities.Equatable |
@@ -332,26 +334,6 @@ function capabilityMethods(type: Type, scope: Scope<Type>) {
     let capabilities = capabilitesOf(type)
     const thisP = scopeOf({ name: "this", type })
     const thisAndOther = scopeOf({ name: "this", type }, { name: "other", type })
-    let valueType = i32Type
-    switch (type.kind) {
-        case TypeKind.I64:
-        case TypeKind.U64:
-            valueType = i64Type
-            break
-    }
-    const thisAndValue = scopeOf({ name: "this", type }, { name: "value", type: valueType })
-    if (capabilities & Capabilities.Bitwizeable) {
-        let resultType = i32Type
-        switch (type.kind) {
-            case TypeKind.I64:
-            case TypeKind.U64:
-                resultType = i64Type
-                break
-        }
-        enter(scope, "countLeadingZeros", thisP, resultType)
-        enter(scope, "countTrailingZeros", thisP, resultType)
-        enter(scope, "countNonZeros", thisP, resultType)
-    }
     if (capabilities & Capabilities.Floatable) {
         enter(scope, "abs", thisP, type)
         enter(scope, "sqrt", thisP, type)

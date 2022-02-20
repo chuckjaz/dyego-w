@@ -1,6 +1,12 @@
-import { booleanType, i32Type, LastKind, Locatable, memoryType, nameOfLastKind, Type, TypeDeclaration, TypeKind, typeToString, voidPointerType, voidType } from "../last";
+import {
+    booleanType, i32Type, LastKind, Locatable, memoryType, nameOfLastKind, Type, TypeDeclaration, TypeKind,
+    typeToString, voidPointerType, voidType
+} from "../last";
 import { check, error, required, unsupported } from "../utils";
-import { ByteWriter, DataSection, ExportKind, ExportSection, FuncIndex, gen, Generate, Inst, Label, LocalIndex, Mut, NumberType, ReferenceType, ValueType } from "../wasm";
+import {
+    ByteWriter, DataSection, ExportKind, ExportSection, FuncIndex, gen, Generate, Inst, Label, LocalIndex, Mut,
+    NumberType, ReferenceType, ValueType
+} from "../wasm";
 import { GlobalSection } from "../wasm/globalsection";
 
 export interface GenNode {
@@ -540,11 +546,7 @@ export class GenType {
                 break
             case LastKind.BitRotl:
                 switch (this.type.kind) {
-                    case TypeKind.I8:
-                    case TypeKind.I16:
                     case TypeKind.I32:
-                    case TypeKind.U8:
-                    case TypeKind.U16:
                     case TypeKind.U32:
                         g.inst(Inst.i32_rotl)
                         return
@@ -556,17 +558,49 @@ export class GenType {
                 break
             case LastKind.BitRotr:
                 switch (this.type.kind) {
-                    case TypeKind.I8:
-                    case TypeKind.I16:
                     case TypeKind.I32:
-                    case TypeKind.U8:
-                    case TypeKind.U16:
                     case TypeKind.U32:
                         g.inst(Inst.i32_rotr)
                         return
                     case TypeKind.I64:
                     case TypeKind.U64:
                         g.inst(Inst.i64_rotr)
+                        return
+                }
+                break
+            case LastKind.CountLeadingZeros:
+                switch (this.type.kind) {
+                    case TypeKind.I32:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_clz)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_clz)
+                        return
+                }
+                break
+            case LastKind.CountTrailingZeros:
+                switch (this.type.kind) {
+                    case TypeKind.I32:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_ctz)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_ctz)
+                        return
+                }
+                break
+            case LastKind.CountNonZeros:
+                switch (this.type.kind) {
+                    case TypeKind.I32:
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_popcnt)
+                        return
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_popcnt)
                         return
                 }
                 break

@@ -225,6 +225,14 @@ export function codegen(
                 }
                 return new OpGenNode(node, type, left, right, node.kind)
             }
+            case LastKind.CountLeadingZeros:
+            case LastKind.CountTrailingZeros:
+            case LastKind.CountNonZeros: {
+                const target = lastToGenNode(node.target, scopes)
+                const type = typeOf(node)
+                return new UnaryOpGenNode(node, type, target, node.kind)
+            }
+
             case LastKind.Not: {
                 const target = lastToGenNode(node.target, scopes)
                 const type = typeOf(node)
