@@ -48,6 +48,17 @@ describe("parser", () => {
                 p("var v: Int = a rol b")
             })
         })
+        describe("counting", () => {
+            it("can parse a counttrailingzeros", () => {
+                p("var v: Int = a counttrailingzeros")
+            })
+            it("can parse a countleadingzeros", () => {
+                p("var v: Int = a countleadingzeros")
+            })
+            it("can parse a countnonzeros", () => {
+                p("var v: Int = a countnonzeros")
+            })
+        })
     })
 })
 

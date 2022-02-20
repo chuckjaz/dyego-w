@@ -1,6 +1,6 @@
 import {
     Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, BitAnd, BitOr, BitRotl, BitRotr, BitShl, BitShr, BitXor, Block, BodyElement, Branch, BranchIndexed,
-    Call, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, Global, IfThenElse,
+    Call, CountLeadingZeros, CountNonZeros, CountTrailingZeros, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, Global, IfThenElse,
     Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32,
     LiteralFloat64, LiteralInt16, LiteralInt32, LiteralInt64, LiteralInt8, LiteralKind, LiteralNull, LiteralUInt16,
     LiteralUInt32, LiteralUInt64, LiteralUInt8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
@@ -469,6 +469,18 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 case Token.Circumflex:
                     result = dereference(result)
                     continue
+                case Token.CountLeadingZeros:
+                    next()
+                    result = l<CountLeadingZeros>(start, { kind: LastKind.CountLeadingZeros, target: result })
+                    continue
+                case Token.CountTrailingZeros:
+                    next()
+                    result = l<CountTrailingZeros>(start, { kind: LastKind.CountTrailingZeros, target: result })
+                    continue
+                case Token.CountNonZeros:
+                    next()
+                    result = l<CountNonZeros>(start, { kind: LastKind.CountNonZeros, target: result })
+                    continue
             }
             break
         }
@@ -861,6 +873,9 @@ function tokenText(token: Token): string {
         case Token.Shr: return "a `shr` reserved word"
         case Token.Ror: return "a `ror` reserved word"
         case Token.Rol: return "a `rol` reserved word"
+        case Token.CountLeadingZeros: return "a `countleadingzeros` reserved word"
+        case Token.CountTrailingZeros: return "a `counttrailingzeros` reserved word"
+        case Token.CountNonZeros: return "a `countnonzeros` reserved word"
         case Token.Dot: return "a '.' operator"
         case Token.Dash: return "a '-' operator"
         case Token.Plus: return "a '+' operator"

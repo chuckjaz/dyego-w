@@ -114,6 +114,9 @@ export class Scanner {
                             case "ror": result = Token.Ror; break
                             case "rol": result = Token.Rol; break
                             case "xor": result = Token.Xor; break
+                            case "countleadingzeros": result = Token.CountLeadingZeros; break
+                            case "counttrailingzeros": result = Token.CountTrailingZeros; break
+                            case "countnonzeros": result = Token.CountNonZeros; break
                         }
                         break
                     }

@@ -23,6 +23,9 @@ export const enum LastKind {
     BitShr,
     BitRotr,
     BitRotl,
+    CountLeadingZeros,
+    CountTrailingZeros,
+    CountNonZeros,
     As,
     AddressOf,
     SizeOf,
@@ -84,6 +87,9 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.BitShr: return "BitShr"
         case LastKind.BitRotr: return "BitRotr"
         case LastKind.BitRotl: return "BitRotl"
+        case LastKind.CountLeadingZeros: return "CountLeadingZeros"
+        case LastKind.CountTrailingZeros: return "CountTrailingZeros"
+        case LastKind.CountNonZeros: return "CountNonZeros"
         case LastKind.As: return "As"
         case LastKind.AddressOf: return "AddressOf"
         case LastKind.SizeOf: return "SizeOf"
@@ -177,6 +183,9 @@ export type Expression =
     BitShr |
     BitRotr |
     BitRotl |
+    CountLeadingZeros |
+    CountTrailingZeros |
+    CountNonZeros |
     As |
     AddressOf |
     SizeOf |
@@ -293,6 +302,15 @@ export interface BitRotr extends LastNode, Binary { kind: LastKind.BitRotr }
 
 /** Bitwise rotate left (rotl) of left and right */
 export interface BitRotl extends LastNode, Binary { kind: LastKind.BitRotl }
+
+/** Count leading zeros bits of target */
+export interface CountLeadingZeros extends LastNode, Unary { kind: LastKind.CountLeadingZeros }
+
+/** Count trailing zeros bits of target */
+export interface CountTrailingZeros extends LastNode, Unary { kind: LastKind.CountTrailingZeros }
+
+/** Count non-zero bits of target */
+export interface CountNonZeros extends LastNode, Unary { kind: LastKind.CountNonZeros }
 
 /** Cast of a pointer left to type expression right  */
 export interface As extends LastNode { kind: LastKind.As, left: Expression, right: TypeExpression }
