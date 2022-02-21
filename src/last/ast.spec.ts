@@ -1,4 +1,4 @@
-import { copy, LastKind, LiteralKind, nameOfLastKind, nameOfLiteralKind, Reference } from "./ast"
+import { copy, LastKind, PrimitiveKind, nameOfLastKind, nameOfPrimitiveKind, Reference } from "./ast"
 
 describe("ast", () => {
     it("can get a name of all last kinds", () => {
@@ -11,8 +11,8 @@ describe("ast", () => {
         }
     })
     it("can get a name for all literal kinds", () => {
-        for (let kind = LiteralKind.Int8; kind <= LiteralKind.Null; kind++) {
-            const name = nameOfLiteralKind(kind)
+        for (let kind = PrimitiveKind.I8; kind <= PrimitiveKind.Null; kind++) {
+            const name = nameOfPrimitiveKind(kind)
             const nameSet = new Set<string>()
             expect(name).not.toBeUndefined()
             expect(nameSet.has(name)).toBeFalse()

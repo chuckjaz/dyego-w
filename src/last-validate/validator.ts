@@ -1,7 +1,7 @@
 import {
     BodyElement, Declaration, Diagnostic, Exportable, Expression, Field, Import, ImportItem, Last, LastKind,
-    LiteralBigInt, LiteralKind, LiteralNumeric, Locatable, Module, nameOfLastKind, Parameter, Reference,
-    StructFieldLiteral, TypeExpression
+    LiteralBigInt, PrimitiveKind, LiteralNumeric, Locatable, Module, nameOfLastKind, Parameter, Reference,
+    StructFieldLiteral, TypeExpression, Primitive
 } from "../last";
 
 export function validate(module: Module): Diagnostic[] {
@@ -46,14 +46,27 @@ export function validate(module: Module): Diagnostic[] {
         }
     }
 
+    function validatePrimitive(node: Primitive) {
+        requiredKind(node, LastKind.Primitive)
+        requiredMembers(node, 'primitive')
+        validatePrimitiveKind(node, node.primitive)
+    }
+
+    function validatePrimitiveKind(location: Locatable, primitive: PrimitiveKind) {
+        required(location, primitive >= PrimitiveKind.I8 && primitive <= PrimitiveKind.Memory, "Unexpected primitive kind")
+    }
+
     function validateReference(reference: Reference) {
         requiredKind(reference, LastKind.Reference)
         requiredMembers(reference, 'name')
-        required(reference, typeof reference.name === "string", "Expecgted name to be a string")
+        required(reference, typeof reference.name === "string", "Expected name to be a string")
     }
 
     function validateTypeExpression(type: TypeExpression) {
         switch (type.kind) {
+            case LastKind.Primitive:
+                validatePrimitive(type)
+                break
             case LastKind.Reference:
                 validateReference(type)
                 break
@@ -194,44 +207,47 @@ export function validate(module: Module): Diagnostic[] {
                 break
             }
             case LastKind.Literal: {
-                requiredMembers(node, 'literalKind', 'value')
-                switch (node.literalKind) {
-                    case LiteralKind.Int8:
+                requiredMembers(node, 'primitiveKind', 'value')
+                switch (node.primitiveKind) {
+                    case PrimitiveKind.I8:
                         validateNumericRange(node, -128, 127)
                         break
-                    case LiteralKind.UInt8:
+                    case PrimitiveKind.U8:
                         validateNumericRange(node, 0, 255)
                         break
-                    case LiteralKind.Int16:
+                    case PrimitiveKind.I16:
                         validateNumericRange(node, -32768, 32767)
                         break
-                    case LiteralKind.UInt16:
+                    case PrimitiveKind.U16:
                         validateNumericRange(node, 0, 65535)
                         break
-                    case LiteralKind.Int32:
+                    case PrimitiveKind.I32:
                         validateNumericRange(node, -2147483648, 2147483647)
                         break
-                    case LiteralKind.UInt32:
+                    case PrimitiveKind.U32:
                         validateNumericRange(node, 0, (1 >> 32) - 1)
                         break
-                    case LiteralKind.Int64:
+                    case PrimitiveKind.I64:
                         validateBigIntRange(node, -(1n << 63n), (1n << 63n) - 1n)
                         break
-                    case LiteralKind.UInt64:
+                    case PrimitiveKind.U64:
                         validateBigIntRange(node, 0n, (1n << 64n) - 1n)
                         break
-                    case LiteralKind.Boolean:
+                    case PrimitiveKind.Bool:
                         required(node, typeof node.value === "boolean", "Expected value to be a boolena")
                         break
-                    case LiteralKind.Null:
+                    case PrimitiveKind.Null:
                         required(node, node.value === null, "Expected value to be null")
                         break
-                    case LiteralKind.Float32:
-                    case LiteralKind.Float64:
+                    case PrimitiveKind.F32:
+                    case PrimitiveKind.F64:
                         required(node, typeof node.value === "number", "Expected value to be a number")
                         break
+                    case PrimitiveKind.Memory:
+                        required(node, node.value === null, "Expected value to be null")
+                        break
                     default:
-                        fatal(node, "Unknown literalKind")
+                        fatal(node, "Unknown primitiveKind")
                 }
                 break
             }

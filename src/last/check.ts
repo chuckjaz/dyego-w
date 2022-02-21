@@ -1,7 +1,7 @@
 import { required, check as chk } from "../utils";
 import {
     BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
-    TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, LiteralKind,
+    TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, PrimitiveKind,
     StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global
 } from "./ast";
 import { Diagnostic } from "./diagnostic";
@@ -10,7 +10,7 @@ import { Scope } from "./scope";
 import {
     globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType,
     ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type,
-    u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType
+    u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType, memoryType
 } from "./types";
 
 const builtins = new Scope<Type>(globals)
@@ -311,7 +311,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 type = ifThenElseExpresssion(expression, scopes)
                 break
             case LastKind.Literal:
-                type = literalType(expression.literalKind)
+                type = primitiveType(expression.primitiveKind)
                 break
             case LastKind.StructLiteral:
                 type = structLiteral(expression, scopes)
@@ -515,20 +515,23 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
 
-    function literalType(literalKind: LiteralKind): Type {
-        switch(literalKind) {
-            case LiteralKind.Int8: return i8Type
-            case LiteralKind.Int16: return i16Type
-            case LiteralKind.Int32: return i32Type
-            case LiteralKind.Int64: return i64Type
-            case LiteralKind.UInt8: return u8Type
-            case LiteralKind.UInt16: return u16Type
-            case LiteralKind.UInt32: return u32Type
-            case LiteralKind.UInt64: return u64Type
-            case LiteralKind.Float32: return f32Type
-            case LiteralKind.Float64: return f64Type
-            case LiteralKind.Boolean: return booleanType
-            case LiteralKind.Null: return nullType
+    function primitiveType(primitiveKind: PrimitiveKind): Type {
+        switch(primitiveKind) {
+            case PrimitiveKind.I8: return i8Type
+            case PrimitiveKind.I16: return i16Type
+            case PrimitiveKind.I32: return i32Type
+            case PrimitiveKind.I64: return i64Type
+            case PrimitiveKind.U8: return u8Type
+            case PrimitiveKind.U16: return u16Type
+            case PrimitiveKind.U32: return u32Type
+            case PrimitiveKind.U64: return u64Type
+            case PrimitiveKind.F32: return f32Type
+            case PrimitiveKind.F64: return f64Type
+            case PrimitiveKind.Bool: return booleanType
+            case PrimitiveKind.Null: return nullType
+            case PrimitiveKind.Void: return voidType
+            case PrimitiveKind.Memory: return memoryType
+            case PrimitiveKind.Null: return nullType
         }
     }
 
@@ -730,6 +733,8 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 }
                 return result
             }
+            case LastKind.Primitive:
+                return primitiveType(node.primitive)
             case LastKind.Select:
                 report(node, "Nested scopes not yet supported")
                 return errorType

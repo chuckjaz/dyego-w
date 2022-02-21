@@ -50,6 +50,7 @@ export const enum LastKind {
     Let,
     Var,
     Global,
+    Primitive,
     Type,
     TypeSelect,
     StructTypeLiteral,
@@ -114,6 +115,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.Let: return "Let"
         case LastKind.Var: return "Var"
         case LastKind.Global: return "Global"
+        case LastKind.Primitive: return "Primitive"
         case LastKind.Type: return "Type"
         case LastKind.TypeSelect: return "TypeSelect"
         case LastKind.StructTypeLiteral: return "StructTypeLiteral"
@@ -128,35 +130,32 @@ export function nameOfLastKind(kind: LastKind): string {
     }
 }
 
-export const enum LiteralKind {
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    UInt8,
-    UInt16,
-    UInt32,
-    UInt64,
-    Float32,
-    Float64,
-    Boolean,
+export const enum PrimitiveKind {
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64,
+    Bool,
+    Void,
     Null,
+    Memory,
 }
 
-export function nameOfLiteralKind(kind: LiteralKind): string {
+export function nameOfPrimitiveKind(kind: PrimitiveKind): string {
     switch (kind) {
-        case LiteralKind.Int8: return "Int8";
-        case LiteralKind.Int16: return "Int16";
-        case LiteralKind.Int32: return "Int32";
-        case LiteralKind.Int64: return "Int64";
-        case LiteralKind.UInt8: return "UInt8";
-        case LiteralKind.UInt16: return "UInt16";
-        case LiteralKind.UInt32: return "UInt32";
-        case LiteralKind.UInt64: return "UInt64";
-        case LiteralKind.Float32: return "Float32";
-        case LiteralKind.Float64: return "Float64";
-        case LiteralKind.Boolean: return "Boolean";
-        case LiteralKind.Null: return "Null";
+        case PrimitiveKind.I8: return "i8"
+        case PrimitiveKind.I16: return "i16"
+        case PrimitiveKind.I32: return "i32"
+        case PrimitiveKind.I64: return "i64"
+        case PrimitiveKind.U8: return "u8"
+        case PrimitiveKind.U16: return "u16"
+        case PrimitiveKind.U32: return "u32"
+        case PrimitiveKind.U64: return "u64"
+        case PrimitiveKind.F32: return "f32"
+        case PrimitiveKind.F64: return "f64"
+        case PrimitiveKind.Bool: return "bool"
+        case PrimitiveKind.Null: return "null"
+        case PrimitiveKind.Void: return "void"
+        case PrimitiveKind.Memory: return "memory"
     }
 }
 
@@ -201,28 +200,74 @@ export type Expression =
     StructLiteral
 
 export type Literal =
-    LiteralInt8 |
-    LiteralInt16 |
-    LiteralInt32 |
-    LiteralInt64 |
-    LiteralUInt8 |
-    LiteralUInt16 |
-    LiteralUInt32 |
-    LiteralUInt64 |
-    LiteralFloat32 |
-    LiteralFloat64 |
-    LiteralBoolean |
-    LiteralNull
+    LiteralI8 |
+    LiteralI6 |
+    LiteralI32 |
+    LiteralI64 |
+    LiteralU8 |
+    LiteralU16 |
+    LiteralU32 |
+    LiteralU64 |
+    LiteralF32 |
+    LiteralF64 |
+    LiteralBool |
+    LiteralNull |
+    LiteralMemory
 
-export type Exportable = Global | Function
-export type Declaration = Let | Var | Global | TypeDeclaration | Function | Exported
-export type Statement = Let | Var | TypeDeclaration | Loop | Block | Branch | BranchIndexed | Return | Assign
-export type BodyElement = Statement | Expression
-export type TypeExpression = Reference | TypeSelect | StructTypeLiteral | ArrayConstructor | PointerConstructor
-export type ImportItem = ImportFunction | ImportVariable
-export type BranchTarget = Loop | Block
-export type Last = Declaration | Statement | Expression | TypeExpression | Import | Parameter | ImportItem | Field |
-    StructFieldLiteral | Module
+export type Exportable =
+    Global |
+    Function
+
+export type Declaration =
+    Let |
+    Var |
+    Global |
+    TypeDeclaration |
+    Function |
+    Exported
+
+export type Statement =
+    Let |
+    Var |
+    TypeDeclaration |
+    Loop |
+    Block |
+    Branch |
+    BranchIndexed |
+    Return |
+    Assign
+
+export type BodyElement =
+    Statement |
+    Expression
+
+export type TypeExpression =
+    Primitive |
+    Reference |
+    TypeSelect |
+    StructTypeLiteral |
+    ArrayConstructor |
+    PointerConstructor
+
+export type ImportItem =
+    ImportFunction |
+    ImportVariable
+
+export type BranchTarget =
+    Loop |
+    Block
+
+export type Last =
+    Declaration |
+    Statement |
+    Expression |
+    TypeExpression |
+    Import |
+    Parameter |
+    ImportItem |
+    Field |
+    StructFieldLiteral |
+    Module
 
 export interface Binary {
     left: Expression
@@ -331,46 +376,53 @@ export interface LiteralNumeric { kind: LastKind.Literal; value: number }
 export interface LiteralBigInt { kind: LastKind.Literal; value: bigint }
 
 /** An Int8 literal (tiny) */
-export interface LiteralInt8 extends LastNode, LiteralNumeric { literalKind: LiteralKind.Int8 }
+export interface LiteralI8 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.I8 }
 
 /** An Int16 literal (short) */
-export interface LiteralInt16 extends LastNode, LiteralNumeric { literalKind: LiteralKind.Int16 }
+export interface LiteralI6 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.I16 }
 
 /** An Int32 literal (int) */
-export interface LiteralInt32 extends LastNode, LiteralNumeric { literalKind: LiteralKind.Int32 }
+export interface LiteralI32 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.I32 }
 
 /** An Int 64 literal (long) */
-export interface LiteralInt64 extends LastNode, LiteralBigInt { literalKind: LiteralKind.Int64 }
+export interface LiteralI64 extends LastNode, LiteralBigInt { primitiveKind: PrimitiveKind.I64 }
 
 /** A UInt8 literal (unsigned tiny) */
-export interface LiteralUInt8 extends LastNode, LiteralNumeric { literalKind: LiteralKind.UInt8 }
+export interface LiteralU8 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.U8 }
 
 /** A UInt16 literal (unsigned short) */
-export interface LiteralUInt16 extends LastNode, LiteralNumeric { literalKind: LiteralKind.UInt16 }
+export interface LiteralU16 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.U16 }
 
 /** A UInt32 literal (unsigned int) */
-export interface LiteralUInt32 extends LastNode, LiteralNumeric { literalKind: LiteralKind.UInt32 }
+export interface LiteralU32 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.U32 }
 
 /** A UInt64 literal (unsigned long) */
-export interface LiteralUInt64 extends LastNode, LiteralBigInt { literalKind: LiteralKind.UInt64 }
+export interface LiteralU64 extends LastNode, LiteralBigInt { primitiveKind: PrimitiveKind.U64 }
 
 /** A Float32 literal (single) */
-export interface LiteralFloat32 extends LastNode, LiteralNumeric { literalKind: LiteralKind.Float32 }
+export interface LiteralF32 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.F32 }
 
 /** A Float64 literal (double) */
-export interface LiteralFloat64 extends LastNode, LiteralNumeric { literalKind: LiteralKind.Float64 }
+export interface LiteralF64 extends LastNode, LiteralNumeric { primitiveKind: PrimitiveKind.F64 }
 
 /** A Boolean litreal (bool) */
-export interface LiteralBoolean extends LastNode {
+export interface LiteralBool extends LastNode {
     kind: LastKind.Literal
-    literalKind: LiteralKind.Boolean
+    primitiveKind: PrimitiveKind.Bool
     value: boolean
 }
 
 /** A null literal (null) */
 export interface LiteralNull extends LastNode {
     kind: LastKind.Literal
-    literalKind: LiteralKind.Null
+    primitiveKind: PrimitiveKind.Null
+    value: null
+}
+
+/** A memory literal (memory) */
+export interface LiteralMemory extends LastNode {
+    kind: LastKind.Literal
+    primitiveKind: PrimitiveKind.Memory
     value: null
 }
 
@@ -507,6 +559,12 @@ export interface Global extends LastNode {
     name: Reference
     type: TypeExpression
     value: Expression
+}
+
+/** A reference to a primitive type */
+export interface Primitive extends LastNode {
+    kind: LastKind.Primitive
+    primitive: PrimitiveKind
 }
 
 /** Declare a type with given name and type (typealias) */

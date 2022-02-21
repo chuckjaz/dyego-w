@@ -1,10 +1,10 @@
-fun atoi(len: Int, bytes: Int[]^): Int {
-    var i: Int = 0;
-    var value: Int = 0;
+fun atoi(len: i32, bytes: i32[]^): i32 {
+    var i: i32 = 0;
+    var value: i32 = 0;
     block outer {
         loop {
             if (i >= len) { branch outer; }
-            var c: Int = bytes^[i];
+            var c: i32 = bytes^[i];
             block a {
                 block b {
                     block c {
@@ -22,7 +22,7 @@ fun atoi(len: Int, bytes: Int[]^): Int {
     value;
 }
 
-var b30: Int[2] = [ 51, 49 ];
-var b12: Int[2] = [ 49, 49 ];
+var b30: i32[2] = [ 51, 49 ];
+var b12: i32[2] = [ 49, 49 ];
 
-export fun test(): Int = atoi(2, &b30) + atoi(2, &b12)
+export fun test(): i32 = atoi(2, &b30) + atoi(2, &b12)

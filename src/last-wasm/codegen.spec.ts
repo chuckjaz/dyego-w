@@ -8,27 +8,27 @@ import { codegen } from './codegen';
 
 describe("last codegen", () => {
     it("can create add function", () => {
-        cg("export fun add(a: Int, b: Int): Int = a + b", exports => {
+        cg("export fun add(a: i32, b: i32): i32 = a + b", exports => {
             const val = exports.add(30, 12);
             expect(val).toBe(42);
         })
     })
     it("can call a built in member", () => {
-        cg("export fun sqrt(a: Double): Double = a.sqrt()", exports => {
+        cg("export fun sqrt(a: f64): f64 = a.sqrt()", exports => {
             const val = exports.sqrt(64)
             expect(val).toBe(8)
         })
     })
     it("can generate an if statement", () => {
-        cg("export fun min(a: Double, b: Double): Double = if (a > b) b else a", exports => {
+        cg("export fun min(a: f64, b: f64): f64 = if (a > b) b else a", exports => {
             const val = exports.min(72, 42)
             expect(val).toBe(42)
         })
     })
     it("can assign a variable", () => {
         cg(`
-          export fun test(): Boolean {
-              var i: Int;
+          export fun test(): bool {
+              var i: i32;
               i = i + 1;
               i == 1;
           }
@@ -38,9 +38,9 @@ describe("last codegen", () => {
     })
     it("can generate a loop", () => {
         cg(`
-            export fun test(): Int {
-                var i: Int = 0;
-                var sum: Int = 0;
+            export fun test(): i32 {
+                var i: i32 = 0;
+                var sum: i32 = 0;
                 loop {
                     if (i < 10) {
                         sum = sum + i;
@@ -56,8 +56,8 @@ describe("last codegen", () => {
     })
     it("can declare top level vars", () => {
         cg(`
-            var d: Int = 42;
-            export fun test(): Int {
+            var d: i32 = 42;
+            export fun test(): i32 {
                 d;
             }
         `, exports => {
@@ -66,10 +66,10 @@ describe("last codegen", () => {
     })
     it("can declare a top level var that requires init", () => {
         cg(`
-            var a: Int = 12;
-            var b: Int = 30;
-            var c: Int = a + b;
-            export fun test(): Int {
+            var a: i32 = 12;
+            var b: i32 = 30;
+            var c: i32 = a + b;
+            export fun test(): i32 {
                 c;
             }
         `, exports => {
@@ -78,14 +78,14 @@ describe("last codegen", () => {
     })
     it("can declare a global variable", () => {
         cg(`
-            export global a: Int = 42;
+            export global a: i32 = 42;
         `, ({a}) => {
             expect(a.value).toBe(42)
         })
     })
     it("can export a structured type", () => {
         cg(`
-            type Point = < x: Int, y: Int>
+            type Point = < x: i32, y: i32>
 
             export global point: Point = { x: 10, y: 20 }
         `, exports => {
@@ -95,11 +95,11 @@ describe("last codegen", () => {
     })
     it("can declare a var initalized array", () => {
         cg(`
-            var values: Int[5] = [1, 2, 3, 4, 5];
+            var values: i32[5] = [1, 2, 3, 4, 5];
 
-            export fun test(): Int {
-                var i: Int = 0;
-                var sum: Int = 0;
+            export fun test(): i32 {
+                var i: i32 = 0;
+                var sum: i32 = 0;
                 loop {
                     if (i < 5) {
                         sum = sum + values[i];
@@ -117,132 +117,132 @@ describe("last codegen", () => {
         describe("primitive types", () => {
             describe("i8", () => {
                 it("can add", () => {
-                    cg("export fun test(a: Int8, b: Int8): Int8 = a + b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): i8 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(127, 1)).toEqual(-128)
                         expect(test(-128, -1)).toEqual(127)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: Int8, b: Int8): Int8 = a - b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): i8 = a - b", ({test}) => {
                         expect(test(1, 2)).toEqual(-1)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: Int8, b: Int8): Int8 = a * b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): i8 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: Int8, b: Int8): Int8 = a / b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): i8 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: Int8, b: Int8): Int8 = a % b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): i8 = a % b", ({test}) => {
                         expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: Int8, b: Int8): Int8 = a & b", ({test}) => {
+                        cg("export fun test(a: i8, b: i8): i8 = a & b", ({test}) => {
                             expect(test(7, 3)).toEqual(7 & 3)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: Int8, b: Int8): Int8 = a | b", ({test}) => {
+                        cg("export fun test(a: i8, b: i8): i8 = a | b", ({test}) => {
                             expect(test(6, 3)).toEqual(6 | 3)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: Int8, b: Int8): Int8 = a xor b", ({test}) => {
+                        cg("export fun test(a: i8, b: i8): i8 = a xor b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 ^ 2)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: Int8, b: Int32): Int8 = a shr b", ({test}) => {
+                        cg("export fun test(a: i8, b: i32): i8 = a shr b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 >> 2)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: Int8, b: Int32): Int8 = a shl b", ({test}) => {
+                        cg("export fun test(a: i8, b: i32): i8 = a shl b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: Int8, b: Int8): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): bool = a > b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: Int8, b: Int8): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): bool = a < b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int8, b: Int8): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): bool = a >= b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: Int8, b: Int8): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): bool = a <= b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int8, b: Int8): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): bool = a == b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int8, b: Int8): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: i8, b: i8): bool = a != b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
                 })
                 it("can return 127", () => {
-                    cg("export fun test(): Int8 = 127t", ({test}) => {
+                    cg("export fun test(): i8 = 127t", ({test}) => {
                         expect(test()).toEqual(127)
                     })
                 })
                 it("can return -128", () => {
-                    cg("export fun test(): Int8 = -128t", ({test}) => {
+                    cg("export fun test(): i8 = -128t", ({test}) => {
                         expect(test()).toEqual(-128)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int16", () => {
-                        cg(`export fun test(a: Int8): Int16 = a.toInt16()`, ({test}) => {
+                    it("can convert to i16", () => {
+                        cg(`export fun test(a: i8): i16 = a.toInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int", () => {
-                        cg(`export fun test(a: Int8): Int = a.toInt()`, ({test}) => {
+                    it("can convert to i32", () => {
+                        cg(`export fun test(a: i8): i32 = a.toInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int64", () => {
-                        cg(`export fun test(a: Int8): Int64 = a.toInt64()`, ({test}) => {
+                    it("can convert to i64", () => {
+                        cg(`export fun test(a: i8): i64 = a.toInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to UInt8", () => {
-                        cg(`export fun test(a: Int8): UInt8 = a.toUInt8()`, ({test}) => {
+                    it("can convert to u8", () => {
+                        cg(`export fun test(a: i8): u8 = a.toUInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt16", () => {
-                        cg(`export fun test(a: Int8): UInt16 = a.toUInt16()`, ({test}) => {
+                    it("can convert to u16", () => {
+                        cg(`export fun test(a: i8): u16 = a.toUInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt32", () => {
-                        cg(`export fun test(a: Int8): UInt = a.toUInt()`, ({test}) => {
+                    it("can convert to u32", () => {
+                        cg(`export fun test(a: i8): u32 = a.toUInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt64", () => {
-                        cg(`export fun test(a: Int8): UInt64 = a.toUInt64()`, ({test}) => {
+                    it("can convert to u64", () => {
+                        cg(`export fun test(a: i8): u64 = a.toUInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: Int8): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: i8): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: Int8): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: i8): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
@@ -250,132 +250,132 @@ describe("last codegen", () => {
             })
             describe("u8", () => {
                 it("can add", () => {
-                    cg("export fun test(a: UInt8, b: UInt8): UInt8 = a + b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): u8 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(255, 1)).toEqual(0)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: UInt8, b: UInt8): UInt8 = a - b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): u8 = a - b", ({test}) => {
                         expect(test(2, 1)).toEqual(1)
                         expect(test(0, 1)).toEqual(255)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: UInt8, b: UInt8): UInt8 = a * b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): u8 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: UInt8, b: UInt8): UInt8 = a / b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): u8 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: UInt8, b: UInt8): UInt8 = a % b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): u8 = a % b", ({test}) => {
                         expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: UInt8, b: UInt8): UInt8 = a & b", ({test}) => {
+                        cg("export fun test(a: u8, b: u8): u8 = a & b", ({test}) => {
                             expect(test(7, 3)).toEqual(7 & 3)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: UInt8, b: UInt8): UInt8 = a | b", ({test}) => {
+                        cg("export fun test(a: u8, b: u8): u8 = a | b", ({test}) => {
                             expect(test(6, 3)).toEqual(6 | 3)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: UInt8, b: UInt8): UInt8 = a xor b", ({test}) => {
+                        cg("export fun test(a: u8, b: u8): u8 = a xor b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 ^ 2)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: UInt8, b: Int32): UInt8 = a shr b", ({test}) => {
+                        cg("export fun test(a: u8, b: i32): u8 = a shr b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 >> 2)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: UInt8, b: Int32): UInt8 = a shl b", ({test}) => {
+                        cg("export fun test(a: u8, b: i32): u8 = a shl b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: UInt8, b: UInt8): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): bool = a > b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt8, b: UInt8): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): bool = a < b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt8, b: UInt8): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): bool = a >= b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt8, b: UInt8): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): bool = a <= b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt8, b: UInt8): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): bool = a == b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt8, b: UInt8): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: u8, b: u8): bool = a != b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
                 })
                 it("can return 255", () => {
-                    cg("export fun test(): UInt8 = 255ut", ({test}) => {
+                    cg("export fun test(): u8 = 255ut", ({test}) => {
                         expect(test()).toEqual(255)
                     })
                 })
                 it("can return 0", () => {
-                    cg("export fun test(): UInt8 = 0ut", ({test}) => {
+                    cg("export fun test(): u8 = 0ut", ({test}) => {
                         expect(test()).toEqual(0)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int8", () => {
-                        cg(`export fun test(a: UInt8): Int8 = a.toInt8()`, ({test}) => {
+                    it("can convert to i8", () => {
+                        cg(`export fun test(a: u8): i8 = a.toInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int16", () => {
-                        cg(`export fun test(a: UInt8): Int16 = a.toInt16()`, ({test}) => {
+                    it("can convert to i16", () => {
+                        cg(`export fun test(a: u8): i16 = a.toInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int", () => {
-                        cg(`export fun test(a: UInt8): Int = a.toInt()`, ({test}) => {
+                    it("can convert to i32", () => {
+                        cg(`export fun test(a: u8): i32 = a.toInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int64", () => {
-                        cg(`export fun test(a: UInt8): Int64 = a.toInt64()`, ({test}) => {
+                    it("can convert to i64", () => {
+                        cg(`export fun test(a: u8): i64 = a.toInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to UInt16", () => {
-                        cg(`export fun test(a: UInt8): UInt16 = a.toUInt16()`, ({test}) => {
+                    it("can convert to u16", () => {
+                        cg(`export fun test(a: u8): u16 = a.toUInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt32", () => {
-                        cg(`export fun test(a: UInt8): UInt = a.toUInt()`, ({test}) => {
+                    it("can convert to u32", () => {
+                        cg(`export fun test(a: u8): u32 = a.toUInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt64", () => {
-                        cg(`export fun test(a: UInt8): UInt64 = a.toUInt64()`, ({test}) => {
+                    it("can convert to u64", () => {
+                        cg(`export fun test(a: u8): u64 = a.toUInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: UInt8): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: u8): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: UInt8): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: u8): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
@@ -383,132 +383,132 @@ describe("last codegen", () => {
             })
             describe("i16", () => {
                 it("can add", () => {
-                    cg("export fun test(a: Int16, b: Int16): Int16 = a + b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): i16 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(0x7fff, 1)).toEqual(-0x8000)
                         expect(test(-0x8000, -1)).toEqual(0x7fff)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: Int16, b: Int16): Int16 = a - b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): i16 = a - b", ({test}) => {
                         expect(test(1, 2)).toEqual(-1)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: Int16, b: Int16): Int16 = a * b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): i16 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: Int16, b: Int16): Int16 = a / b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): i16 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: Int16, b: Int16): Int16 = a % b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): i16 = a % b", ({test}) => {
                         expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: Int16, b: Int16): Int16 = a & b", ({test}) => {
+                        cg("export fun test(a: i16, b: i16): i16 = a & b", ({test}) => {
                             expect(test(7, 3)).toEqual(7 & 3)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: Int16, b: Int16): Int16 = a | b", ({test}) => {
+                        cg("export fun test(a: i16, b: i16): i16 = a | b", ({test}) => {
                             expect(test(6, 3)).toEqual(6 | 3)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: Int16, b: Int16): Int16 = a xor b", ({test}) => {
+                        cg("export fun test(a: i16, b: i16): i16 = a xor b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 ^ 2)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: Int16, b: Int32): Int16 = a shr b", ({test}) => {
+                        cg("export fun test(a: i16, b: i32): i16 = a shr b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 >> 2)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: Int16, b: Int32): Int16 = a shl b", ({test}) => {
+                        cg("export fun test(a: i16, b: i32): i16 = a shl b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: Int16, b: Int16): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): bool = a > b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: Int16, b: Int16): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): bool = a < b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int16, b: Int16): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): bool = a >= b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: Int16, b: Int16): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): bool = a <= b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int16, b: Int16): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): bool = a == b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int16, b: Int16): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: i16, b: i16): bool = a != b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
                 })
                 it("can return 32767", () =>{
-                    cg("export fun test(): Int16 = 32767s", ({test}) => {
+                    cg("export fun test(): i16 = 32767s", ({test}) => {
                         expect(test()).toEqual(32767)
                     })
                 })
                 it("can return -32768", () => {
-                    cg("export fun test(): Int16 = -32768s", ({test}) => {
+                    cg("export fun test(): i16 = -32768s", ({test}) => {
                         expect(test()).toEqual(-32768)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int8", () => {
-                        cg(`export fun test(a: Int16): Int8 = a.toInt8()`, ({test}) => {
+                    it("can convert to i8", () => {
+                        cg(`export fun test(a: i16): i8 = a.toInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int", () => {
-                        cg(`export fun test(a: Int16): Int = a.toInt()`, ({test}) => {
+                    it("can convert to i32", () => {
+                        cg(`export fun test(a: i16): i32 = a.toInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int64", () => {
-                        cg(`export fun test(a: Int16): Int64 = a.toInt64()`, ({test}) => {
+                    it("can convert to i64", () => {
+                        cg(`export fun test(a: i16): i64 = a.toInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to UInt8", () => {
-                        cg(`export fun test(a: Int16): UInt8 = a.toUInt8()`, ({test}) => {
+                    it("can convert to u8", () => {
+                        cg(`export fun test(a: i16): u8 = a.toUInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt16", () => {
-                        cg(`export fun test(a: Int16): UInt16 = a.toUInt16()`, ({test}) => {
+                    it("can convert to u16", () => {
+                        cg(`export fun test(a: i16): u16 = a.toUInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt32", () => {
-                        cg(`export fun test(a: Int16): UInt = a.toUInt()`, ({test}) => {
+                    it("can convert to u32", () => {
+                        cg(`export fun test(a: i16): u32 = a.toUInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt64", () => {
-                        cg(`export fun test(a: Int16): UInt64 = a.toUInt64()`, ({test}) => {
+                    it("can convert to u64", () => {
+                        cg(`export fun test(a: i16): u64 = a.toUInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: Int16): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: i16): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: Int16): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: i16): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
@@ -516,132 +516,132 @@ describe("last codegen", () => {
             })
             describe("u16", () => {
                 it("can add", () => {
-                    cg("export fun test(a: UInt16, b: UInt16): UInt16 = a + b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): u16 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(65535, 1)).toEqual(0)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: UInt16, b: UInt16): UInt16 = a - b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): u16 = a - b", ({test}) => {
                         expect(test(2, 1)).toEqual(1)
                         expect(test(0, 1)).toEqual(65535)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: UInt16, b: UInt16): UInt16 = a * b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): u16 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: UInt16, b: UInt16): UInt16 = a / b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): u16 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: UInt16, b: UInt16): UInt16 = a % b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): u16 = a % b", ({test}) => {
                         expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: UInt16, b: UInt16): UInt16 = a & b", ({test}) => {
+                        cg("export fun test(a: u16, b: u16): u16 = a & b", ({test}) => {
                             expect(test(7, 3)).toEqual(7 & 3)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: UInt16, b: UInt16): UInt16 = a | b", ({test}) => {
+                        cg("export fun test(a: u16, b: u16): u16 = a | b", ({test}) => {
                             expect(test(6, 3)).toEqual(6 | 3)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: UInt16, b: UInt16): UInt16 = a xor b", ({test}) => {
+                        cg("export fun test(a: u16, b: u16): u16 = a xor b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 ^ 2)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: UInt16, b: Int32): UInt16 = a shr b", ({test}) => {
+                        cg("export fun test(a: u16, b: i32): u16 = a shr b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 >> 2)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: UInt16, b: Int32): UInt16 = a shl b", ({test}) => {
+                        cg("export fun test(a: u16, b: i32): u16 = a shl b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: UInt16, b: UInt16): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): bool = a > b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt16, b: UInt16): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): bool = a < b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt16, b: UInt16): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): bool = a >= b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt16, b: UInt16): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): bool = a <= b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt16, b: UInt16): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): bool = a == b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt16, b: UInt16): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: u16, b: u16): bool = a != b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
                 })
                 it("can return 65535", () => {
-                    cg("export fun test(): UInt16 = 65535us", ({test}) => {
+                    cg("export fun test(): u16 = 65535us", ({test}) => {
                         expect(test()).toEqual(65535)
                     })
                 })
                 it("can return 0", () => {
-                    cg("export fun test(): UInt16 = 0us", ({test}) => {
+                    cg("export fun test(): u16 = 0us", ({test}) => {
                         expect(test()).toEqual(0)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int8", () => {
-                        cg(`export fun test(a: UInt16): Int8 = a.toInt8()`, ({test}) => {
+                    it("can convert to i8", () => {
+                        cg(`export fun test(a: u16): i8 = a.toInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int16", () => {
-                        cg(`export fun test(a: UInt16): Int16 = a.toInt16()`, ({test}) => {
+                    it("can convert to i16", () => {
+                        cg(`export fun test(a: u16): i16 = a.toInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int", () => {
-                        cg(`export fun test(a: UInt16): Int = a.toInt()`, ({test}) => {
+                    it("can convert to i32", () => {
+                        cg(`export fun test(a: u16): i32 = a.toInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int64", () => {
-                        cg(`export fun test(a: UInt16): Int64 = a.toInt64()`, ({test}) => {
+                    it("can convert to i64", () => {
+                        cg(`export fun test(a: u16): i64 = a.toInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to UInt8", () => {
-                        cg(`export fun test(a: UInt16): UInt8 = a.toUInt8()`, ({test}) => {
+                    it("can convert to u8", () => {
+                        cg(`export fun test(a: u16): u8 = a.toUInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt32", () => {
-                        cg(`export fun test(a: UInt16): UInt = a.toUInt()`, ({test}) => {
+                    it("can convert to u32", () => {
+                        cg(`export fun test(a: u16): u32 = a.toUInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt64", () => {
-                        cg(`export fun test(a: UInt16): UInt64 = a.toUInt64()`, ({test}) => {
+                    it("can convert to u64", () => {
+                        cg(`export fun test(a: u16): u64 = a.toUInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: UInt16): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: u16): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: UInt16): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: u16): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
@@ -649,159 +649,159 @@ describe("last codegen", () => {
             })
             describe("i32", () => {
                 it("can add", () => {
-                    cg("export fun test(a: Int32, b: Int32): Int32 = a + b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): i32 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(0x7fffffff, 1)).toEqual(-0x80000000)
                         expect(test(-0x80000000, -1)).toEqual(0x7fffffff)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: Int32, b: Int32): Int32 = a - b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): i32 = a - b", ({test}) => {
                         expect(test(1, 2)).toEqual(-1)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: Int32, b: Int32): Int32 = a * b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): i32 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: Int32, b: Int32): Int32 = a / b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): i32 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: Int32, b: Int32): Int32 = a % b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): i32 = a % b", ({test}) => {
                         expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: Int32, b: Int32): Int32 = a & b", ({test}) => {
+                        cg("export fun test(a: i32, b: i32): i32 = a & b", ({test}) => {
                             expect(test(7, 3)).toEqual(7 & 3)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: Int32, b: Int32): Int32 = a | b", ({test}) => {
+                        cg("export fun test(a: i32, b: i32): i32 = a | b", ({test}) => {
                             expect(test(6, 3)).toEqual(6 | 3)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: Int32, b: Int32): Int32 = a xor b", ({test}) => {
+                        cg("export fun test(a: i32, b: i32): i32 = a xor b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 ^ 2)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: Int32, b: Int32): Int32 = a shr b", ({test}) => {
+                        cg("export fun test(a: i32, b: i32): i32 = a shr b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 >> 2)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: Int32, b: Int32): Int32 = a shl b", ({test}) => {
+                        cg("export fun test(a: i32, b: i32): i32 = a shl b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                     it("can bitwise ror", () => {
-                        cg("export fun test(a: Int32, b: Int32): Int32 = a ror b", ({test}) => {
+                        cg("export fun test(a: i32, b: i32): i32 = a ror b", ({test}) => {
                             expect(test(7, 2)).toEqual(-1073741823)
                         })
                     })
                     it("can bitwise rol", () => {
-                        cg("export fun test(a: Int32, b: Int32): Int32 = a rol b", ({test}) => {
+                        cg("export fun test(a: i32, b: i32): i32 = a rol b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                 })
                 describe("counting", () => {
                     it("can count trailing zeros", () => {
-                        cg("export fun test(a: Int32): Int32 = a counttrailingzeros", ({test}) => {
+                        cg("export fun test(a: i32): i32 = a counttrailingzeros", ({test}) => {
                             expect(test(32)).toEqual(5)
                         })
                     })
                     it("can count leading zeros", () => {
-                        cg("export fun test(a: Int32): Int32 = a countleadingzeros", ({test}) => {
+                        cg("export fun test(a: i32): i32 = a countleadingzeros", ({test}) => {
                             expect(test(32)).toEqual(26)
                         })
                     })
                     it("can count non-zeros", () => {
-                        cg("export fun test(a: Int32): Int32 = a countnonzeros", ({test}) => {
+                        cg("export fun test(a: i32): i32 = a countnonzeros", ({test}) => {
                             expect(test(0x55)).toEqual(4)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: Int32, b: Int32): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): bool = a > b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: Int32, b: Int32): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): bool = a < b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int32, b: Int32): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): bool = a >= b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: Int32, b: Int32): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): bool = a <= b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int32, b: Int32): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): bool = a == b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: Int32, b: Int32): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: i32, b: i32): bool = a != b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
                 })
                 it("can return 2147483647", () =>{
-                    cg("export fun test(): Int32 = 2147483647", ({test}) => {
+                    cg("export fun test(): i32 = 2147483647", ({test}) => {
                         expect(test()).toEqual(2147483647)
                     })
                 })
                 it("can return -2147483648", () => {
-                    cg("export fun test(): Int32 = -2147483648", ({test}) => {
+                    cg("export fun test(): i32 = -2147483648", ({test}) => {
                         expect(test()).toEqual(-2147483648)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int8", () => {
-                        cg(`export fun test(a: Int): Int8 = a.toInt8()`, ({test}) => {
+                    it("can convert to i8", () => {
+                        cg(`export fun test(a: i32): i8 = a.toInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int16", () => {
-                        cg(`export fun test(a: Int): Int16 = a.toInt16()`, ({test}) => {
+                    it("can convert to i16", () => {
+                        cg(`export fun test(a: i32): i16 = a.toInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int64", () => {
-                        cg(`export fun test(a: Int): Int64 = a.toInt64()`, ({test}) => {
+                    it("can convert to i64", () => {
+                        cg(`export fun test(a: i32): i64 = a.toInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to UInt8", () => {
-                        cg(`export fun test(a: Int): UInt8 = a.toUInt8()`, ({test}) => {
+                    it("can convert to u8", () => {
+                        cg(`export fun test(a: i32): u8 = a.toUInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt16", () => {
-                        cg(`export fun test(a: Int): UInt16 = a.toUInt16()`, ({test}) => {
+                    it("can convert to u16", () => {
+                        cg(`export fun test(a: i32): u16 = a.toUInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt32", () => {
-                        cg(`export fun test(a: Int): UInt = a.toUInt()`, ({test}) => {
+                    it("can convert to u32", () => {
+                        cg(`export fun test(a: i32): u32 = a.toUInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt64", () => {
-                        cg(`export fun test(a: Int): UInt64 = a.toUInt64()`, ({test}) => {
+                    it("can convert to u64", () => {
+                        cg(`export fun test(a: i32): u64 = a.toUInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: Int): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: i32): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: Int): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: i32): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
@@ -809,167 +809,167 @@ describe("last codegen", () => {
             })
             describe("u32", () => {
                 it("can add", () => {
-                    cg("export fun test(a: UInt32, b: UInt32): UInt32 = a + b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): u32 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(4294967295, 1)).toEqual(0)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: UInt32, b: UInt32): UInt32 = a - b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): u32 = a - b", ({test}) => {
                         expect(test(2, 1)).toEqual(1)
                         expect(test(0, 1)).toEqual(-1)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: UInt32, b: UInt32): UInt32 = a * b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): u32 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: UInt32, b: UInt32): UInt32 = a / b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): u32 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: UInt32, b: UInt32): UInt32 = a % b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): u32 = a % b", ({test}) => {
                         expect(test(23, 3)).toEqual(23 % 3)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: UInt32, b: UInt32): UInt32 = a & b", ({test}) => {
+                        cg("export fun test(a: u32, b: u32): u32 = a & b", ({test}) => {
                             expect(test(7, 3)).toEqual(7 & 3)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: UInt32, b: UInt32): UInt32 = a | b", ({test}) => {
+                        cg("export fun test(a: u32, b: u32): u32 = a | b", ({test}) => {
                             expect(test(6, 3)).toEqual(6 | 3)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: UInt32, b: UInt32): UInt32 = a xor b", ({test}) => {
+                        cg("export fun test(a: u32, b: u32): u32 = a xor b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 ^ 2)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a shr b", ({test}) => {
+                        cg("export fun test(a: u32, b: i32): u32 = a shr b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 >> 2)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a shl b", ({test}) => {
+                        cg("export fun test(a: u32, b: i32): u32 = a shl b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                     it("can bitwise ror", () => {
-                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a ror b", ({test}) => {
+                        cg("export fun test(a: u32, b: i32): u32 = a ror b", ({test}) => {
                             expect(test(7, 2)).toEqual(-1073741823)
                         })
                     })
                     it("can bitwise rol", () => {
-                        cg("export fun test(a: UInt32, b: Int32): UInt32 = a rol b", ({test}) => {
+                        cg("export fun test(a: u32, b: i32): u32 = a rol b", ({test}) => {
                             expect(test(7, 2)).toEqual(7 << 2)
                         })
                     })
                 })
                 describe("counting", () => {
                     it("can count trailing zeros", () => {
-                        cg("export fun test(a: UInt32): UInt32 = a counttrailingzeros", ({test}) => {
+                        cg("export fun test(a: u32): u32 = a counttrailingzeros", ({test}) => {
                             expect(test(32)).toEqual(5)
                         })
                     })
                     it("can count leading zeros", () => {
-                        cg("export fun test(a: UInt32): UInt32 = a countleadingzeros", ({test}) => {
+                        cg("export fun test(a: u32): u32 = a countleadingzeros", ({test}) => {
                             expect(test(32)).toEqual(26)
                         })
                     })
                     it("can count non-zeros", () => {
-                        cg("export fun test(a: UInt32): UInt32 = a countnonzeros", ({test}) => {
+                        cg("export fun test(a: u32): u32 = a countnonzeros", ({test}) => {
                             expect(test(0x55)).toEqual(4)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: UInt32, b: UInt32): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): bool = a > b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt32, b: UInt32): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): bool = a < b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt32, b: UInt32): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): bool = a >= b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt32, b: UInt32): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): bool = a <= b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt32, b: UInt32): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): bool = a == b", ({test}) => {
                         expect(test(14, 2)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt32, b: UInt32): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: u32, b: u32): bool = a != b", ({test}) => {
                         expect(test(14, 2)).toEqual(1)
                     })
                 })
                 it("can return 4294967295", () => {
-                    cg("export fun test(): UInt32 = 4294967295u", ({test}) => {
+                    cg("export fun test(): u32 = 4294967295u", ({test}) => {
                         expect(test()).toEqual(-1)
                     })
                 })
                 it("can return 0", () => {
-                    cg("export fun test(): UInt32 = 0u", ({test}) => {
+                    cg("export fun test(): u32 = 0u", ({test}) => {
                         expect(test()).toEqual(0)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int8", () => {
-                        cg(`export fun test(a: UInt): Int8 = a.toInt8()`, ({test}) => {
+                    it("can convert to i8", () => {
+                        cg(`export fun test(a: u32): i8 = a.toInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int16", () => {
-                        cg(`export fun test(a: UInt): Int16 = a.toInt16()`, ({test}) => {
+                    it("can convert to i16", () => {
+                        cg(`export fun test(a: u32): i16 = a.toInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int", () => {
-                        cg(`export fun test(a: UInt): Int = a.toInt()`, ({test}) => {
+                    it("can convert to i32", () => {
+                        cg(`export fun test(a: u32): i32 = a.toInt()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Int64", () => {
-                        cg(`export fun test(a: UInt): Int64 = a.toInt64()`, ({test}) => {
+                    it("can convert to i64", () => {
+                        cg(`export fun test(a: u32): i64 = a.toInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to UInt8", () => {
-                        cg(`export fun test(a: UInt): UInt8 = a.toUInt8()`, ({test}) => {
+                    it("can convert to u8", () => {
+                        cg(`export fun test(a: u32): u8 = a.toUInt8()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt16", () => {
-                        cg(`export fun test(a: UInt): UInt16 = a.toUInt16()`, ({test}) => {
+                    it("can convert to u16", () => {
+                        cg(`export fun test(a: u32): u16 = a.toUInt16()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to UInt64", () => {
-                        cg(`export fun test(a: UInt): UInt64 = a.toUInt64()`, ({test}) => {
+                    it("can convert to u64", () => {
+                        cg(`export fun test(a: u32): u64 = a.toUInt64()`, ({test}) => {
                             expect(test(15)).toBe(15n)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: UInt): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: u32): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: UInt): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: u32): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15)).toBe(15)
                         })
                     })
                     it("can convert to a Pointer", () => {
                         cg(`
-                            var a: Int;
-                            var b: Int^ = &a;
-                            export fun test(): UInt = b as UInt;
+                            var a: i32;
+                            var b: i32^ = &a;
+                            export fun test(): u32 = b as u32;
                         `, ({test}) => {
                             expect(test()).toEqual(4)
                         })
@@ -978,159 +978,159 @@ describe("last codegen", () => {
             })
             describe("i64", () => {
                 it("can add", () => {
-                    cg("export fun test(a: Int64, b: Int64): Int64 = a + b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): i64 = a + b", ({test}) => {
                         expect(test(1n, 2n)).toEqual(3n)
                         expect(test(0x7fffffffffffffffn, 1n)).toEqual(-0x8000000000000000n)
                         expect(test(-0x8000000000000000n, -1n)).toEqual(0x7fffffffffffffffn)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: Int64, b: Int64): Int64 = a - b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): i64 = a - b", ({test}) => {
                         expect(test(1n, 2n)).toEqual(-1n)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: Int64, b: Int64): Int64 = a * b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): i64 = a * b", ({test}) => {
                         expect(test(2n, 3n)).toEqual(6n)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: Int64, b: Int64): Int64 = a / b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): i64 = a / b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(7n)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: Int64, b: Int64): Int64 = a % b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): i64 = a % b", ({test}) => {
                         expect(test(23n, 3n)).toEqual(23n % 3n)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: Int64, b: Int64): Int64 = a & b", ({test}) => {
+                        cg("export fun test(a: i64, b: i64): i64 = a & b", ({test}) => {
                             expect(test(7n, 3n)).toEqual(7n & 3n)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: Int64, b: Int64): Int64 = a | b", ({test}) => {
+                        cg("export fun test(a: i64, b: i64): i64 = a | b", ({test}) => {
                             expect(test(6n, 3n)).toEqual(6n | 3n)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: Int64, b: Int64): Int64 = a xor b", ({test}) => {
+                        cg("export fun test(a: i64, b: i64): i64 = a xor b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n ^ 2n)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: Int64, b: Int64): Int64 = a shr b", ({test}) => {
+                        cg("export fun test(a: i64, b: i64): i64 = a shr b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n >> 2n)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: Int64, b: Int64): Int64 = a shl b", ({test}) => {
+                        cg("export fun test(a: i64, b: i64): i64 = a shl b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n << 2n)
                         })
                     })
                     it("can bitwise ror", () => {
-                        cg("export fun test(a: Int64, b: Int64): Int64 = a ror b", ({test}) => {
+                        cg("export fun test(a: i64, b: i64): i64 = a ror b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(-4611686018427387903n)
                         })
                     })
                     it("can bitwise rol", () => {
-                        cg("export fun test(a: Int64, b: Int64): Int64 = a rol b", ({test}) => {
+                        cg("export fun test(a: i64, b: i64): i64 = a rol b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n << 2n)
                         })
                     })
                 })
                 describe("counting", () => {
                     it("can count trailing zeros", () => {
-                        cg("export fun test(a: Int64): Int64 = a counttrailingzeros", ({test}) => {
+                        cg("export fun test(a: i64): i64 = a counttrailingzeros", ({test}) => {
                             expect(test(32n)).toEqual(5n)
                         })
                     })
                     it("can count leading zeros", () => {
-                        cg("export fun test(a: Int64): Int64 = a countleadingzeros", ({test}) => {
+                        cg("export fun test(a: i64): i64 = a countleadingzeros", ({test}) => {
                             expect(test(32n)).toEqual(58n)
                         })
                     })
                     it("can count non-zeros", () => {
-                        cg("export fun test(a: Int64): Int64 = a countnonzeros", ({test}) => {
+                        cg("export fun test(a: i64): i64 = a countnonzeros", ({test}) => {
                             expect(test(0x55n)).toEqual(4n)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: Int64, b: Int64): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): bool = a > b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(1)
                     })
-                    cg("export fun test(a: Int64, b: Int64): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): bool = a < b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(0)
                     })
-                    cg("export fun test(a: Int64, b: Int64): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): bool = a >= b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(1)
                     })
-                    cg("export fun test(a: Int64, b: Int64): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): bool = a <= b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(0)
                     })
-                    cg("export fun test(a: Int64, b: Int64): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): bool = a == b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(0)
                     })
-                    cg("export fun test(a: Int64, b: Int64): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: i64, b: i64): bool = a != b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(1)
                     })
                 })
                 it("can return 9223372036854775807", () =>{
-                    cg("export fun test(): Int64 = 9223372036854775807l", ({test}) => {
+                    cg("export fun test(): i64 = 9223372036854775807l", ({test}) => {
                         expect(test()).toEqual(9223372036854775807n)
                     })
                 })
                 it("can return -9223372036854775808", () => {
-                    cg("export fun test(): Int64 = -9223372036854775808l", ({test}) => {
+                    cg("export fun test(): i64 = -9223372036854775808l", ({test}) => {
                         expect(test()).toEqual(-9223372036854775808n)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int8", () => {
-                        cg(`export fun test(a: Int64): Int8 = a.toInt8()`, ({test}) => {
+                    it("can convert to i8", () => {
+                        cg(`export fun test(a: i64): i8 = a.toInt8()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Int16", () => {
-                        cg(`export fun test(a: Int64): Int16 = a.toInt16()`, ({test}) => {
+                    it("can convert to i16", () => {
+                        cg(`export fun test(a: i64): i16 = a.toInt16()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Int", () => {
-                        cg(`export fun test(a: Int64): Int = a.toInt()`, ({test}) => {
+                    it("can convert to i32", () => {
+                        cg(`export fun test(a: i64): i32 = a.toInt()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to UInt8", () => {
-                        cg(`export fun test(a: Int64): UInt8 = a.toUInt8()`, ({test}) => {
+                    it("can convert to u8", () => {
+                        cg(`export fun test(a: i64): u8 = a.toUInt8()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to UInt16", () => {
-                        cg(`export fun test(a: Int64): UInt16 = a.toUInt16()`, ({test}) => {
+                    it("can convert to u16", () => {
+                        cg(`export fun test(a: i64): u16 = a.toUInt16()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to UInt", () => {
-                        cg(`export fun test(a: Int64): UInt = a.toUInt()`, ({test}) => {
+                    it("can convert to u32", () => {
+                        cg(`export fun test(a: i64): u32 = a.toUInt()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to UInt64", () => {
-                        cg(`export fun test(a: Int64): UInt64 = a.toUInt64()`, ({test}) => {
+                    it("can convert to u64", () => {
+                        cg(`export fun test(a: i64): u64 = a.toUInt64()`, ({test}) => {
                             expect(test(15n)).toBe(15n)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: Int64): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: i64): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: Int64): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: i64): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
@@ -1138,230 +1138,230 @@ describe("last codegen", () => {
             })
             describe("u64", () => {
                 it("can add", () => {
-                    cg("export fun test(a: UInt64, b: UInt64): UInt64 = a + b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): u64 = a + b", ({test}) => {
                         expect(test(1n, 2n)).toEqual(3n)
                         expect(test(18446744073709551615n, 1n)).toEqual(0n)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: UInt64, b: UInt64): UInt64 = a - b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): u64 = a - b", ({test}) => {
                         expect(test(2n, 1n)).toEqual(1n)
                         expect(test(0n, 1n)).toEqual(-1n)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: UInt64, b: UInt64): UInt64 = a * b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): u64 = a * b", ({test}) => {
                         expect(test(2n, 3n)).toEqual(6n)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: UInt64, b: UInt64): UInt64 = a / b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): u64 = a / b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(7n)
                     })
                 })
                 it("can remainder", () => {
-                    cg("export fun test(a: UInt64, b: UInt64): UInt64 = a % b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): u64 = a % b", ({test}) => {
                         expect(test(23n, 3n)).toEqual(23n % 3n)
                     })
                 })
                 describe("bitwise", () => {
                     it("can bitwise and", () => {
-                        cg("export fun test(a: UInt64, b: UInt64): UInt64 = a & b", ({test}) => {
+                        cg("export fun test(a: u64, b: u64): u64 = a & b", ({test}) => {
                             expect(test(7n, 3n)).toEqual(7n & 3n)
                         })
                     })
                     it("can bitwise or", () => {
-                        cg("export fun test(a: UInt64, b: UInt64): UInt64 = a | b", ({test}) => {
+                        cg("export fun test(a: u64, b: u64): u64 = a | b", ({test}) => {
                             expect(test(6n, 3n)).toEqual(6n | 3n)
                         })
                     })
                     it("can bitwise xor", () => {
-                        cg("export fun test(a: UInt64, b: UInt64): UInt64 = a xor b", ({test}) => {
+                        cg("export fun test(a: u64, b: u64): u64 = a xor b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n ^ 2n)
                         })
                     })
                     it("can bitwise shr", () => {
-                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a shr b", ({test}) => {
+                        cg("export fun test(a: u64, b: i64): u64 = a shr b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n >> 2n)
                         })
                     })
                     it("can bitwise shl", () => {
-                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a shl b", ({test}) => {
+                        cg("export fun test(a: u64, b: i64): u64 = a shl b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n << 2n)
                         })
                     })
                     it("can bitwise ror", () => {
-                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a ror b", ({test}) => {
+                        cg("export fun test(a: u64, b: i64): u64 = a ror b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(-4611686018427387903n)
                         })
                     })
                     it("can bitwise rol", () => {
-                        cg("export fun test(a: UInt64, b: Int64): UInt64 = a rol b", ({test}) => {
+                        cg("export fun test(a: u64, b: i64): u64 = a rol b", ({test}) => {
                             expect(test(7n, 2n)).toEqual(7n << 2n)
                         })
                     })
                 })
                 describe("counting", () => {
                     it("can count trailing zeros", () => {
-                        cg("export fun test(a: UInt64): UInt64 = a counttrailingzeros", ({test}) => {
+                        cg("export fun test(a: u64): u64 = a counttrailingzeros", ({test}) => {
                             expect(test(32n)).toEqual(5n)
                         })
                     })
                     it("can count leading zeros", () => {
-                        cg("export fun test(a: UInt64): UInt64 = a countleadingzeros", ({test}) => {
+                        cg("export fun test(a: u64): u64 = a countleadingzeros", ({test}) => {
                             expect(test(32n)).toEqual(58n)
                         })
                     })
                     it("can count non-zeros", () => {
-                        cg("export fun test(a: UInt64): UInt64 = a countnonzeros", ({test}) => {
+                        cg("export fun test(a: u64): u64 = a countnonzeros", ({test}) => {
                             expect(test(0x55n)).toEqual(4n)
                         })
                     })
                 })
                 it("can compare", () => {
-                    cg("export fun test(a: UInt64, b: UInt64): Boolean = a > b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): bool = a > b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt64, b: UInt64): Boolean = a < b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): bool = a < b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt64, b: UInt64): Boolean = a >= b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): bool = a >= b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(1)
                     })
-                    cg("export fun test(a: UInt64, b: UInt64): Boolean = a <= b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): bool = a <= b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt64, b: UInt64): Boolean = a == b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): bool = a == b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(0)
                     })
-                    cg("export fun test(a: UInt64, b: UInt64): Boolean = a != b", ({test}) => {
+                    cg("export fun test(a: u64, b: u64): bool = a != b", ({test}) => {
                         expect(test(14n, 2n)).toEqual(1)
                     })
                 })
                 it("can return 9223372036854775807", () => {
-                    cg("export fun test(): UInt64 = 9223372036854775807ul", ({test}) => {
+                    cg("export fun test(): u64 = 9223372036854775807ul", ({test}) => {
                         expect(test()).toEqual(9223372036854775807n)
                     })
                 })
                 it("can return 0", () => {
-                    cg("export fun test(): UInt64 = 0ul", ({test}) => {
+                    cg("export fun test(): u64 = 0ul", ({test}) => {
                         expect(test()).toEqual(0n)
                     })
                 })
                 describe("conversion", () => {
-                    it("can convert to Int8", () => {
-                        cg(`export fun test(a: UInt64): Int8 = a.toInt8()`, ({test}) => {
+                    it("can convert to i8", () => {
+                        cg(`export fun test(a: u64): i8 = a.toInt8()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Int16", () => {
-                        cg(`export fun test(a: UInt64): Int16 = a.toInt16()`, ({test}) => {
+                    it("can convert to i16", () => {
+                        cg(`export fun test(a: u64): i16 = a.toInt16()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Int", () => {
-                        cg(`export fun test(a: UInt64): Int = a.toInt()`, ({test}) => {
+                    it("can convert to i32", () => {
+                        cg(`export fun test(a: u64): i32 = a.toInt()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Int64", () => {
-                        cg(`export fun test(a: UInt64): Int64 = a.toInt64()`, ({test}) => {
+                    it("can convert to i64", () => {
+                        cg(`export fun test(a: u64): i64 = a.toInt64()`, ({test}) => {
                             expect(test(15n)).toBe(15n)
                         })
                     })
-                    it("can convert to UInt8", () => {
-                        cg(`export fun test(a: UInt64): UInt8 = a.toUInt8()`, ({test}) => {
+                    it("can convert to u8", () => {
+                        cg(`export fun test(a: u64): u8 = a.toUInt8()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to UInt16", () => {
-                        cg(`export fun test(a: UInt64): UInt16 = a.toUInt16()`, ({test}) => {
+                    it("can convert to u16", () => {
+                        cg(`export fun test(a: u64): u16 = a.toUInt16()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to UInt", () => {
-                        cg(`export fun test(a: UInt64): UInt = a.toUInt()`, ({test}) => {
+                    it("can convert to u32", () => {
+                        cg(`export fun test(a: u64): u32 = a.toUInt()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Float32", () => {
-                        cg(`export fun test(a: UInt64): Float32 = a.toFloat32()`, ({test}) => {
+                    it("can convert to f32", () => {
+                        cg(`export fun test(a: u64): f32 = a.toFloat32()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
-                    it("can convert to Float64", () => {
-                        cg(`export fun test(a: UInt64): Float64 = a.toFloat64()`, ({test}) => {
+                    it("can convert to f64", () => {
+                        cg(`export fun test(a: u64): f64 = a.toFloat64()`, ({test}) => {
                             expect(test(15n)).toBe(15)
                         })
                     })
                 })
             })
-            describe("float32", () => {
+            describe("f32", () => {
                 it("can add", () => {
-                    cg("export fun test(a: Float32, b: Float32): Float32 = a + b", ({test}) => {
+                    cg("export fun test(a: f32, b: f32): f32 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(23, 19)).toEqual(42)
                         expect(test(1.23, 3.43)).toBeCloseTo(1.23 + 3.43)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: Float32, b: Float32): Float32 = a - b", ({test}) => {
+                    cg("export fun test(a: f32, b: f32): f32 = a - b", ({test}) => {
                         expect(test(1, 2)).toEqual(-1)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: Float32, b: Float32): Float32 = a * b", ({test}) => {
+                    cg("export fun test(a: f32, b: f32): f32 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: Float32, b: Float32): Float32 = a / b", ({test}) => {
+                    cg("export fun test(a: f32, b: f32): f32 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 describe("builtins", () => {
                     it("can abs", () => {
-                        cg("export fun test(a: Float32): Float32 = a.abs()", ({test}) => {
+                        cg("export fun test(a: f32): f32 = a.abs()", ({test}) => {
                             expect(test(-32)).toEqual(32)
                         })
                     })
                     it("can sqrt", () => {
-                        cg("export fun test(a: Float32): Float32 = a.sqrt()", ({test}) => {
+                        cg("export fun test(a: f32): f32 = a.sqrt()", ({test}) => {
                             expect(test(25)).toEqual(5)
                         })
                     })
                     it("can floor", () => {
-                        cg("export fun test(a: Float32): Float32 = a.floor()", ({test}) => {
+                        cg("export fun test(a: f32): f32 = a.floor()", ({test}) => {
                             expect(test(25.93)).toEqual(25)
                         })
                     })
                     it("can ceil", () => {
-                        cg("export fun test(a: Float32): Float32 = a.ceil()", ({test}) => {
+                        cg("export fun test(a: f32): f32 = a.ceil()", ({test}) => {
                             expect(test(25.93)).toEqual(26)
                         })
                     })
                     it("can trunc", () => {
-                        cg("export fun test(a: Float32): Float32 = a.trunc()", ({test}) => {
+                        cg("export fun test(a: f32): f32 = a.trunc()", ({test}) => {
                             expect(test(25.93)).toEqual(25)
                         })
                     })
                     it("can nearest", () => {
-                        cg("export fun test(a: Float32): Float32 = a.nearest()", ({test}) => {
+                        cg("export fun test(a: f32): f32 = a.nearest()", ({test}) => {
                             expect(test(25.93)).toEqual(26)
                         })
                     })
                     it("can min", () => {
-                        cg("export fun test(a: Float32, b: Float32): Float32 = a.min(b)", ({test}) => {
+                        cg("export fun test(a: f32, b: f32): f32 = a.min(b)", ({test}) => {
                             expect(test(25, 30)).toEqual(25)
                         })
                     })
                     it("can max", () => {
-                        cg("export fun test(a: Float32, b: Float32): Float32 = a.max(b)", ({test}) => {
+                        cg("export fun test(a: f32, b: f32): f32 = a.max(b)", ({test}) => {
                             expect(test(25, 30)).toEqual(30)
                         })
                     })
                     it("can copysign", () => {
-                        cg("export fun test(a: Float32, b: Float32): Float32 = a.copysign(b)", ({test}) => {
+                        cg("export fun test(a: f32, b: f32): f32 = a.copysign(b)", ({test}) => {
                             expect(test(1, 23)).toEqual(1)
                             expect(test(1, -23)).toEqual(-1)
                         })
@@ -1369,103 +1369,103 @@ describe("last codegen", () => {
                 })
                 describe("conversions", () => {
                     it("can truncToInt32", () => {
-                        cg("export fun test(a: Float32): Int32 = a.truncToInt32()", ({test}) => {
+                        cg("export fun test(a: f32): i32 = a.truncToInt32()", ({test}) => {
                             expect(test(15.5)).toBe(15)
                         })
                     })
                     it("can truncToUInt32", () => {
-                        cg("export fun test(a: Float32): UInt32 = a.truncToUInt32()", ({test}) => {
+                        cg("export fun test(a: f32): u32 = a.truncToUInt32()", ({test}) => {
                             expect(test(15.5)).toBe(15)
                         })
                     })
                     it("can truncToInt64", () => {
-                        cg("export fun test(a: Float32): Int64 = a.truncToInt64()", ({test}) => {
+                        cg("export fun test(a: f32): i64 = a.truncToInt64()", ({test}) => {
                             expect(test(15.5)).toBe(15n)
                         })
                     })
                     it("can truncToUInt64", () => {
-                        cg("export fun test(a: Float32): UInt64 = a.truncToUInt64()", ({test}) => {
+                        cg("export fun test(a: f32): u64 = a.truncToUInt64()", ({test}) => {
                             expect(test(15.5)).toBe(15n)
                         })
                     })
                     it("can promoteToFloat64", () => {
-                        cg("export fun test(a: Float32): Float64 = a.promoteToFloat64()", ({test}) => {
+                        cg("export fun test(a: f32): f64 = a.promoteToFloat64()", ({test}) => {
                             expect(test(15.5)).toBe(15.5)
                         })
                     })
                     it("can reinterpretToUInt32", () => {
-                        cg("export fun test(a: Float32): UInt = a.reinterpretToUInt32()", ({test}) => {
+                        cg("export fun test(a: f32): u32 = a.reinterpretToUInt32()", ({test}) => {
                             expect(test(10)).toBe(1092616192)
                         })
                     })
                 })
             })
-            describe("float64", () => {
+            describe("f64", () => {
                 it("can add", () => {
-                    cg("export fun test(a: Float64, b: Float64): Float64 = a + b", ({test}) => {
+                    cg("export fun test(a: f64, b: f64): f64 = a + b", ({test}) => {
                         expect(test(1, 2)).toEqual(3)
                         expect(test(23, 19)).toEqual(42)
                         expect(test(1.23, 3.43)).toBeCloseTo(1.23 + 3.43)
                     })
                 })
                 it("can subtract", () => {
-                    cg("export fun test(a: Float64, b: Float64): Float64 = a - b", ({test}) => {
+                    cg("export fun test(a: f64, b: f64): f64 = a - b", ({test}) => {
                         expect(test(1, 2)).toEqual(-1)
                     })
                 })
                 it("can multiply", () => {
-                    cg("export fun test(a: Float64, b: Float64): Float64 = a * b", ({test}) => {
+                    cg("export fun test(a: f64, b: f64): f64 = a * b", ({test}) => {
                         expect(test(2, 3)).toEqual(6)
                     })
                 })
                 it("can divide", () => {
-                    cg("export fun test(a: Float64, b: Float64): Float64 = a / b", ({test}) => {
+                    cg("export fun test(a: f64, b: f64): f64 = a / b", ({test}) => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
                 describe("builtins", () => {
                     it("can abs", () => {
-                        cg("export fun test(a: Float64): Float64 = a.abs()", ({test}) => {
+                        cg("export fun test(a: f64): f64 = a.abs()", ({test}) => {
                             expect(test(-32)).toEqual(32)
                         })
                     })
                     it("can sqrt", () => {
-                        cg("export fun test(a: Float64): Float64 = a.sqrt()", ({test}) => {
+                        cg("export fun test(a: f64): f64 = a.sqrt()", ({test}) => {
                             expect(test(25)).toEqual(5)
                         })
                     })
                     it("can floor", () => {
-                        cg("export fun test(a: Float64): Float64 = a.floor()", ({test}) => {
+                        cg("export fun test(a: f64): f64 = a.floor()", ({test}) => {
                             expect(test(25.93)).toEqual(25)
                         })
                     })
                     it("can ceil", () => {
-                        cg("export fun test(a: Float64): Float64 = a.ceil()", ({test}) => {
+                        cg("export fun test(a: f64): f64 = a.ceil()", ({test}) => {
                             expect(test(25.93)).toEqual(26)
                         })
                     })
                     it("can trunc", () => {
-                        cg("export fun test(a: Float64): Float64 = a.trunc()", ({test}) => {
+                        cg("export fun test(a: f64): f64 = a.trunc()", ({test}) => {
                             expect(test(25.93)).toEqual(25)
                         })
                     })
                     it("can nearest", () => {
-                        cg("export fun test(a: Float64): Float64 = a.nearest()", ({test}) => {
+                        cg("export fun test(a: f64): f64 = a.nearest()", ({test}) => {
                             expect(test(25.93)).toEqual(26)
                         })
                     })
                     it("can min", () => {
-                        cg("export fun test(a: Float64, b: Float64): Float64 = a.min(b)", ({test}) => {
+                        cg("export fun test(a: f64, b: f64): f64 = a.min(b)", ({test}) => {
                             expect(test(25, 30)).toEqual(25)
                         })
                     })
                     it("can max", () => {
-                        cg("export fun test(a: Float64, b: Float64): Float64 = a.max(b)", ({test}) => {
+                        cg("export fun test(a: f64, b: f64): f64 = a.max(b)", ({test}) => {
                             expect(test(25, 30)).toEqual(30)
                         })
                     })
                     it("can copysign", () => {
-                        cg("export fun test(a: Float64, b: Float64): Float64 = a.copysign(b)", ({test}) => {
+                        cg("export fun test(a: f64, b: f64): f64 = a.copysign(b)", ({test}) => {
                             expect(test(1, 23)).toEqual(1)
                             expect(test(1, -23)).toEqual(-1)
                         })
@@ -1473,32 +1473,32 @@ describe("last codegen", () => {
                 })
                 describe("conversions", () => {
                     it("can truncToInt32", () => {
-                        cg("export fun test(a: Float64): Int32 = a.truncToInt32()", ({test}) => {
+                        cg("export fun test(a: f64): i32 = a.truncToInt32()", ({test}) => {
                             expect(test(15.5)).toBe(15)
                         })
                     })
                     it("can truncToUInt32", () => {
-                        cg("export fun test(a: Float64): UInt32 = a.truncToUInt32()", ({test}) => {
+                        cg("export fun test(a: f64): u32 = a.truncToUInt32()", ({test}) => {
                             expect(test(15.5)).toBe(15)
                         })
                     })
                     it("can truncToInt64", () => {
-                        cg("export fun test(a: Float64): Int64 = a.truncToInt64()", ({test}) => {
+                        cg("export fun test(a: f64): i64 = a.truncToInt64()", ({test}) => {
                             expect(test(15.5)).toBe(15n)
                         })
                     })
                     it("can truncToUInt64", () => {
-                        cg("export fun test(a: Float64): UInt64 = a.truncToUInt64()", ({test}) => {
+                        cg("export fun test(a: f64): u64 = a.truncToUInt64()", ({test}) => {
                             expect(test(15.5)).toBe(15n)
                         })
                     })
                     it("can promoteToFloat64", () => {
-                        cg("export fun test(a: Float64): Float32 = a.demoteToFloat32()", ({test}) => {
+                        cg("export fun test(a: f64): f32 = a.demoteToFloat32()", ({test}) => {
                             expect(test(15.5)).toBe(15.5)
                         })
                     })
                     it("can reinterpretToUInt32", () => {
-                        cg("export fun test(a: Float64): UInt64 = a.reinterpretToUInt64()", ({test}) => {
+                        cg("export fun test(a: f64): u64 = a.reinterpretToUInt64()", ({test}) => {
                             expect(test(10)).toBe(4621819117588971520n)
                         })
                     })
@@ -1510,10 +1510,10 @@ describe("last codegen", () => {
         it("can import a function", () => {
             cg(`
                 import host {
-                    fun getValue(): Int
+                    fun getValue(): i32
                 }
 
-                export fun test(): Int = getValue();
+                export fun test(): i32 = getValue();
             `, ({test}) => {
                 expect(test()).toEqual(42)
             }, "<text>", {
@@ -1524,9 +1524,9 @@ describe("last codegen", () => {
         })
         it("can import a variable", () => {
             cg(`
-                import host { var value: Int }
+                import host { var value: i32 }
 
-                export fun test(): Int = value
+                export fun test(): i32 = value
             `, ({test}) => {
                 expect(test()).toEqual(42)
             }, "<text>", {
@@ -1573,11 +1573,11 @@ describe("last codegen", () => {
     describe("variables", () => {
         it("can assign void to an inferred value", () => {
             cg(`
-                fun t(): Void { }
+                fun t(): void { }
 
-                fun c(v: Int): Void { }
+                fun c(v: i32): void { }
 
-                export fun test(): Void {
+                export fun test(): void {
                     var a = t()
                     c(10)
                     a;

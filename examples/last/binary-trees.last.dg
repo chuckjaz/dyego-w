@@ -20,7 +20,7 @@ fun newNode(left: Node^, right: Node^): Node^ {
     node;
 }
 
-export fun freeTree(tree: Node^): Void {
+export fun freeTree(tree: Node^): void {
     if (tree != null) {
         freeTree(tree^.left);
         freeTree(tree^.right);
@@ -29,16 +29,16 @@ export fun freeTree(tree: Node^): Void {
     }
 }
 
-export fun itemCheck(node: Node^): Int =
+export fun itemCheck(node: Node^): i32 =
     if (node^.left == null) 1 else 1 + itemCheck(node^.left) + itemCheck(node^.right)
 
-export fun bottomUpTree(depth: Int): Node^ =
+export fun bottomUpTree(depth: i32): Node^ =
     if (depth > 0) newNode(bottomUpTree(depth - 1), bottomUpTree(depth - 1))
     else newNode(null, null);
 
-export fun work(iterations: Int, depth: Int): Int {
-    var check: Int = 0;
-    var i: Int = 0;
+export fun work(iterations: i32, depth: i32): i32 {
+    var check: i32 = 0;
+    var i: i32 = 0;
     loop {
         if (i < iterations) {
             var tree: Node^ = bottomUpTree(depth);
