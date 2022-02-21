@@ -1,11 +1,11 @@
 import {
     Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, BitAnd, BitOr, BitRotl, BitRotr, BitShl, BitShr, BitXor, Block, BodyElement, Branch, BranchIndexed,
     Call, CountLeadingZeros, CountNonZeros, CountTrailingZeros, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, Global, IfThenElse,
-    Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBoolean, LiteralFloat32,
-    LiteralFloat64, LiteralInt16, LiteralInt32, LiteralInt64, LiteralInt8, LiteralKind, LiteralNull, LiteralUInt16,
-    LiteralUInt32, LiteralUInt64, LiteralUInt8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
+    Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBool, LiteralF32,
+    LiteralF64, LiteralI6, LiteralI32, LiteralI64, LiteralI8, PrimitiveKind, LiteralNull, LiteralU16,
+    LiteralU32, LiteralU64, LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
     PointerConstructor, Reference, Remainder, Return, Select, SizeOf, StructFieldLiteral, StructLiteral, StructTypeLiteral,
-    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var
+    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -122,7 +122,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 case Token.LBrack:
                     next()
                     let size: number | undefined = undefined
-                    if (token as any == Token.Int32) {
+                    if (token as any == Token.LiteralI32) {
                         size = scanner.value as number
                         next()
                     }
@@ -141,6 +141,58 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         switch (token) {
             case Token.Identifier: {
                 return expectName()
+            }
+            case Token.I8: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.I8 })
+            }
+            case Token.I16: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.I16 })
+            }
+            case Token.I32: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.I32 })
+            }
+            case Token.I64: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.I64 })
+            }
+            case Token.U8: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.U8 })
+            }
+            case Token.U16: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.U16 })
+            }
+            case Token.U32: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.U32 })
+            }
+            case Token.U64: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.U64 })
+            }
+            case Token.F32: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.F32 })
+            }
+            case Token.F64: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.F64 })
+            }
+            case Token.Bool: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.Bool })
+            }
+            case Token.Void: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.Void })
+            }
+            case Token.Null: {
+                next()
+                return l<Primitive>(start, { kind: LastKind.Primitive, primitive: PrimitiveKind.Null })
             }
             case Token.Lt: {
                 next()
@@ -492,65 +544,69 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         switch (token) {
             case Token.Identifier:
                 return expectName()
-            case Token.Int8: {
+            case Token.LiteralI8: {
                 const value = scanner.value
                 next()
-                return l<LiteralInt8>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Int8, value })
+                return l<LiteralI8>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.I8, value })
             }
-            case Token.Int16: {
+            case Token.LiteralI16: {
                 const value = scanner.value
                 next()
-                return l<LiteralInt16>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Int16, value })
+                return l<LiteralI6>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.I16, value })
             }
-            case Token.Int32: {
+            case Token.LiteralI32: {
                 const value = scanner.value
                 next()
-                return l<LiteralInt32>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Int32, value })
+                return l<LiteralI32>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.I32, value })
             }
-            case Token.Int64: {
+            case Token.LiteralI64: {
                 const value = scanner.value
                 next()
-                return l<LiteralInt64>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Int64, value })
+                return l<LiteralI64>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.I64, value })
             }
-            case Token.UInt8: {
+            case Token.LiteralU8: {
                 const value = scanner.value
                 next()
-                return l<LiteralUInt8>(start, { kind: LastKind.Literal, literalKind: LiteralKind.UInt8, value })
+                return l<LiteralU8>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.U8, value })
             }
-            case Token.UInt16: {
+            case Token.LiteralU16: {
                 const value = scanner.value
                 next()
-                return l<LiteralUInt16>(start, { kind: LastKind.Literal, literalKind: LiteralKind.UInt16, value })
+                return l<LiteralU16>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.U16, value })
             }
-            case Token.UInt32: {
+            case Token.LiteralU32: {
                 const value = scanner.value
                 next()
-                return l<LiteralUInt32>(start, { kind: LastKind.Literal, literalKind: LiteralKind.UInt32, value })
+                return l<LiteralU32>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.U32, value })
             }
-            case Token.UInt64: {
+            case Token.LiteralU64: {
                 const value = scanner.value
                 next()
-                return l<LiteralUInt64>(start, { kind: LastKind.Literal, literalKind: LiteralKind.UInt64, value })
+                return l<LiteralU64>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.U64, value })
             }
-            case Token.Float32: {
+            case Token.LiteralF32: {
                 const value = scanner.value
                 next()
-                return l<LiteralFloat32>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Float32, value })
+                return l<LiteralF32>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.F32, value })
             }
-            case Token.Float64: {
+            case Token.LiteralF64: {
                 const value = scanner.value
                 next()
-                return l<LiteralFloat64>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Float64, value })
+                return l<LiteralF64>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.F64, value })
             }
             case Token.True:
             case Token.False: {
                 const value = scanner.value
                 next()
-                return l<LiteralBoolean>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Boolean, value })
+                return l<LiteralBool>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.Bool, value })
             }
             case Token.Null: {
                 next()
-                return l<LiteralNull>(start, { kind: LastKind.Literal, literalKind: LiteralKind.Null, value: null })
+                return l<LiteralNull>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.Null, value: null })
+            }
+            case Token.Memory: {
+                next()
+                return l<LiteralMemory>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.Memory, value: null })
             }
             case Token.Plus: {
                 next()
@@ -840,16 +896,16 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
 function tokenText(token: Token): string {
     switch (token) {
         case Token.Identifier: return "an identifier"
-        case Token.Int8: return "an Int8 literal"
-        case Token.Int16: return "an Int8 literal"
-        case Token.Int32: return "an Int32 literal"
-        case Token.Int64: return "an Int64 literal"
-        case Token.UInt8: return "an UInt8 literal"
-        case Token.UInt16: return "an UInt8 literal"
-        case Token.UInt32: return "an UInt8 literal"
-        case Token.UInt64: return "an UInt8 literal"
-        case Token.Float32: return "an Float32 literal"
-        case Token.Float64: return "an Float64 literal"
+        case Token.LiteralI8: return "an Int8 literal"
+        case Token.LiteralI16: return "an Int8 literal"
+        case Token.LiteralI32: return "an Int32 literal"
+        case Token.LiteralI64: return "an Int64 literal"
+        case Token.LiteralU8: return "an UInt8 literal"
+        case Token.LiteralU16: return "an UInt8 literal"
+        case Token.LiteralU32: return "an UInt8 literal"
+        case Token.LiteralU64: return "an UInt8 literal"
+        case Token.LiteralF32: return "an Float32 literal"
+        case Token.LiteralF64: return "an Float64 literal"
         case Token.Let: return "a `let` reserved word"
         case Token.Var: return "a `var` reserved word"
         case Token.Type: return "a `type` reserved word"
@@ -876,6 +932,19 @@ function tokenText(token: Token): string {
         case Token.CountLeadingZeros: return "a `countleadingzeros` reserved word"
         case Token.CountTrailingZeros: return "a `counttrailingzeros` reserved word"
         case Token.CountNonZeros: return "a `countnonzeros` reserved word"
+        case Token.I8: return "a `i8` reserved word"
+        case Token.I16: return "a `i16` reserved word"
+        case Token.I32: return "a `i32` reserved word"
+        case Token.I64: return "a `i64` reserved word"
+        case Token.U8: return "a `u8` reserved word"
+        case Token.U16: return "a `u16` reserved word"
+        case Token.U32: return "a `u32` reserved word"
+        case Token.U64: return "a `u64` reserved word"
+        case Token.F32: return "a `f32` reserved word"
+        case Token.F64: return "a `f64` reserved word"
+        case Token.Bool: return "a `bool` reserved word"
+        case Token.Void: return "a `void` reserved word"
+        case Token.Memory: return "a `memory` reserved word"
         case Token.Dot: return "a '.' operator"
         case Token.Dash: return "a '-' operator"
         case Token.Plus: return "a '+' operator"
@@ -934,8 +1003,9 @@ const rbraceSet = setOf(Token.RBrace)
 
 const gtSet = setOf(Token.Gt)
 const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Global, Token.Type, Token.Export)
-const expressionFirstSet = setOf(Token.Identifier, Token.Int8, Token.Int16, Token.Int32, Token.Int64,
-    Token.UInt8, Token.UInt16, Token.UInt32, Token.UInt64, Token.Float32, Token.Float64, Token.Null, Token.True,
-    Token.False, Token.Dash, Token.Plus, Token.If, Token.Amp, Token.LBrack, Token.LBrace)
+const expressionFirstSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
+    Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
+    Token.LiteralF64, Token.Null, Token.Memory, Token.True, Token.False, Token.Dash, Token.Plus, Token.If, Token.Amp,
+    Token.LBrack, Token.LBrace)
 const statementFirstSet = setOf(Token.Var, Token.Let, Token.Loop, Token.Block, Token.Branch, Token.Return )
 const bodyElementFirstSet = unionOf(expressionFirstSet, statementFirstSet)

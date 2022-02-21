@@ -117,6 +117,19 @@ export class Scanner {
                             case "countleadingzeros": result = Token.CountLeadingZeros; break
                             case "counttrailingzeros": result = Token.CountTrailingZeros; break
                             case "countnonzeros": result = Token.CountNonZeros; break
+                            case "i8": result = Token.I8; break
+                            case "i16": result = Token.I16; break
+                            case "i32": result = Token.I32; break
+                            case "i64": result = Token.I64; break
+                            case "u8": result = Token.U8; break
+                            case "u16": result = Token.U16; break
+                            case "u32": result = Token.U32; break
+                            case "u64": result = Token.U64; break
+                            case "f32": result = Token.F32; break
+                            case "f64": result = Token.F64; break
+                            case "bool": result = Token.Bool; break
+                            case "void": result = Token.Void; break
+                            case "memory": result = Token.Memory; break
                         }
                         break
                     }
@@ -131,10 +144,10 @@ export class Scanner {
                             break
                         case "0": case "1": case "2": case "3": case "4":
                         case "5": case "6": case "7": case "8": case "9":
-                            result = Token.Int32
+                            result = Token.LiteralI32
                             break
                     }
-                    if (result != Token.Int32) break
+                    if (result != Token.LiteralI32) break
 
                     // Intentional fallthrough
 
@@ -154,8 +167,8 @@ export class Scanner {
                         break
                     }
                     let isUnsigned = false
-                    let size = Token.Int32
-                    let floatSize = Token.Float64
+                    let size = Token.LiteralI32
+                    let floatSize = Token.LiteralF64
                     const last = i
                     switch (text[i]) {
                         case "u":
@@ -164,15 +177,15 @@ export class Scanner {
                             break
                     }
                     switch (text[i]) {
-                        case "t": i++; size = Token.Int8; break
-                        case "s": i++; size = Token.Int16; break
-                        case "l": i++; size = Token.Int64; break
-                        case "f": i++; isInt = false; floatSize = Token.Float32; break
+                        case "t": i++; size = Token.LiteralI8; break
+                        case "s": i++; size = Token.LiteralI16; break
+                        case "l": i++; size = Token.LiteralI64; break
+                        case "f": i++; isInt = false; floatSize = Token.LiteralF32; break
                         case "d": i++; isInt = false; break
                     }
                     if (isInt) {
                         result = isUnsigned ? size + 4 : size
-                        if (size == Token.Int64) {
+                        if (size == Token.LiteralI64) {
                             this.value = BigInt(text.substring(this.start, last))
                             if (isUnsigned && this.value < 0n) {
                                 this.message = "Unsigned values cannot be negative"
@@ -188,27 +201,27 @@ export class Scanner {
                             }
                             const originalValue = value
                             switch (result) {
-                                case Token.Int8:
+                                case Token.LiteralI8:
                                     if (value >= 0) value = value & 0x7F
                                     else value = -(-value & 0xFF)
                                     break
-                                case Token.Int16:
+                                case Token.LiteralI16:
                                     if (value >= 0) value = value & 0x7FFF
                                     else value = -(-value & 0xFFFF)
                                     break
-                                case Token.Int32:
+                                case Token.LiteralI32:
                                     if (value > 0x7FFFFFFF || value < -0x80000000) {
                                         result = Token.Error
                                         break loop
                                     }
                                     break
-                                case Token.UInt8:
+                                case Token.LiteralU8:
                                     value = value & 0xFF
                                     break
-                                case Token.UInt16:
+                                case Token.LiteralU16:
                                     value = value & 0xFFFF
                                     break
-                                case Token.UInt32:
+                                case Token.LiteralU32:
                                     if (value < 0 || value > 0xFFFFFFFF) {
                                         result = Token.Error
                                         break loop

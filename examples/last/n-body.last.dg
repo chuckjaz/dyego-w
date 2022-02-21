@@ -1,25 +1,25 @@
-let PI: Float64 = 3.141592653589793;
-let SOLAR_MASS: Float64 = 4.0 * PI * PI;
-let DAYS_PER_YEAR: Float64 = 365.24;
+let PI: f64 = 3.141592653589793;
+let SOLAR_MASS: f64 = 4.0 * PI * PI;
+let DAYS_PER_YEAR: f64 = 365.24;
 
 type BodyValue = <
-    x: Double,
-    y: Double,
-    z: Double,
-    vx: Double,
-    vy: Double,
-    vz: Double,
-    mass: Double,
+    x: f64,
+    y: f64,
+    z: f64,
+    vx: f64,
+    vy: f64,
+    vz: f64,
+    mass: f64,
 >
 
 fun Body(
-    x: Double,
-    y: Double,
-    z: Double,
-    vx: Double,
-    vy: Double,
-    vz: Double,
-    mass: Double
+    x: f64,
+    y: f64,
+    z: f64,
+    vx: f64,
+    vy: f64,
+    vz: f64,
+    mass: f64
 ): BodyValue = {
     x: x,
     y: y,
@@ -74,16 +74,16 @@ fun Sun(): BodyValue = Body(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, SOLAR_MASS)
 
 var bodies: BodyValue[] = [Sun(), Jupiter(), Saturn(), Uranus(), Neptune()];
 
-export fun offsetMomentum(): Void {
-    let size: Int = 5;
-    var px: Float64 = 0.0;
-    var py: Float64 = 0.0;
-    var pz: Float64 = 0.0;
-    var i: Int = 0;
+export fun offsetMomentum(): void {
+    let size: i32 = 5;
+    var px: f64 = 0.0;
+    var py: f64 = 0.0;
+    var pz: f64 = 0.0;
+    var i: i32 = 0;
     block outer {
         loop {
             if (i >= size) { branch outer; }
-            var mass: Float64 = bodies[i].mass;
+            var mass: f64 = bodies[i].mass;
             px = px + bodies[i].vx * mass;
             py = py + bodies[i].vy * mass;
             pz = pz + bodies[i].vz * mass;
@@ -97,28 +97,28 @@ export fun offsetMomentum(): Void {
     bodies[0].vz = -pz / SOLAR_MASS;
 }
 
-export fun advance(dt: Double): Void {
-    let size: Int = 5;
+export fun advance(dt: f64): void {
+    let size: i32 = 5;
 
-    var i: Int = 0;
+    var i: i32 = 0;
     block outer {
         loop {
             if (i >= size) { branch outer; }
             var bodyi: BodyValue = bodies[i]
-            var vxi: Float64 = bodyi.vx;
-            var vyi: Float64 = bodyi.vy;
-            var vzi: Float64 = bodyi.vz;
-            var j: Int  = i + 1;
+            var vxi: f64 = bodyi.vx;
+            var vyi: f64 = bodyi.vy;
+            var vzi: f64 = bodyi.vz;
+            var j: i32  = i + 1;
             block inner {
                 loop {
-                    if (j >= size) { branch inner; } 
+                    if (j >= size) { branch inner; }
                     var bodyj: BodyValue = bodies[j];
-                    var dx: Float64 = bodyi.x - bodyj.x;
-                    var dy: Float64 = bodyi.y - bodyj.y;
-                    var dz: Float64 = bodyi.z - bodyj.z;
+                    var dx: f64 = bodyi.x - bodyj.x;
+                    var dy: f64 = bodyi.y - bodyj.y;
+                    var dz: f64 = bodyi.z - bodyj.z;
 
-                    var d2: Float64 = dx * dx + dy * dy + dz * dz;
-                    var mag: Float64 = dt / (d2 * d2.sqrt());
+                    var d2: f64 = dx * dx + dy * dy + dz * dz;
+                    var mag: f64 = dt / (d2 * d2.sqrt());
 
                     vxi = vxi - dx * bodyj.mass * mag;
                     vyi = vyi - dy * bodyj.mass * mag;
@@ -154,27 +154,27 @@ export fun advance(dt: Double): Void {
     }
 }
 
-export fun energy(): Double {
-    let size: Int = 5;
+export fun energy(): f64 {
+    let size: i32 = 5;
 
-    var e: Float64 = 0.0;
-    var i: Int = 0;
+    var e: f64 = 0.0;
+    var i: i32 = 0;
     block outer {
         loop {
             if (i >= size) { branch outer; }
             var bodyi: BodyValue = bodies[i];
             e = e + (0.5 * bodyi.mass * (bodyi.vx * bodyi.vx +
                 bodyi.vy * bodyi.vy + bodyi.vz * bodyi.vz));
-            var j: Int = i + 1;
+            var j: i32 = i + 1;
             block inner {
                 loop {
                     if (j >= size) { branch inner; }
                     var bodyj: BodyValue = bodies[j];
-                    var dx: Float64 = bodyi.x - bodyj.x;
-                    var dy: Float64 = bodyi.y - bodyj.y;
-                    var dz: Float64 = bodyi.z - bodyj.z;
+                    var dx: f64 = bodyi.x - bodyj.x;
+                    var dy: f64 = bodyi.y - bodyj.y;
+                    var dz: f64 = bodyi.z - bodyj.z;
 
-                    var distance: Float64 = (dx * dx + dy * dy + dz * dz).sqrt();
+                    var distance: f64 = (dx * dx + dy * dy + dz * dz).sqrt();
                     e = e -((bodyi.mass * bodyj.mass) / distance);
                     j = j + 1;
                     branch;
@@ -188,8 +188,8 @@ export fun energy(): Double {
     e;
 }
 
-export fun mainLoop(n: Int): Void {
-    var i: Int = 0;
+export fun mainLoop(n: i32): void {
+    var i: i32 = 0;
     block outer {
         loop {
             if (i >= n) { branch outer; }

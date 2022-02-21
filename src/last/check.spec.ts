@@ -25,73 +25,73 @@ describe("check", () => {
     describe("imports", () => {
         it("can enter a function", () => {
             t(`
-                import host { fun printInt(text: Int): Void };
+                import host { fun printI32(text: i32): void };
 
-                fun test(value: Int): Void {
-                    printInt(value);
+                fun test(value: i32): void {
+                    printI32(value);
                 }
             `)
         })
         it("can enter a variable", () => {
             t(`
                 import host {
-                    var count: Int,
-                    var offset: Int
+                    var count: i32,
+                    var offset: i32
                  };
 
-                fun test(): Int = count + offset;
+                fun test(): i32 = count + offset;
             `)
         })
     })
     describe("declarations", () => {
         describe("let", () => {
             it("can detect a type error", () => {
-                d("let a: Int64 = !{Expected type Int64, received Int}!10;")
+                d("let a: i64 = !{Expected type i64, received i32}!10;")
             })
         })
         describe("var", () => {
             it("can detect a type error", () => {
-                d("var a: Int64 = !{Expected type Int64, received Int}!10;")
+                d("var a: i64 = !{Expected type i64, received i32}!10;")
             })
             it("can infer a type", () => {
                 t("var a = 10")
             })
             it("can detect a type error with an inferred type", () => {
-                d("var a = 10; var b: Int64 = !{Expected type Int64, received Int}!a")
+                d("var a = 10; var b: i64 = !{Expected type i64, received i32}!a")
             })
         })
         describe("fun", () => {
             it("can detect a result error", () => {
-                d("fun test(): Int64 = !{Expected type Int64, received Int}!10")
+                d("fun test(): i64 = !{Expected type i64, received i32}!10")
             })
             it("can detect a return result type error", () => {
                 d(`
-                    fun test(): Int64 {
-                        return !{Expected type Int64, received Int}!10;
+                    fun test(): i64 {
+                        return !{Expected type i64, received i32}!10;
                     }
                 `)
             })
             it("can detect a missing return", () => {
                 d(`
-                    fun test(): Int64 {
-                        !{Last statement must be a return or an expresion}!let a: Int = 10;
+                    fun test(): i64 {
+                        !{Last statement must be a return or an expresion}!let a: i32 = 10;
                     }
                 `)
             })
         })
         describe("global", () => {
             it("declare a global", () => {
-                t("global a: Int = 10;")
+                t("global a: i32 = 10;")
             })
             it("can the value in an exprssion", () => {
                 t(`
-                    global a: Int = 10;
+                    global a: i32 = 10;
 
-                    fun test(): Int = a + 10;
+                    fun test(): i32 = a + 10;
                 `)
             })
             it("detect an type mismatch", () => {
-                d("global a: Int = !{Expected type Int, received Float64}!1.0")
+                d("global a: i32 = !{Expected type i32, received f64}!1.0")
             })
         })
     })
@@ -99,16 +99,16 @@ describe("check", () => {
         const comparisonOperators = "<,>,>=,<=,==,!=".split(",")
 
         it("can detect an undefined reference", () => {
-            d(`let a: Int = !{Symbol "b" not found}!b`)
+            d(`let a: i32 = !{Symbol "b" not found}!b`)
         })
         it("can detect a capability error", () => {
-            d(`let a: Boolean = !{Operator "+" not supported for type Boolean}!true + false`)
+            d(`let a: bool = !{Operator "+" not supported for type bool}!true + false`)
         })
         it("can detected an invalid pointer operator", () => {
-            d(`var a: Int^; var b: Int^ = !{Operator "*" not supported for type Int^}!a * a`)
+            d(`var a: i32^; var b: i32^ = !{Operator "*" not supported for type i32^}!a * a`)
         })
         it("can check numeric operators", () => {
-            const numericTypes = "Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64".split(",")
+            const numericTypes = "i8,i16,i32,i64,u8,u16,u32,u64".split(",")
             const numericBinaryOperators = "+,-,*,/,%".split(",")
             const numericUnaryOperators = "~,+,-".split(",")
             for (const type of numericTypes) {
@@ -116,7 +116,7 @@ describe("check", () => {
                     t(`fun test(a: ${type}, b: ${type}): ${type} = a ${op} b`)
                 }
                 for (const op of comparisonOperators) {
-                    t(`fun test(a: ${type}, b: ${type}): Boolean = a ${op} b`)
+                    t(`fun test(a: ${type}, b: ${type}): bool = a ${op} b`)
                 }
                 for (const op of numericUnaryOperators) {
                     t(`fun test(a: ${type}): ${type} = ${op}a`)
@@ -124,7 +124,7 @@ describe("check", () => {
             }
         })
         it("can check floating point operators", () => {
-            const floatingPointTypes = "Float32,Float64".split(",")
+            const floatingPointTypes = "f32,f64".split(",")
             const floatingPointBinaryOperators = "+,-,*,/".split(",")
             const floatingPointUnaryOperators = "+,-".split(",")
             for(const type of floatingPointTypes) {
@@ -132,7 +132,7 @@ describe("check", () => {
                     t(`fun test(a: ${type}, b: ${type}): ${type} = a ${op} b`)
                 }
                 for (const op of comparisonOperators) {
-                    t(`fun test(a: ${type}, b: ${type}): Boolean = a ${op} b`)
+                    t(`fun test(a: ${type}, b: ${type}): bool = a ${op} b`)
                 }
                 for (const op of floatingPointUnaryOperators) {
                     t(`fun test(a: ${type}): ${type} = ${op}a`)
@@ -140,7 +140,7 @@ describe("check", () => {
             }
         })
         it("can check logical operators", () => {
-            const logicalTypes = "Boolean".split(",")
+            const logicalTypes = "bool".split(",")
             const logicalBinaryOperators = "&&,||".split(",")
             const logicalUnaryOperators = "!".split(",")
             for(const type of logicalTypes) {
@@ -148,7 +148,7 @@ describe("check", () => {
                     t(`fun test(a: ${type}, b: ${type}): ${type} = a ${op} b`)
                 }
                 for (const op of "==,!=".split(",")) {
-                    t(`fun test(a: ${type}, b: ${type}): Boolean = a ${op} b`)
+                    t(`fun test(a: ${type}, b: ${type}): bool = a ${op} b`)
                 }
                 for (const op of logicalUnaryOperators) {
                     t(`fun test(a: ${type}): ${type} = ${op}a`)
@@ -156,52 +156,52 @@ describe("check", () => {
             }
         })
         it("can check a sizeof expression", () => {
-            t("fun test(): Int = sizeof Int;")
+            t("fun test(): i32 = sizeof i32;")
         })
         it("can check a block expression", () => {
             t(`
-                fun test(): Int {
-                    let a: Int = block { 10 };
+                fun test(): i32 {
+                    let a: i32 = block { 10 };
                     return a;
                 }
             `)
         })
         it("can detect taking the address of a no addressable", () => {
             d(`
-                fun test(): Int^ {
-                    var a: Int = 1;
+                fun test(): i32^ {
+                    var a: i32 = 1;
                     return !{The value does not have an address}!&a;
                 }
             `)
         })
         it("can detect dereferencing a non-pointer", () => {
             d(`
-                fun test(): Int {
-                    var a: Int = 2;
-                    var b: Int = !{Expected a pointer type}!a^;
+                fun test(): i32 {
+                    var a: i32 = 2;
+                    var b: i32 = !{Expected a pointer type}!a^;
                     return a;
                 }
             `)
         })
         it("can detect a duplicate field name in struct literal", () => {
             d(`
-                type Point = < x: Float64, y: Float64 >;
+                type Point = < x: f64, y: f64 >;
 
                 fun test(): Point = { x: 1.0, y: 2.0, !{Duplicate field name}!x: 3.0 };
             `)
         })
         it("can detect calling a non-function", () => {
             d(`
-                fun test(): Int {
-                    var a: Int = 1;
-                    return !{An expression of type Int is not callable}!!{Expected a function reference}!a();
+                fun test(): i32 {
+                    var a: i32 = 1;
+                    return !{An expression of type i32 is not callable}!!{Expected a function reference}!a();
                 }
             `)
         })
         it("can detect the wrong number of parameters", () => {
             d(`
-                fun target(a: Int, b: Int, c: Int): Void { }
-                fun test(): Void {
+                fun target(a: i32, b: i32, c: i32): void { }
+                fun test(): void {
                     !{Expected 3 arguments, received 1}!target(1)
                 }
             `)
@@ -210,9 +210,9 @@ describe("check", () => {
             d(`
                 import host { fun getPoint(): Point }
 
-                type Point = < x: Int, y: Int >;
+                type Point = < x: i32, y: i32 >;
 
-                fun test(): Int {
+                fun test(): i32 {
                     return getPoint().!{Type Point does not have member "z"}!z;
                 }
             `)
@@ -221,31 +221,31 @@ describe("check", () => {
             t(`
                 import host { fun getPoint(): Point }
 
-                type Point = < x: Int, y: Int >;
+                type Point = < x: i32, y: i32 >;
 
-                fun test(): Int = getPoint().x;
+                fun test(): i32 = getPoint().x;
             `)
         })
         it("can detect an reference to an invalid builtin", () => {
             d(`
-                fun test(a: Int): Int = a.!{Type Int does not have a member "invalidBuiltin"}!invalidBuiltin();
+                fun test(a: i32): i32 = a.!{Type i32 does not have a member "invalidBuiltin"}!invalidBuiltin();
             `)
         })
         it("can detect assigning a value non-location", () => {
             d(`
                 import host { fun getPoint(): Point }
 
-                type Point = < x: Int, y: Int >;
+                type Point = < x: i32, y: i32 >;
 
-                fun test(a: Int): Void {
+                fun test(a: i32): void {
                     !{This expression cannot be assigned}!getPoint().x = 12;
                 }
             `)
         })
         it("can detect an invalid branch label", () => {
             d(`
-                fun test(): Void {
-                    var x: Int = 1;
+                fun test(): void {
+                    var x: i32 = 1;
                     loop loop3 {
                         if (x > 0) {
                             !{Branch target "loop2" not found}!branch loop2;
@@ -256,14 +256,14 @@ describe("check", () => {
         })
         it("can detect when a branch is invalid", () => {
             d(`
-                fun test(): Void {
+                fun test(): void {
                     !{Not in a block or loop}!branch;
                 }
             `)
         })
         it("can detect a duplicate parameter name", () => {
             d(`
-                fun test(a: Int, !{Duplicate parameter name}!a: Int): Void {
+                fun test(a: i32, !{Duplicate parameter name}!a: i32): void {
 
                 }
             `)
@@ -284,7 +284,7 @@ describe("check", () => {
         describe("i8", () => {
             describe("bitwise operators", () => {
                 function t(expr: string) {
-                    tx(`var a: Int8 = 1t; var b: Int8 = 2t; var v: Int8 = ${expr}`)
+                    tx(`var a: i8 = 1t; var b: i8 = 2t; var v: i8 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -307,7 +307,7 @@ describe("check", () => {
         describe("i16", () => {
             describe("bitwise operators", () => {
                 function t(expr: string) {
-                    tx(`var a: Int16 = 1s; var b: Int16 = 2s; var v: Int16 = ${expr}`)
+                    tx(`var a: i16 = 1s; var b: i16 = 2s; var v: i16 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -330,7 +330,7 @@ describe("check", () => {
         describe("i32", () => {
             describe("bitwise operators", () => {
                 function t(expr: string): [Module, CheckResult] {
-                    return tx(`var a: Int32 = 1; var b: Int32 = 2; var v: Int32 = ${expr}`)
+                    return tx(`var a: i32 = 1; var b: i32 = 2; var v: i32 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -359,7 +359,7 @@ describe("check", () => {
         describe("i64", () => {
             describe("bitwise operators", () => {
                 function t(expr: string) {
-                    tx(`var a: Int64 = 1l; var b: Int64 = 2l; var v: Int64 = ${expr}`)
+                    tx(`var a: i64 = 1l; var b: i64 = 2l; var v: i64 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -388,7 +388,7 @@ describe("check", () => {
         describe("u8", () => {
             describe("bitwise operators", () => {
                 function t(expr: string) {
-                    tx(`var a: UInt8 = 1ut; var b: UInt8 = 2ut; var v: UInt8 = ${expr}`)
+                    tx(`var a: u8 = 1ut; var b: u8 = 2ut; var v: u8 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -411,7 +411,7 @@ describe("check", () => {
         describe("u16", () => {
             describe("bitwise operators", () => {
                 function t(expr: string) {
-                    tx(`var a: UInt16 = 1us; var b: UInt16 = 2us; var v: UInt16 = ${expr}`)
+                    tx(`var a: u16 = 1us; var b: u16 = 2us; var v: u16 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -434,7 +434,7 @@ describe("check", () => {
         describe("u32", () => {
             describe("bitwise operators", () => {
                 function t(expr: string) {
-                    tx(`var a: UInt32 = 1u; var b: UInt32 = 2u; var v: UInt32 = ${expr}`)
+                    tx(`var a: u32 = 1u; var b: u32 = 2u; var v: u32 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -463,7 +463,7 @@ describe("check", () => {
         describe("u64", () => {
             describe("bitwise operators", () => {
                 function t(expr: string) {
-                    tx(`var a: UInt64 = 1ul; var b: UInt64 = 2ul; var v: UInt64 = ${expr}`)
+                    tx(`var a: u64 = 1ul; var b: u64 = 2ul; var v: u64 = ${expr}`)
                 }
 
                 it("can check a bitwise and", () => {
@@ -492,17 +492,17 @@ describe("check", () => {
     })
 
     describe("pointers", () => {
-        it("can check a pointer converted to an UInt", () => {
+        it("can check a pointer converted to an u32", () => {
             t(`
-                var a: Int;
-                var b: Int^ = &a;
-                var c: UInt = b as UInt;
+                var a: i32;
+                var b: i32^ = &a;
+                var c: u32 = b as u32;
             `)
         })
-        it("can check a conversion of a UInt to a pointer", () => {
+        it("can check a conversion of a u32 to a pointer", () => {
             t(`
-                var a: UInt;
-                var b: Int^ = a as Int^;
+                var a: u32;
+                var b: i32^ = a as i32^;
             `)
         })
     })
@@ -510,20 +510,20 @@ describe("check", () => {
     describe("negative tests", () => {
         it("can report array locals", () => {
             d(`
-                fun sum(a: Int[]^, size: Int): Int {
+                fun sum(a: i32[]^, size: i32): i32 {
                     return size
                 }
-                fun test(): Void {
-                    var a: !{Local arrays are not supported}!Int[2] = [1, 2];
+                fun test(): void {
+                    var a: !{Local arrays are not supported}!i32[2] = [1, 2];
                     sum(!{The value does not have an address}!&a, 2);
                 }
             `)
         })
         it("can report when taking the address of a local", () => {
             d(`
-                fun t(a: Int^): Int = a^
-                fun test(): Void {
-                    var a: Int = 1;
+                fun t(a: i32^): i32 = a^
+                fun test(): void {
+                    var a: i32 = 1;
                     t(!{The value does not have an address}!&a)
                 }
             `)

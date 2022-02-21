@@ -1,5 +1,5 @@
 import {
-    ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last, LastKind, Let, LiteralKind,
+    ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last, LastKind, Let, PrimitiveKind,
     Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type, TypeKind, Var
 } from "../last"
 import {
@@ -305,24 +305,26 @@ export function codegen(
                 return new ReturnGenNode(node, expr)
             }
             case LastKind.Literal:
-                switch (node.literalKind) {
-                    case LiteralKind.Int8:
-                    case LiteralKind.Int16:
-                    case LiteralKind.Int32:
-                    case LiteralKind.UInt8:
-                    case LiteralKind.UInt16:
-                    case LiteralKind.UInt32:
+                switch (node.primitiveKind) {
+                    case PrimitiveKind.I8:
+                    case PrimitiveKind.I16:
+                    case PrimitiveKind.I32:
+                    case PrimitiveKind.U8:
+                    case PrimitiveKind.U16:
+                    case PrimitiveKind.U32:
                         return new NumberConstGenNode(node, typeOf(node), node.value)
-                    case LiteralKind.Int64:
-                    case LiteralKind.UInt64:
+                    case PrimitiveKind.I64:
+                    case PrimitiveKind.U64:
                         return new BigIntConstGenNode(node, typeOf(node), node.value)
-                    case LiteralKind.Float32:
-                    case LiteralKind.Float64:
+                    case PrimitiveKind.F32:
+                    case PrimitiveKind.F64:
                         return new DoubleConstGenNode(node, typeOf(node), node.value)
-                    case LiteralKind.Null:
+                    case PrimitiveKind.Null:
                         return zeroGenNode
-                    case LiteralKind.Boolean:
+                    case PrimitiveKind.Bool:
                         return node.value ? trueGenNode : falseGenNode
+                    case PrimitiveKind.Memory:
+                        return new MemoryGenNode(node)
                 }
                 break
             case LastKind.StructLiteral:

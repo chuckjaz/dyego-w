@@ -1,6 +1,6 @@
-fun sum(numbers: Int[]^, len: Int): Int {
-    var result: Int = 0;
-    var i: Int = 0;
+fun sum(numbers: i32[]^, len: i32): i32 {
+    var result: i32 = 0;
+    var i: i32 = 0;
     loop {
         if (i < len) {
             result = result + numbers^[i];
@@ -12,17 +12,17 @@ fun sum(numbers: Int[]^, len: Int): Int {
 }
 
 
-var numbers: Int[6] = [1, 2, 3, 4, 5, 6];
+var numbers: i32[6] = [1, 2, 3, 4, 5, 6];
 
-export fun test1(): Int = sum(&numbers as Int[]^, 6);
-export fun test2(): Int = sum(&numbers[3] as Int[]^, 3);
-export fun test3(): Int {
-    var result: Int = 0;
-    var i: Int = 0;
-    let len: Int = 6;
+export fun test1(): i32 = sum(&numbers as i32[]^, 6);
+export fun test2(): i32 = sum(&numbers[3] as i32[]^, 3);
+export fun test3(): i32 {
+    var result: i32 = 0;
+    var i: i32 = 0;
+    let len: i32 = 6;
     loop {
         if (i < len) {
-            result = result + sum(&numbers[i] as Int[]^, len - i);
+            result = result + sum(&numbers[i] as i32[]^, len - i);
             i = i + 1;
             branch;
         }

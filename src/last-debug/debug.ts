@@ -1,6 +1,6 @@
 import {
-    BodyElement, Call, copy, Declaration, Exportable, Expression, Function, Last, LastKind, LiteralInt32, LiteralKind,
-    Module, Parameter, Reference, Return
+    BodyElement, Call, copy, Declaration, Exportable, Expression, Function, Last, LastKind, LiteralI32, PrimitiveKind,
+    Module, Parameter, Reference, Return, Primitive
 } from '../last'
 import { childrenOf, Separator, updateFromChildren } from './children'
 
@@ -15,24 +15,24 @@ export function transform(module: Module): Module {
                 module: ref('debug-host'),
                 name: ref('statement'),
                 as: ref('$$stmt'),
-                parameters: [ p('location', 'Int')],
-                result: ref('Void')
+                parameters: [ p('location', PrimitiveKind.I32)],
+                result: prim(PrimitiveKind.Void)
             },
             {
                 kind: LastKind.ImportFunction,
                 module: ref('debug-host'),
                 name: ref('functionStart'),
                 as: ref('$$start'),
-                parameters: [ p('location', 'Int') ],
-                result: ref('Void')
+                parameters: [ p('location', PrimitiveKind.I32) ],
+                result: prim(PrimitiveKind.Void)
             },
             {
                 kind: LastKind.ImportFunction,
                 module: ref('debug-host'),
                 name: ref('functionEnd'),
                 as: ref('$$end'),
-                parameters: [ p('location', 'Int') ],
-                result: ref('Void')
+                parameters: [ p('location', PrimitiveKind.I32) ],
+                result: prim(PrimitiveKind.Void)
             }
         ]
     })
@@ -45,18 +45,22 @@ export function transform(module: Module): Module {
         return { kind: LastKind.Reference, name }
     }
 
-    function p(name: string, type: string): Parameter {
+    function prim(primitive: PrimitiveKind): Primitive {
+        return { kind: LastKind.Primitive, primitive }
+    }
+
+    function p(name: string, type: string | PrimitiveKind ): Parameter {
         return {
             kind: LastKind.Parameter,
             name: ref(name),
-            type: ref(type)
+            type: typeof type == "string" ? ref(type) : prim(type)
         }
     }
 
-    function i(value: number): LiteralInt32 {
+    function i(value: number): LiteralI32 {
         return {
             kind: LastKind.Literal,
-            literalKind: LiteralKind.Int32,
+            primitiveKind: PrimitiveKind.I32,
             value
         }
     }

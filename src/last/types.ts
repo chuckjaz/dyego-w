@@ -197,22 +197,7 @@ export const voidPointerType: PointerType = { kind: TypeKind.Pointer, target: vo
 export const memoryType: Type = { kind: TypeKind.Memory }
 
 export const globals: Scope<Type> = new Scope();
-globals.enter("Double", f64Type)
-globals.enter("Float64", f64Type)
-globals.enter("Float32", f32Type)
-globals.enter("Boolean", booleanType)
-globals.enter("Int8", i8Type)
-globals.enter("Int16", i16Type)
-globals.enter("Int32", i32Type)
-globals.enter("Int64", i64Type)
-globals.enter("UInt8", u8Type)
-globals.enter("UInt16", u16Type)
-globals.enter("UInt32", u32Type)
-globals.enter("UInt", u32Type)
-globals.enter("UInt64", u64Type)
-globals.enter("Int", i32Type)
-globals.enter("Void", voidType)
-globals.enter("memory", { kind: TypeKind.Location, type: memoryType });
+
 function nameTypeToString(name: string, type: Type): string {
     return `${name}: ${typeToString(type)}`
 }
@@ -268,29 +253,29 @@ export function capabilitesOf(type: Type): Capabilities {
 export function typeToString(type: Type): string {
     switch (type.kind) {
         case TypeKind.I8:
-            return `Int8`
+            return `i8`
         case TypeKind.I16:
-            return `Int16`
+            return `i16`
         case TypeKind.I32:
-            return `Int`
+            return `i32`
         case TypeKind.I64:
-            return `Int64`
+            return `i64`
         case TypeKind.U8:
-            return `UInt8`
+            return `u8`
         case TypeKind.U16:
-            return `UInt16`
+            return `u16`
         case TypeKind.U32:
-            return `UInt`
+            return `u32`
         case TypeKind.U64:
-            return `UInt64`
+            return `u64`
         case TypeKind.F32:
-            return `Float32`
+            return `f32`
         case TypeKind.F64:
-            return `Float64`
+            return `f64`
         case TypeKind.Array:
             return `${typeToString(type.elements)}[${type.size ?? ""}]`
         case TypeKind.Boolean:
-            return `Boolean`
+            return `bool`
         case TypeKind.Function:
             return type.name ?? `(${type.parameters.map(nameTypeToString).join(", ")})->${typeToString(type.result)}`
         case TypeKind.Location:
@@ -302,13 +287,13 @@ export function typeToString(type: Type): string {
         case TypeKind.Null:
             return `null`;
         case TypeKind.Void:
-            return `Void`
+            return `void`
         case TypeKind.Memory:
-            return `Memory`
+            return `memory`
         case TypeKind.Unknown:
-            return `Unknown`
+            return `unknown`
         case TypeKind.Error:
-            return `Error`
+            return `error`
     }
 }
 
