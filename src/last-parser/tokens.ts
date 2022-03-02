@@ -79,6 +79,8 @@ export const enum Token {
     RBrace,
     LBrack,
     RBrack,
+    UnionStart,
+    UnionEnd,
     Error,
     EOF
 }

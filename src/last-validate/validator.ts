@@ -1,7 +1,7 @@
 import {
     BodyElement, Declaration, Diagnostic, Exportable, Expression, Field, Import, ImportItem, Last, LastKind,
     LiteralBigInt, PrimitiveKind, LiteralNumeric, Locatable, Module, nameOfLastKind, Parameter, Reference,
-    StructFieldLiteral, TypeExpression, Primitive
+    FieldLiteral, TypeExpression, Primitive
 } from "../last";
 
 export function validate(module: Module): Diagnostic[] {
@@ -94,8 +94,8 @@ export function validate(module: Module): Diagnostic[] {
         }
     }
 
-    function validateStructFieldLiteral(field: StructFieldLiteral) {
-        requiredKind(field, LastKind.StructFieldLiteral)
+    function validateStructFieldLiteral(field: FieldLiteral) {
+        requiredKind(field, LastKind.FieldLiteral)
         requiredMembers(field, 'name', 'type')
         validateReference(field.name)
         validateTypeExpression(field.type)

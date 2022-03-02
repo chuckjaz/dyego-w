@@ -283,11 +283,16 @@ export class Scanner {
                     }
                     break
                 case "|":
-                    if (text[i] == "|") {
-                        i++
-                        result = Token.Or
-                    } else {
-                        result = Token.Bar
+                    result = Token.Bar
+                    switch (text[i]) {
+                        case "|":
+                            i++
+                            result = Token.Or
+                            break
+                        case ">":
+                            i++
+                            result = Token.UnionEnd
+                            break
                     }
                     break
                 case "+":
@@ -396,11 +401,16 @@ export class Scanner {
                     }
                     break
                 case "<":
-                    if (text[i] == "=") {
-                        i++
-                        result = Token.Lte
-                    } else {
-                        result = Token.Lt
+                    result = Token.Lt
+                    switch (text[i]) {
+                        case "|":
+                            i++
+                            result = Token.UnionStart
+                            break
+                        case "=":
+                            i++
+                            result = Token.Lte
+                            break
                     }
                     break
                 default:

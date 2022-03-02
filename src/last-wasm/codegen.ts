@@ -361,7 +361,7 @@ export function codegen(
                 return lastToGenNode(node.target, scopes)
             case LastKind.Type:
             case LastKind.StructTypeLiteral:
-            case LastKind.StructFieldLiteral:
+            case LastKind.FieldLiteral:
             case LastKind.ArrayConstructor:
                 return emptyGenNode
         }
@@ -388,7 +388,7 @@ export function codegen(
             targetType = targetType.target
             target = new DataGenNode(tree, typeOfType(tree, targetType), target)
         }
-        if (targetType.kind == TypeKind.Struct)
+        if (targetType.kind == TypeKind.Struct || targetType.kind == TypeKind.Union)
             return target.select(tree.name.name)
         else {
             const type = typeOf(tree)

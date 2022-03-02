@@ -14,6 +14,7 @@ export const enum TypeKind {
     Boolean,
     Array,
     Struct,
+    Union,
     Pointer,
     Null,
     Void,
@@ -39,6 +40,7 @@ export function nameOfTypeKind(kind: TypeKind): string {
         case TypeKind.Boolean: return "Boolean";
         case TypeKind.Array: return "Array";
         case TypeKind.Struct: return "Struct";
+        case TypeKind.Union: return "Union";
         case TypeKind.Pointer: return "Pointer";
         case TypeKind.Null: return "Null";
         case TypeKind.Void: return "Void";
@@ -57,6 +59,7 @@ export type Type =
     BooleanType |
     ArrayType |
     StructType |
+    UnionType |
     PointerType |
     NullType |
     VoidType |
@@ -142,6 +145,12 @@ export interface ArrayType {
 
 export interface StructType {
     kind: TypeKind.Struct
+    fields: Scope<Type>
+    name?: string
+}
+
+export interface UnionType {
+    kind: TypeKind.Union
     fields: Scope<Type>
     name?: string
 }
@@ -239,6 +248,8 @@ export function capabilitesOf(type: Type): Capabilities {
             return Capabilities.Comparable;
         case TypeKind.Struct:
             return 0;
+        case TypeKind.Union:
+            return 0;
         case TypeKind.Void:
             return 0;
         case TypeKind.Unknown:
@@ -282,6 +293,8 @@ export function typeToString(type: Type): string {
             return typeToString(type.type)
         case TypeKind.Struct:
             return type.name ?? `<${type.fields.map(nameTypeToString).join(", ")}>`
+        case TypeKind.Union:
+            return type.name ?? `<|${type.fields.map(nameTypeToString).join(", ")}|>`
         case TypeKind.Pointer:
             return `${typeToString(type.target)}^`
         case TypeKind.Null:

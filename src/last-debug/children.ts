@@ -1,6 +1,6 @@
 import {
     BodyElement, copy, Declaration, Exportable, Expression, Field, Import, ImportItem, Last, LastKind, Parameter,
-    Reference, StructFieldLiteral, TypeExpression
+    Reference, FieldLiteral, TypeExpression
 } from "../last";
 
 export class Separator { readonly isSeparator = true }
@@ -142,7 +142,7 @@ export function * childrenOf(last: Last): Iterable<Last | Separator> {
             yield * last.fields
             break
         }
-        case LastKind.StructFieldLiteral: {
+        case LastKind.FieldLiteral: {
             yield last.name
             yield last.type
             break
@@ -434,13 +434,13 @@ export function updateFromChildren(last: Last, children: Iterable<Last | Separat
             return last
         }
         case LastKind.StructTypeLiteral: {
-            const fields = array<StructFieldLiteral>()
+            const fields = array<FieldLiteral>()
             if (!arrayEqual(fields, last.fields)) {
                 return copy(last, { fields })
             }
             return last
         }
-        case LastKind.StructFieldLiteral: {
+        case LastKind.FieldLiteral: {
             const name = next<Reference>()
             const type = next<TypeExpression>()
             if (name !== last.name || type !== last.type) {
