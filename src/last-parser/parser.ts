@@ -4,8 +4,8 @@ import {
     Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBool, LiteralF32,
     LiteralF64, LiteralI6, LiteralI32, LiteralI64, LiteralI8, PrimitiveKind, LiteralNull, LiteralU16,
     LiteralU32, LiteralU64, LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
-    PointerConstructor, Reference, Remainder, Return, Select, SizeOf, StructFieldLiteral, StructLiteral, StructTypeLiteral,
-    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive
+    PointerConstructor, Reference, Remainder, Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral,
+    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive, UnionTypeLiteral
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -196,9 +196,15 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
             }
             case Token.Lt: {
                 next()
-                const fields = sequence(structFieldLiteral, identSet, gtSet, comma)
+                const fields = sequence(fieldLiteral, identSet, gtSet, comma)
                 expect(Token.Gt)
                 return l<StructTypeLiteral>(start, { kind: LastKind.StructTypeLiteral, fields })
+            }
+            case Token.UnionStart: {
+                next()
+                const fields = sequence(fieldLiteral, identSet, unionEndSet, comma)
+                expect(Token.UnionEnd)
+                return l<UnionTypeLiteral>(start, { kind: LastKind.UnionTypeLiteral, fields })
             }
             case Token.LParen: {
                 const savedFollows = follows
@@ -212,12 +218,12 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         }
     }
 
-    function structFieldLiteral(): StructFieldLiteral {
+    function fieldLiteral(): FieldLiteral {
         const start = pos.start
         const name = expectName()
         expect(Token.Colon)
         const type = typeExpression()
-        return l<StructFieldLiteral>(start, { kind: LastKind.StructFieldLiteral, name, type })
+        return l<FieldLiteral>(start, { kind: LastKind.FieldLiteral, name, type })
     }
 
     function declarationStatements(): Declaration[] {
@@ -975,6 +981,8 @@ function tokenText(token: Token): string {
         case Token.RBrace: return "a '}' operator"
         case Token.LBrack: return "a '[' operator"
         case Token.RBrack: return "a ']' operator"
+        case Token.UnionStart: return "a '<|' operator"
+        case Token.UnionEnd: return "a '|>' operator"
         case Token.Error: return "an error symbol"
         case Token.EOF: return "end of file"
     }
@@ -1000,6 +1008,7 @@ const identSet = setOf(Token.Identifier)
 const rparenSet = setOf(Token.RParen)
 const rbrackSet = setOf(Token.RBrack)
 const rbraceSet = setOf(Token.RBrace)
+const unionEndSet = setOf(Token.UnionEnd)
 
 const gtSet = setOf(Token.Gt)
 const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Global, Token.Type, Token.Export)

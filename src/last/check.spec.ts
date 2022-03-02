@@ -507,6 +507,47 @@ describe("check", () => {
         })
     })
 
+    describe("structs", () => {
+        it("can pass a struct as a parameter", () => {
+            t(`
+                type Point = < x: i32, y: i32 >;
+
+                fun offset(p: Point, offset: i32): Point {
+                    return {x: p.x + offset, y: p.y + offset }
+                }
+
+                fun test(): void {
+                    var p: Point = {x: 10, y: 20};
+                    var p2: Point = offset(p, 22);
+                }
+            `)
+        })
+    })
+
+    describe("unions", () => {
+        it("can declare a union type", () => {
+            t(`type Union = <| i: i32, l: i64, f: f64 |>`)
+        })
+        it("can declare a union variable", () => {
+            t(`
+                type Union = <| i: i32, l: i64, f: f64 |>;
+                var u: Union;
+            `)
+        })
+        it("can assign a value to a union field", () => {
+            t(`
+                type Union = <| i: i32, l: i64, f: f64 |>;
+                var u: Union;
+
+                fun test(): void {
+                    u.i = 42;
+                    u.l = 42l;
+                    u.f = 4.2;
+                }
+            `)
+        })
+    })
+
     describe("negative tests", () => {
         it("can report array locals", () => {
             d(`
@@ -514,7 +555,7 @@ describe("check", () => {
                     return size
                 }
                 fun test(): void {
-                    var a: !{Local arrays are not supported}!i32[2] = [1, 2];
+                    var a: !{${nonLocalError("i32[2]")}}!i32[2] = [1, 2];
                     sum(!{The value does not have an address}!&a, 2);
                 }
             `)
@@ -530,6 +571,10 @@ describe("check", () => {
         })
     })
 })
+
+function nonLocalError(name: string) {
+    return `A value of type ${name} (or struct containing that type) cannot be passed as a parameter, returned as a result, declared as global, or stored in a local variable`
+}
 
 function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet | undefined): never {
     const messages: string[] = []

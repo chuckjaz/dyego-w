@@ -93,6 +93,19 @@ describe("last codegen", () => {
             expect(exports['point$y'].value).toBe(20)
         })
     })
+    it("can assign a value to a union field", () => {
+        cg(`
+            type Union = <| i: i32, l: i64 |>;
+            var u: Union;
+
+            export fun test(v: i64): i32 {
+                u.l = v;
+                return u.i;
+            }
+        `, ({test}) => {
+            expect(test(54n)).toBe(54)
+        })
+    })
     it("can declare a var initalized array", () => {
         cg(`
             var values: i32[5] = [1, 2, 3, 4, 5];

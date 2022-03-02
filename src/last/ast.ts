@@ -54,7 +54,8 @@ export const enum LastKind {
     Type,
     TypeSelect,
     StructTypeLiteral,
-    StructFieldLiteral,
+    UnionTypeLiteral,
+    FieldLiteral,
     ArrayConstructor,
     PointerConstructor,
     Exported,
@@ -119,7 +120,8 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.Type: return "Type"
         case LastKind.TypeSelect: return "TypeSelect"
         case LastKind.StructTypeLiteral: return "StructTypeLiteral"
-        case LastKind.StructFieldLiteral: return "StructFieldLiteral"
+        case LastKind.UnionTypeLiteral: return "UnionTypeLiteral"
+        case LastKind.FieldLiteral: return "FieldLiteral"
         case LastKind.ArrayConstructor: return "ArrayConstructor"
         case LastKind.PointerConstructor: return "PointerConstructor"
         case LastKind.Exported: return "Exported"
@@ -246,6 +248,7 @@ export type TypeExpression =
     Reference |
     TypeSelect |
     StructTypeLiteral |
+    UnionTypeLiteral |
     ArrayConstructor |
     PointerConstructor
 
@@ -266,7 +269,7 @@ export type Last =
     Parameter |
     ImportItem |
     Field |
-    StructFieldLiteral |
+    FieldLiteral |
     Module
 
 export interface Binary {
@@ -584,12 +587,18 @@ export interface TypeSelect extends LastNode {
 /** Declare a structured type (struct) */
 export interface StructTypeLiteral extends LastNode {
     kind: LastKind.StructTypeLiteral
-    fields: StructFieldLiteral[]
+    fields: FieldLiteral[]
+}
+
+/** Declare a union type (union) */
+export interface UnionTypeLiteral extends LastNode {
+    kind: LastKind.UnionTypeLiteral
+    fields: FieldLiteral[]
 }
 
 /** Declare a field of a structured type with the given name and type */
-export interface StructFieldLiteral extends LastNode {
-    kind: LastKind.StructFieldLiteral
+export interface FieldLiteral extends LastNode {
+    kind: LastKind.FieldLiteral
     name: Reference
     type: TypeExpression
 }

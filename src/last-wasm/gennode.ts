@@ -36,6 +36,7 @@ interface GenTypeParts {
     size?: number
     void?: boolean
     memory?: boolean
+    union?: boolean
 }
 
 export class GenType {
@@ -84,6 +85,7 @@ export class GenType {
 
         const fields = this.parts.fields
         if (fields) {
+            this.validateNotUnion(location)
             let current = offset
             for (const field of fields) {
                 field.loadData(location, g, addr, current)
@@ -132,6 +134,7 @@ export class GenType {
         }
         const fields = this.parts.fields
         if (fields) {
+            this.validateNotUnion(location)
             let current = 0
             for (let i = 0; i < fields.length; i++) {
                 const field = fields[i]
@@ -144,6 +147,7 @@ export class GenType {
     }
 
     popToData(location: Locatable, g: Generate, addr: GenNode, offset: number) {
+        const that = this
         const piece = this.parts.piece
         const thisType = this.type
         const size = this.size
@@ -218,6 +222,7 @@ export class GenType {
             }
             const fields = parts.fields
             if (fields) {
+                that.validateNotUnion(location)
                 let current = offset + size
                 for (let i = fields.length - 1 ; i >= 0; i--) {
                     const field = fields[i]
@@ -239,6 +244,7 @@ export class GenType {
             g.index(indexes)
         } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
+            this.validateNotUnion()
             for (let i = fields.length - 1; i >= 0; i--) {
                 fields[i].popToGlobals(g, indexes[i])
             }
@@ -251,6 +257,7 @@ export class GenType {
             g.index(indexes)
         } else if (!this.parts.void) {
             const fields = required(this.parts.fields)
+            this.validateNotUnion()
             check(fields.length == indexes.length)
             for (let i = 0; i < fields.length; i++) {
                 fields[i].loadGlobal(g, indexes[i])
@@ -264,6 +271,7 @@ export class GenType {
             g.inst(Inst.Global_set)
             g.index(indexes)
         } else if (!this.parts.void) {
+            this.validateNotUnion()
             const fields = required(this.parts.fields)
             check(fields.length == indexes.length)
             for (let i = 0; i < fields.length; i++) {
@@ -277,6 +285,7 @@ export class GenType {
             g.inst(Inst.Local_set)
             g.index(localIndex)
         } else if (!this.parts.void) {
+            this.validateNotUnion()
             const fields = required(this.parts.fields)
             for (let i = fields.length - 1; i >= 0; i--) {
                 fields[i].popToLocals(g, localIndex[i])
@@ -289,6 +298,7 @@ export class GenType {
             g.inst(Inst.Local_get)
             g.index(localIndex)
         } else if (!this.parts.void) {
+            this.validateNotUnion()
             const fields = required(this.parts.fields)
             check(fields.length == localIndex.length)
             for (let i = 0; i < fields.length; i++) {
@@ -303,6 +313,7 @@ export class GenType {
             g.inst(Inst.Local_set)
             g.index(localIndex)
         } else if (!this.parts.void) {
+            this.validateNotUnion()
             const fields = required(this.parts.fields)
             check(fields.length == localIndex.length)
             for (let i = 0; i < fields.length; i++) {
@@ -319,6 +330,7 @@ export class GenType {
         }
         const fields = parts.fields
         if (fields !== undefined) {
+            this.validateNotUnion(location)
             return fields.map(t => t.locals(location))
         }
         if (parts.void || parts.memory) return []
@@ -328,7 +340,7 @@ export class GenType {
     select(location: Locatable, index: number | string): { type: GenType, offset: number, index: number } {
         if (typeof index === "string") {
             const type = this.type
-            if (type.kind == TypeKind.Struct) {
+            if (type.kind == TypeKind.Struct || type.kind == TypeKind.Union) {
                 index = required(type.fields.order(index))
             } else unsupported(location, `select: ${typeToString(this.type)}`)
 
@@ -336,7 +348,7 @@ export class GenType {
         const fields = required(this.parts.fields)
         check(index <= fields.length)
         const type = fields[index]
-        const offset = fields.slice(0, index).reduce((p, t) => p + t.size, 0)
+        const offset = this.parts.union ? 0 : fields.slice(0, index).reduce((p, t) => p + t.size, 0)
         return { type, offset, index }
     }
 
@@ -895,6 +907,12 @@ export class GenType {
         }
         return true
     }
+
+    private validateNotUnion(location?: Locatable) {
+        if (this.parts.union === true) {
+            unsupported(location, `union not supported: ${typeToString(this.type)}`)
+        }
+    }
 }
 
 function sizeOfParts(parts: GenTypeParts): number {
@@ -911,7 +929,10 @@ function sizeOfParts(parts: GenTypeParts): number {
     }
     const fields = parts.fields
     if (fields) {
-        return fields.reduce((p, t) => p + t.size, 0)
+        if (parts.union === true)
+            return fields.reduce((p, t) => Math.max(p, t.size), 0)
+        else
+            return fields.reduce((p, t) => p + t.size, 0)
     }
     const element = parts.element
     if (element) {
@@ -940,6 +961,7 @@ export function flattenTypes(types: LocalTypes): ValueType[] {
 export function genTypeOf(location: Locatable | undefined, type: Type, cache?: Map<Type, GenType>): GenType {
     const cached = cache?.get(type)
     if (cached) return cached
+    let union = false
     switch (type.kind) {
         case TypeKind.I8:
         case TypeKind.U8:
@@ -970,13 +992,16 @@ export function genTypeOf(location: Locatable | undefined, type: Type, cache?: M
                 element: genTypeOf(location, type.elements),
                 size: type.size
             })
-        case TypeKind.Struct:
+        case TypeKind.Union:
+            union = true
+        case TypeKind.Struct: {
             const names: string[] = []
             const fields = type.fields.map((name, t) => {
                 names.push(name)
                 return genTypeOf(location, t, cached)
             })
-            return new GenType(type, { fields, names })
+            return new GenType(type, { fields, names, union })
+        }
         case TypeKind.Location:
             return genTypeOf(location, type.type, cache)
         case TypeKind.Function:

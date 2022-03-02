@@ -1,8 +1,9 @@
+import { validate } from "../last-validate";
 import { required, check as chk } from "../utils";
 import {
     BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
     TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, PrimitiveKind,
-    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global
+    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral
 } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
@@ -10,7 +11,7 @@ import { Scope } from "./scope";
 import {
     globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType,
     ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type,
-    u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType, memoryType
+    u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType, memoryType, UnionType
 } from "./types";
 
 const builtins = new Scope<Type>(globals)
@@ -88,12 +89,16 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                             return errorType
                         })();
                 const addressable = scope === moduleScope
+                if (!addressable) {
+                    validateCanBeLocalOrGlobal(typeExp ?? declaration, type)
+                }
                 enter(declaration, declaration.name.name, { kind: TypeKind.Location, type, addressable }, scope)
                 bind(declaration, type)
                 break
             }
             case LastKind.Global: {
                 const type = typeExpr(declaration.type, scopes)
+                validateCanBeLocalOrGlobal(declaration.type, type)
                 enter(declaration, declaration.name.name, { kind: TypeKind.Location, type }, scope)
                 bind(declaration, type)
                 break
@@ -101,6 +106,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Function: {
                 const parameters = funcParameters(declaration.parameters, scopes)
                 const result = typeExpr(declaration.result, scopes)
+                validateCanBeLocalOrGlobal(declaration.result, result)
                 const name = declaration.name.name
                 const type: FunctionType = { kind: TypeKind.Function, name, parameters, result }
                 enter(declaration, name, type, scope)
@@ -110,7 +116,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Type: {
                 const preentered = required(scope.find(declaration.name.name))
                 const type = typeExpr(declaration.type, scopes);
-                if (type.kind == TypeKind.Struct) {
+                if (type.kind == TypeKind.Struct || type.kind == TypeKind.Union) {
                     type.name = declaration.name.name;
                 }
                 bind(declaration, type)
@@ -120,6 +126,23 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 }
                 break
             }
+        }
+    }
+
+    function validateCanBeLocalOrGlobal(location: Locatable, type: Type) {
+        switch (type.kind) {
+            case TypeKind.Array:
+            case TypeKind.Union:
+            case TypeKind.Memory:
+                report(
+                    location,
+                    `A value of type ${typeToString(type)} (or struct containing that type) cannot be passed as a ` +
+                    `parameter, returned as a result, declared as global, or stored in a local variable`
+                );
+                break
+            case TypeKind.Struct:
+                type.fields.forEach((_, t) => validateCanBeLocalOrGlobal(location, t))
+                break
         }
     }
 
@@ -167,9 +190,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 const value = declaration.value
                 if (value) {
                     const type = required(scope.find(declaration.name.name))
-                    if (scopes.scope !== moduleScope && isArrayType(type)) {
-                        report(declaration.type ?? declaration, "Local arrays are not supported")
-                    }
                     const valueType = checkExpression(value, scopes)
                     mustMatch(value, type, valueType)
                 }
@@ -452,7 +472,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function select(node: Select, scopes: Scopes): Type {
         const originalTarget = checkExpression(node.target, scopes)
         const targetType = read(originalTarget)
-        function fieldTypeOf(type: StructType): Type {
+        function fieldTypeOf(type: StructType | UnionType): Type {
             if ((type as Type).kind == TypeKind.Error) return type
             const fieldType = type.fields.find(node.name.name)
             if (!fieldType) {
@@ -466,6 +486,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         }
         switch (targetType.kind) {
             case TypeKind.Struct:
+            case TypeKind.Union:
                 return fieldTypeOf(targetType);
             default:
                 const builtins = builtInMethodsOf(targetType)
@@ -641,7 +662,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
     function checkBody(body: BodyElement[], scopes: Scopes): Type {
-        enterDeclarations(body.filter(i => i.kind == LastKind.Var || LastKind.Let) as Declaration[], scopes)
+        enterDeclarations(body.filter(i => i.kind == LastKind.Var || i.kind == LastKind.Let) as Declaration[], scopes)
         let type = voidType
         for (const element of body) {
             type = checkBodyElement(element, scopes)
@@ -713,6 +734,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 continue
             }
             const type = typeExpr(parameter.type, scopes)
+            validateCanBeLocalOrGlobal(parameter.type, type)
             const parameterType: Type = { kind: TypeKind.Location, type }
             bind(parameter, parameterType)
             parameters.enter(parameter.name.name, parameterType)
@@ -748,13 +770,15 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             }
             case LastKind.StructTypeLiteral:
                 return structTypeLiteral(node, scopes)
+            case LastKind.UnionTypeLiteral:
+                return unionTypeLiteral(node, scopes)
             default:
                 report(node, `Unsupported node in type expression: ${nameOfLastKind(node.kind)}`)
                 return errorType
         }
     }
 
-    function structTypeLiteral(tree: StructTypeLiteral, scopes: Scopes): Type {
+    function structuredType(tree: StructTypeLiteral | UnionTypeLiteral, scopes: Scopes): Scope<Type> {
         const fields = new Scope<Type>()
         for (const field of tree.fields) {
             if (fields.has(field.name.name)) {
@@ -767,7 +791,17 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             }
             fields.enter(field.name.name, fieldType)
         }
+        return fields
+    }
+
+    function structTypeLiteral(tree: StructTypeLiteral, scopes: Scopes): Type {
+        const fields = structuredType(tree, scopes)
         return { kind: TypeKind.Struct, fields }
+    }
+
+    function unionTypeLiteral(tree: UnionTypeLiteral, scopes: Scopes): Type {
+        const fields = structuredType(tree, scopes)
+        return { kind: TypeKind.Union, fields }
     }
 
     function hasUnknown(type: Type): UnknownType | undefined {
@@ -776,6 +810,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 return hasUnknown(type.elements);
             case TypeKind.Unknown:
                 return type;
+            case TypeKind.Union:
             case TypeKind.Struct:
                 return type.fields.first((name, type) => hasUnknown(type));
         }
@@ -833,6 +868,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                     scan(type.target, final => type.target = final);
                     break;
                 case TypeKind.Struct:
+                case TypeKind.Union:
                     type.fields.forEach((name, typeToFix) => {
                         scan(typeToFix, final => type.fields.renter(name, final))
                     })
@@ -857,6 +893,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 case TypeKind.Void:
                     return true;
                 case TypeKind.Struct:
+                case TypeKind.Union:
                 case TypeKind.Function:
                     return false;
                 case TypeKind.Pointer:
@@ -903,9 +940,10 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         to.fields.forEach((name, type) => {
             if (!from.fields.has(name)) {
                 report(location, `Expected type ${typeToString(from)} to have a field named "${name}"`)
+            } else {
+                const fromFieldType = required(from.fields.find(name), location)
+                mustMatch(location, fromFieldType, type)
             }
-            const fromFieldType = required(from.fields.find(name), location)
-            mustMatch(location, fromFieldType, type)
         })
 
         // Replace fields
