@@ -10,6 +10,8 @@ export const enum Token {
     LiteralU64,
     LiteralF32,
     LiteralF64,
+    LiteralString,
+    LiteralChar,
     Let,
     Var,
     Type,

@@ -1055,7 +1055,7 @@ export class DataAllocator implements LocationAllocator {
             const simplifiedInit = init.simplify()
             const initBytes = new ByteWriter(size)
             if (simplifiedInit.initMemory(initBytes)) {
-                check(initBytes.current == size, "Byte written and size disagree")
+                check(initBytes.current == size, `Byte written and size disagree: received ${initBytes.current}, expected ${size}`)
                 const data = this.data
                 const g = gen()
                 g.inst(Inst.i32_const)
@@ -2877,11 +2877,19 @@ class ScaledOffsetGenNode extends LoadonlyGenNode implements GenNode {
         if (baseNumber !== undefined && iNumber !== undefined && scaleNumber != undefined) {
             return new NumberConstGenNode(this.location, i32GenType, baseNumber + scaleNumber * iNumber)
         }
-        if (iNumber !== undefined && scaleNumber != undefined) {
+        if (iNumber !== undefined && scaleNumber !== undefined) {
             return new OpGenNode(
                 this.location, i32GenType,
                 this.base,
                 new NumberConstGenNode(this.location, i32GenType, scaleNumber * iNumber),
+                LastKind.Add
+            )
+        }
+        if (scaleNumber !== undefined && scaleNumber == 1) {
+            return new OpGenNode(
+                this.location, i32GenType,
+                this.base,
+                i,
                 LastKind.Add
             )
         }

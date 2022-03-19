@@ -1,8 +1,9 @@
 import { Scanner } from "./scanner"
 import { parse } from "./parser"
-import { Module } from "../last"
+import { ArrayLiteral, LastKind, Literal, Module, PrimitiveKind, TypeKind } from "../last"
 import * as fs from "fs"
 import { FileSet } from "../files"
+import { inspect } from "util"
 
 describe("parser", () => {
     describe("examples", () => {
@@ -22,6 +23,49 @@ describe("parser", () => {
     describe("globals", () => {
         it("can parse a global declaration", () => {
             p("global a: i32 = 1")
+        })
+    })
+    describe("literals", () => {
+        function pl(literal: string): Literal {
+            const tree = p(`var a = ${literal}`)
+            if (tree.kind == LastKind.Module) {
+                const decl = tree.declarations[0]
+                if (decl && decl.kind == LastKind.Var && decl.value && decl.value.kind == LastKind.Literal) {
+                    return decl.value
+                }
+            }
+            throw new Error("Expected a literal")
+        }
+        function pa(literal: string): ArrayLiteral {
+            const tree = p(`var a = ${literal}`)
+            if (tree.kind == LastKind.Module) {
+                const decl = tree.declarations[0]
+                if (decl && decl.kind == LastKind.Var && decl.value && decl.value.kind == LastKind.ArrayLiteral) {
+                    return decl.value
+                }
+            }
+            throw new Error("Expected an array literal")
+        }
+        it("can parse an int", () => {
+            const l = pl("12313333")
+            expect(l.kind).toEqual(LastKind.Literal)
+            expect(l.primitiveKind).toEqual(PrimitiveKind.I32)
+            expect(l.value).toEqual(12313333)
+        })
+        it("can parse a float", () => {
+            const l = pl("1.23")
+            expect(l.kind).toEqual(LastKind.Literal)
+            expect(l.primitiveKind).toEqual(PrimitiveKind.F64)
+            expect(l.value).toBeCloseTo(1.23)
+        })
+        it("can parse a string literal", () => {
+            const l = pa('"this is a literal"')
+            expect(l.kind).toEqual(LastKind.ArrayLiteral)
+            const values = l.values
+            expect('buffer' in values).toBeTrue()
+            const buffer = Buffer.from(values as Uint8Array)
+            const text = buffer.toString('utf-8')
+            expect(text).toEqual("this is a literal\0")
         })
     })
     describe("expressions", () => {

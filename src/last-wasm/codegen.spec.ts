@@ -126,6 +126,15 @@ describe("last codegen", () => {
             expect(exports.test()).toBe(15)
         })
     })
+    it("can initialize an u8 array with a string literal", () => {
+        cg(`
+            var text: u8[] = "Some text";
+
+            export fun test(index: i32): u8 = text[index];
+        `, ({test}) => {
+            expect(test(0)).toEqual('S'.charCodeAt(0))
+        })
+    })
     describe("types", () => {
         describe("primitive types", () => {
             describe("i8", () => {

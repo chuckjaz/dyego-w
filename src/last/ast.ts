@@ -445,7 +445,15 @@ export interface Field extends LastNode {
 /** An array literal initializer ([...]) */
 export interface ArrayLiteral extends LastNode {
     kind: LastKind.ArrayLiteral
-    values: Expression[]
+    values: Expression[] |
+        Uint8Array |
+        Uint16Array |
+        Uint32Array |
+        Int8Array |
+        Int16Array |
+        Int32Array |
+        Float32Array |
+        Float64Array
 }
 
 /** A block of statements or expresions ({ ... }). Branches to a block branch to after the block */

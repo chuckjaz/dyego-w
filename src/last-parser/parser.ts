@@ -600,6 +600,17 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 next()
                 return l<LiteralF64>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.F64, value })
             }
+            case Token.LiteralChar: {
+                const value = scanner.value
+                next()
+                return l<LiteralU8>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.U8, value })
+            }
+            case Token.LiteralString: {
+                const value = scanner.value as Buffer
+                const values = new Uint8Array(value)
+                next()
+                return l<ArrayLiteral>(start, { kind: LastKind.ArrayLiteral, values })
+            }
             case Token.True:
             case Token.False: {
                 const value = scanner.value
@@ -912,6 +923,8 @@ function tokenText(token: Token): string {
         case Token.LiteralU64: return "an UInt8 literal"
         case Token.LiteralF32: return "an Float32 literal"
         case Token.LiteralF64: return "an Float64 literal"
+        case Token.LiteralString: return "a string literal"
+        case Token.LiteralChar: return "a character literal"
         case Token.Let: return "a `let` reserved word"
         case Token.Var: return "a `var` reserved word"
         case Token.Type: return "a `type` reserved word"

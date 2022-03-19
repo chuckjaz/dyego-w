@@ -45,7 +45,9 @@ export function * childrenOf(last: Last): Iterable<Last | Separator> {
             break
         }
         case LastKind.ArrayLiteral: {
-            yield * last.values
+            const values = last.values
+            if (!('buffer' in values))
+                yield * values
             break
         }
         case LastKind.Block:
@@ -288,9 +290,12 @@ export function updateFromChildren(last: Last, children: Iterable<Last | Separat
             return last
         }
         case LastKind.ArrayLiteral: {
-            const values = array<Expression>()
-            if (!arrayEqual(values, last.values)) {
-                return copy(last, { values })
+            const oldValues = last.values
+            if (!('buffer' in oldValues)) {
+                const values = array<Expression>()
+                if (!arrayEqual(values, oldValues)) {
+                    return copy(last, { values })
+                }
             }
             return last
         }
