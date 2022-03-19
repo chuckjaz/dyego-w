@@ -328,23 +328,6 @@ function enter(scope: Scope<Type>, name: string, parameters: Scope<Type>, result
     })
 }
 
-function capabilityMethods(type: Type, scope: Scope<Type>) {
-    let capabilities = capabilitesOf(type)
-    const thisP = scopeOf({ name: "this", type })
-    const thisAndOther = scopeOf({ name: "this", type }, { name: "other", type })
-    if (capabilities & Capabilities.Floatable) {
-        enter(scope, "abs", thisP, type)
-        enter(scope, "sqrt", thisP, type)
-        enter(scope, "floor", thisP, type)
-        enter(scope, "ceil", thisP, type)
-        enter(scope, "trunc", thisP, type)
-        enter(scope, "nearest", thisP, type)
-        enter(scope, "min", thisAndOther, type)
-        enter(scope, "max", thisAndOther, type)
-        enter(scope, "copysign", thisAndOther, type)
-    }
-}
-
 function conversionMethods(type: Type, scope: Scope<Type>) {
     const thisP = scopeOf({ name: "this", type })
     const kind = type.kind
@@ -445,7 +428,6 @@ export function builtInMethodsOf(type: Type): Scope<Type> {
     let scope = type.kind != TypeKind.Pointer ? builtinCache.get(type.kind) : null
     if (!scope) {
         scope = new Scope<Type>()
-        capabilityMethods(type, scope)
         conversionMethods(type, scope)
         if (type.kind != TypeKind.Pointer) {
             builtinCache.set(type.kind, scope)

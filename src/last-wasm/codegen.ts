@@ -208,7 +208,10 @@ export function codegen(
             case LastKind.BitRotl:
             case LastKind.BitRotr:
             case LastKind.BitShl:
-            case LastKind.BitShr: {
+            case LastKind.BitShr:
+            case LastKind.Minimum:
+            case LastKind.Maximum:
+            case LastKind.CopySign: {
                 const left = lastToGenNode(node.left, scopes)
                 let right = lastToGenNode(node.right, scopes)
                 const type = typeOf(node)
@@ -227,7 +230,13 @@ export function codegen(
             }
             case LastKind.CountLeadingZeros:
             case LastKind.CountTrailingZeros:
-            case LastKind.CountNonZeros: {
+            case LastKind.CountNonZeros:
+            case LastKind.AbsoluteValue:
+            case LastKind.SquareRoot:
+            case LastKind.Floor:
+            case LastKind.Ceiling:
+            case LastKind.Truncate:
+            case LastKind.RoundNearest: {
                 const target = lastToGenNode(node.target, scopes)
                 const type = typeOf(node)
                 return new UnaryOpGenNode(node, type, target, node.kind)

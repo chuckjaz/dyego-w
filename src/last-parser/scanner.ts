@@ -117,6 +117,15 @@ export class Scanner {
                             case "countleadingzeros": result = Token.CountLeadingZeros; break
                             case "counttrailingzeros": result = Token.CountTrailingZeros; break
                             case "countnonzeros": result = Token.CountNonZeros; break
+                            case "abs": result = Token.Abs; break
+                            case "sqrt": result = Token.Sqrt; break
+                            case "floor": result = Token.Floor; break
+                            case "ceil": result = Token.Ceil; break
+                            case "trunc": result = Token.Trunc; break
+                            case "nearest": result = Token.Nearest; break
+                            case "min": result = Token.Min; break
+                            case "max": result = Token.Max; break
+                            case "copysign": result = Token.CopySign; break
                             case "i8": result = Token.I8; break
                             case "i16": result = Token.I16; break
                             case "i32": result = Token.I32; break

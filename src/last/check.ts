@@ -315,6 +315,25 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.CountNonZeros:
                 type = unary(expression, expression.target, Capabilities.Bitcountable, scopes)
                 break
+            case LastKind.AbsoluteValue:
+            case LastKind.SquareRoot:
+            case LastKind.Floor:
+            case LastKind.Ceiling:
+            case LastKind.Truncate:
+            case LastKind.RoundNearest:
+                type = unary(expression, expression.target, Capabilities.Floatable, scopes)
+                break
+            case LastKind.Minimum:
+            case LastKind.Maximum:
+            case LastKind.CopySign:
+                type = binary(
+                    expression,
+                    expression.left,
+                    expression.right,
+                    Capabilities.Floatable,
+                    scopes
+                )
+                break
             case LastKind.Negate:
                 type = unary(expression, expression.target, Capabilities.Negatable, scopes)
                 break

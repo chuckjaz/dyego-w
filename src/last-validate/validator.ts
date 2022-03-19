@@ -181,7 +181,17 @@ export function validate(module: Module): Diagnostic[] {
             case LastKind.LessThan:
             case LastKind.LessThanEqual:
             case LastKind.And:
-            case LastKind.Or: {
+            case LastKind.Or:
+            case LastKind.BitAnd:
+            case LastKind.BitOr:
+            case LastKind.BitRotl:
+            case LastKind.BitRotr:
+            case LastKind.BitShl:
+            case LastKind.BitShr:
+            case LastKind.BitXor:
+            case LastKind.Minimum:
+            case LastKind.Maximum:
+            case LastKind.CopySign: {
                 requiredMembers(node, 'left', 'right')
                 validateExpression(node.left)
                 validateExpression(node.right)
@@ -190,7 +200,15 @@ export function validate(module: Module): Diagnostic[] {
             case LastKind.Negate:
             case LastKind.Not:
             case LastKind.AddressOf:
-            case LastKind.Dereference: {
+            case LastKind.Dereference:
+            case LastKind.CountLeadingZeros:
+            case LastKind.CountTrailingZeros:
+            case LastKind.CountNonZeros:
+            case LastKind.SquareRoot:
+            case LastKind.Floor:
+            case LastKind.Ceiling:
+            case LastKind.Truncate:
+            case LastKind.RoundNearest:{
                 requiredMembers(node, 'target')
                 validateExpression(node.target)
                 break

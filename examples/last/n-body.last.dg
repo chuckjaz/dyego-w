@@ -118,7 +118,7 @@ export fun advance(dt: f64): void {
                     var dz: f64 = bodyi.z - bodyj.z;
 
                     var d2: f64 = dx * dx + dy * dy + dz * dz;
-                    var mag: f64 = dt / (d2 * d2.sqrt());
+                    var mag: f64 = dt / (d2 * d2) sqrt;
 
                     vxi = vxi - dx * bodyj.mass * mag;
                     vyi = vyi - dy * bodyj.mass * mag;
@@ -174,7 +174,7 @@ export fun energy(): f64 {
                     var dy: f64 = bodyi.y - bodyj.y;
                     var dz: f64 = bodyi.z - bodyj.z;
 
-                    var distance: f64 = (dx * dx + dy * dy + dz * dz).sqrt();
+                    var distance: f64 = (dx * dx + dy * dy + dz * dz) sqrt;
                     e = e -((bodyi.mass * bodyj.mass) / distance);
                     j = j + 1;
                     branch;

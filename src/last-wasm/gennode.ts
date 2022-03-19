@@ -616,6 +616,96 @@ export class GenType {
                         return
                 }
                 break
+            case LastKind.AbsoluteValue:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_abs)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_abs)
+                        return
+                }
+                break
+            case LastKind.SquareRoot:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_sqrt)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_sqrt)
+                        return
+                }
+                break
+            case LastKind.Floor:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_floor)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_floor)
+                        return
+                }
+                break
+            case LastKind.Ceiling:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_ceil)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_ceil)
+                        return
+                }
+                break
+            case LastKind.Truncate:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_trunc)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_trunc)
+                        return
+                }
+                break
+            case LastKind.RoundNearest:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_nearest)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_nearest)
+                        return
+                }
+                break
+            case LastKind.Minimum:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_min)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_min)
+                        return
+                }
+                break
+            case LastKind.Maximum:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_max)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_max)
+                        return
+                }
+                break
+            case LastKind.CopySign:
+                switch (this.type.kind) {
+                    case TypeKind.F32:
+                        g.inst(Inst.f32_copysign)
+                        return
+                    case TypeKind.F64:
+                        g.inst(Inst.f64_copysign)
+                        return
+                }
+                break
             case LastKind.Not:
                 switch (this.type.kind) {
                     case TypeKind.Boolean:
