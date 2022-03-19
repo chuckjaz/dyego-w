@@ -271,6 +271,43 @@ export class Scanner {
                     this.value = text.substring(this.start + 1, i - 1)
                     break
                 }
+                case '"': {
+                    result = Token.LiteralString
+                    let startPos = i
+                    let prefix = ""
+                    function shift() {
+                        prefix += text.substring(startPos, i - 1)
+                        startPos = i
+                    }
+                    while (true) {
+                        switch (text[i++]) {
+                            case '"':
+                                shift()
+                                this.value = Buffer.from(prefix + '\0', 'utf-8')
+                                i++
+                                break loop
+                            case '\n':
+                                result = Token.Error
+                                this.message = "Unterminated string"
+                                break loop
+                            case '\\':
+                                shift()
+                                i++
+                                switch (text[i]) {
+                                    case 'n': prefix += "\n"; break
+                                    case 'r': prefix += "\r"; break
+                                    case 'b': prefix += "\b"; break
+                                    case 't': prefix += "\t"; break
+                                    case `\0`:
+                                        i--
+                                    default:
+                                        this.message = "Invalidate character"
+                                        break loop
+                                }
+                                startPos = i
+                            }
+                        }
+                    }
                 case ".":
                     result = Token.Dot
                     break

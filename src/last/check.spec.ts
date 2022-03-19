@@ -507,6 +507,12 @@ describe("check", () => {
         })
     })
 
+    describe("string literal", () => {
+        it("can use a string literal to initialize a var", () => {
+            t(`var v: u8[] = "a value";`)
+        })
+    })
+
     describe("structs", () => {
         it("can pass a struct as a parameter", () => {
             t(`

@@ -82,12 +82,26 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Var: {
                 const typeExp = declaration.type
                 const initializer = declaration.value
-                const type = typeExp ?
+                const rawType = typeExp ?
                     typeExpr(typeExp, scopes) : initializer ?
                         checkExpression(initializer, scopes) : (function() {
                             report(declaration, "A type or an initializer is required'")
                             return errorType
                         })();
+                let type = rawType
+                if (rawType.kind == TypeKind.Array && rawType.size === undefined) {
+                    if (initializer) {
+                        const initializerType = unwrap(checkExpression(initializer, scopes))
+                        if (equivilent(type, initializerType) && initializerType.kind == TypeKind.Array && initializerType.size) {
+                            // Copy the type from the initializer
+                            type = { kind: TypeKind.Array, elements: rawType.elements, size: initializerType.size }
+                        } else {
+                            report(typeExp ?? declaration, "Unspecified array size requires an initializer value to define the size")
+                        }
+                    } else {
+                        report(typeExp ?? declaration, "Unspecified array size requires an initializer value to define the size")
+                    }
+                }
                 const addressable = scope === moduleScope
                 if (!addressable) {
                     validateCanBeLocalOrGlobal(typeExp ?? declaration, type)
@@ -435,15 +449,45 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const elements = node.values
         const len = elements.length
         if (len > 0) {
-            const elementType = checkExpression(elements[0], scopes)
-            for (let i = 1; i < len; i++) {
-                const element = elements[i]
-                const type = checkExpression(element, scopes)
-                mustMatch(element, elementType, type)
+            const elementType = arrayLiteralElementType(node, scopes)
+            if (!('buffer' in elements)) {
+                for (let i = 1; i < len; i++) {
+                    const element = elements[i]
+                    const type = checkExpression(element, scopes)
+                    mustMatch(element, elementType, type)
+                }
             }
-            return { kind: TypeKind.Array, elements: elementType, size: elements.length }
+            return {
+                kind: TypeKind.Location,
+                type: {
+                    kind: TypeKind.Array,
+                    elements: elementType,
+                    size: elements.length
+                }
+            }
         }
         return { kind: TypeKind.Unknown }
+    }
+
+    function arrayLiteralElementType(node: ArrayLiteral, scopes: Scopes): Type {
+        const values = node.values
+        if (values instanceof Uint8Array)
+            return u8Type
+        if (values instanceof Uint16Array)
+            return u16Type
+        if (values instanceof Uint32Array)
+            return u32Type
+        if (values instanceof Int8Array)
+            return i8Type
+        if (values instanceof Int16Array)
+            return i16Type
+        if (values instanceof Int32Array)
+            return i32Type
+        if (values instanceof Float32Array)
+            return f32Type
+        if (values instanceof Float64Array)
+            return f64Type
+        return checkExpression(values[0], scopes)
     }
 
     function call(node: Call, scopes: Scopes): Type {
@@ -1042,6 +1086,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function noExport(declaration: Declaration): Var | Let | Global | TypeNode | Function {
         if (declaration.kind == LastKind.Exported) return declaration.target
         return declaration
+    }
+}
+
+function unwrap(type: Type): Type {
+    switch (type.kind) {
+        case TypeKind.Location: return type.type
+        default: return type
     }
 }
 

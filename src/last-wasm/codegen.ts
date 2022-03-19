@@ -1,6 +1,6 @@
 import {
     ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last, LastKind, Let, PrimitiveKind,
-    Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type, TypeKind, Var
+    Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type, TypeKind, Var, u8Type
 } from "../last"
 import {
     error, required, unsupported
@@ -377,7 +377,18 @@ export function codegen(
 
     function arrayLitToGenNode(tree: ArrayLiteral, scopes: Scopes): GenNode {
         const type = typeOf(tree)
-        const elements = tree.values.map(e => lastToGenNode(e, scopes))
+        let elements: GenNode[] = []
+        const values = tree.values
+        if (Array.isArray(values))
+            elements = values.map(e => lastToGenNode(e, scopes))
+        else if (values instanceof Uint8Array) {
+            const u8GenType = typeOfType(tree, u8Type)
+            for (const e of values) {
+                elements.push(new NumberConstGenNode(tree, u8GenType, e))
+            }
+        } else {
+            unsupported(tree, "Non-Uint8Array not yet supported")
+        }
         return new ArrayLiteralGenNode(tree, type, elements)
     }
 

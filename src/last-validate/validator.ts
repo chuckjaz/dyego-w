@@ -1,7 +1,7 @@
 import {
     BodyElement, Declaration, Diagnostic, Exportable, Expression, Field, Import, ImportItem, Last, LastKind,
     LiteralBigInt, PrimitiveKind, LiteralNumeric, Locatable, Module, nameOfLastKind, Parameter, Reference,
-    FieldLiteral, TypeExpression, Primitive
+    FieldLiteral, TypeExpression, Primitive, ArrayLiteral
 } from "../last";
 
 export function validate(module: Module): Diagnostic[] {
@@ -257,7 +257,7 @@ export function validate(module: Module): Diagnostic[] {
             break
         case LastKind.ArrayLiteral:
             requiredMembers(node, 'values')
-            validateArray(node, 'values', node.values, validateExpression)
+            validateArrayLiteralValues(node, node)
             break
         case LastKind.Reference:
             validateReference(node)
@@ -352,6 +352,16 @@ export function validate(module: Module): Diagnostic[] {
     function validateArray<T>(location: Locatable, name: string, items: T[], validator: (item: T) => void) {
         required(location, Array.isArray(items), `Expected ${name} to be an an array`)
         items.forEach(validator)
+    }
+
+    function validateArrayLiteralValues(location: Locatable, last: ArrayLiteral) {
+        const values = last.values
+        if (values instanceof Uint8Array || values instanceof Uint16Array || values instanceof Uint32Array ||
+            values instanceof Int8Array || values instanceof Int16Array || values instanceof Int32Array ||
+            values instanceof Float32Array || values instanceof Float64Array) {
+                return
+            }
+        validateArray(location, 'values', values, validateExpression)
     }
 
     function requiredKind(last: Last, kind: LastKind) {
