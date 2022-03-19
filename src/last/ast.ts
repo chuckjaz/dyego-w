@@ -26,6 +26,15 @@ export const enum LastKind {
     CountLeadingZeros,
     CountTrailingZeros,
     CountNonZeros,
+    AbsoluteValue,
+    SquareRoot,
+    Floor,
+    Ceiling,
+    Truncate,
+    RoundNearest,
+    Minimum,
+    Maximum,
+    CopySign,
     As,
     AddressOf,
     SizeOf,
@@ -92,6 +101,15 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.CountLeadingZeros: return "CountLeadingZeros"
         case LastKind.CountTrailingZeros: return "CountTrailingZeros"
         case LastKind.CountNonZeros: return "CountNonZeros"
+        case LastKind.AbsoluteValue: return "AbsoluteValue"
+        case LastKind.SquareRoot: return "SquareRoot"
+        case LastKind.Floor: return "Floor"
+        case LastKind.Ceiling: return "Ceiling"
+        case LastKind.Truncate: return "Truncate"
+        case LastKind.RoundNearest: return "RoundNearest"
+        case LastKind.Minimum: return "Minimum"
+        case LastKind.Maximum: return "Maximum"
+        case LastKind.CopySign: return "CopySign"
         case LastKind.As: return "As"
         case LastKind.AddressOf: return "AddressOf"
         case LastKind.SizeOf: return "SizeOf"
@@ -187,6 +205,15 @@ export type Expression =
     CountLeadingZeros |
     CountTrailingZeros |
     CountNonZeros |
+    AbsoluteValue |
+    SquareRoot |
+    Floor |
+    Ceiling |
+    Truncate |
+    RoundNearest |
+    Minimum |
+    Maximum |
+    CopySign |
     As |
     AddressOf |
     SizeOf |
@@ -359,6 +386,33 @@ export interface CountTrailingZeros extends LastNode, Unary { kind: LastKind.Cou
 
 /** Count non-zero bits of target */
 export interface CountNonZeros extends LastNode, Unary { kind: LastKind.CountNonZeros }
+
+/** Absolute value of target */
+export interface AbsoluteValue extends LastNode, Unary { kind: LastKind.AbsoluteValue }
+
+/** Square root of target */
+export interface SquareRoot extends LastNode, Unary { kind: LastKind.SquareRoot }
+
+/** Floor of target */
+export interface Floor extends LastNode, Unary { kind: LastKind.Floor }
+
+/** Ceiling of target */
+export interface Ceiling extends LastNode, Unary { kind: LastKind.Ceiling }
+
+/** Truncate target */
+export interface Truncate extends LastNode, Unary { kind: LastKind.Truncate }
+
+/** Round the target to the nearest whole number */
+export interface RoundNearest extends LastNode, Unary { kind: LastKind.RoundNearest }
+
+/** The minumim of left and right */
+export interface Minimum extends LastNode, Binary { kind: LastKind.Minimum }
+
+/** The maximum of left and right */
+export interface Maximum extends LastNode, Binary { kind: LastKind.Maximum }
+
+/** Copy the sign on target */
+export interface CopySign extends LastNode, Binary { kind: LastKind.CopySign }
 
 /** Cast of a pointer left to type expression right  */
 export interface As extends LastNode { kind: LastKind.As, left: Expression, right: TypeExpression }

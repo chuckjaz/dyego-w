@@ -5,7 +5,7 @@ import {
     LiteralF64, LiteralI6, LiteralI32, LiteralI64, LiteralI8, PrimitiveKind, LiteralNull, LiteralU16,
     LiteralU32, LiteralU64, LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
     PointerConstructor, Reference, Remainder, Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral,
-    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive, UnionTypeLiteral
+    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive, UnionTypeLiteral, AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest, CopySign, Minimum, Maximum
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -337,6 +337,39 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
     }
 
     function expression(): Expression {
+        return identExpression()
+    }
+
+    function identExpression(): Expression {
+        const start = pos.start
+        let left = orExpression()
+        while (true) {
+            switch (token) {
+                case Token.Min: {
+                    next()
+                    const right = orExpression()
+                    left = l<Minimum>(start, { kind: LastKind.Minimum, left, right })
+                    continue
+                }
+                case Token.Max: {
+                    next()
+                    const right = orExpression()
+                    left = l<Maximum>(start, { kind: LastKind.Maximum, left, right })
+                    continue
+                }
+                case Token.CopySign: {
+                    next()
+                    const right = orExpression()
+                    left = l<CopySign>(start, { kind: LastKind.CopySign, left, right })
+                    continue
+                }
+            }
+            break
+        }
+        return left
+    }
+
+    function orExpression(): Expression {
         const start = pos.start
         let left = andExpression()
         while (token == Token.Or) {
@@ -538,6 +571,30 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 case Token.CountNonZeros:
                     next()
                     result = l<CountNonZeros>(start, { kind: LastKind.CountNonZeros, target: result })
+                    continue
+                case Token.Abs:
+                    next()
+                    result = l<AbsoluteValue>(start, { kind: LastKind.AbsoluteValue, target: result })
+                    continue
+                case Token.Sqrt:
+                    next()
+                    result = l<SquareRoot>(start, { kind: LastKind.SquareRoot, target: result })
+                    continue
+                case Token.Floor:
+                    next()
+                    result = l<Floor>(start, { kind: LastKind.Floor, target: result })
+                    continue
+                case Token.Ceil:
+                    next()
+                    result = l<Ceiling>(start, { kind: LastKind.Ceiling, target: result })
+                    continue
+                case Token.Trunc:
+                    next()
+                    result = l<Truncate>(start, { kind: LastKind.Truncate, target: result })
+                    continue
+                case Token.Nearest:
+                    next()
+                    result = l<RoundNearest>(start, { kind: LastKind.RoundNearest, target: result })
                     continue
             }
             break
@@ -951,6 +1008,15 @@ function tokenText(token: Token): string {
         case Token.CountLeadingZeros: return "a `countleadingzeros` reserved word"
         case Token.CountTrailingZeros: return "a `counttrailingzeros` reserved word"
         case Token.CountNonZeros: return "a `countnonzeros` reserved word"
+        case Token.Abs: return "a `abs` reserved word"
+        case Token.Sqrt: return "a `sqrt` reserved word"
+        case Token.Floor: return "a `floor` reserved word"
+        case Token.Ceil: return "a `ceil` reserved word"
+        case Token.Trunc: return "a `trunc` reserved word"
+        case Token.Nearest: return "a `nearest` reserved word"
+        case Token.Min: return "a `min` reserved word"
+        case Token.Max: return "a `max` reserved word"
+        case Token.CopySign: return "a `copysign` reserved word"
         case Token.I8: return "a `i8` reserved word"
         case Token.I16: return "a `i16` reserved word"
         case Token.I32: return "a `i32` reserved word"

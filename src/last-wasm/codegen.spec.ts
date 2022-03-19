@@ -13,15 +13,9 @@ describe("last codegen", () => {
             expect(val).toBe(42);
         })
     })
-    it("can call a built in member", () => {
-        cg("export fun sqrt(a: f64): f64 = a.sqrt()", exports => {
-            const val = exports.sqrt(64)
-            expect(val).toBe(8)
-        })
-    })
     it("can generate an if statement", () => {
-        cg("export fun min(a: f64, b: f64): f64 = if (a > b) b else a", exports => {
-            const val = exports.min(72, 42)
+        cg("export fun minimum(a: f64, b: f64): f64 = if (a > b) b else a", exports => {
+            const val = exports.minimum(72, 42)
             expect(val).toBe(42)
         })
     })
@@ -1341,52 +1335,50 @@ describe("last codegen", () => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
-                describe("builtins", () => {
-                    it("can abs", () => {
-                        cg("export fun test(a: f32): f32 = a.abs()", ({test}) => {
-                            expect(test(-32)).toEqual(32)
-                        })
+                it("can abs", () => {
+                    cg("export fun test(a: f32): f32 = a abs", ({test}) => {
+                        expect(test(-32)).toEqual(32)
                     })
-                    it("can sqrt", () => {
-                        cg("export fun test(a: f32): f32 = a.sqrt()", ({test}) => {
-                            expect(test(25)).toEqual(5)
-                        })
+                })
+                it("can sqrt", () => {
+                    cg("export fun test(a: f32): f32 = a sqrt", ({test}) => {
+                        expect(test(25)).toEqual(5)
                     })
-                    it("can floor", () => {
-                        cg("export fun test(a: f32): f32 = a.floor()", ({test}) => {
-                            expect(test(25.93)).toEqual(25)
-                        })
+                })
+                it("can floor", () => {
+                    cg("export fun test(a: f32): f32 = a floor", ({test}) => {
+                        expect(test(25.93)).toEqual(25)
                     })
-                    it("can ceil", () => {
-                        cg("export fun test(a: f32): f32 = a.ceil()", ({test}) => {
-                            expect(test(25.93)).toEqual(26)
-                        })
+                })
+                it("can ceil", () => {
+                    cg("export fun test(a: f32): f32 = a ceil", ({test}) => {
+                        expect(test(25.93)).toEqual(26)
                     })
-                    it("can trunc", () => {
-                        cg("export fun test(a: f32): f32 = a.trunc()", ({test}) => {
-                            expect(test(25.93)).toEqual(25)
-                        })
+                })
+                it("can trunc", () => {
+                    cg("export fun test(a: f32): f32 = a trunc", ({test}) => {
+                        expect(test(25.93)).toEqual(25)
                     })
-                    it("can nearest", () => {
-                        cg("export fun test(a: f32): f32 = a.nearest()", ({test}) => {
-                            expect(test(25.93)).toEqual(26)
-                        })
+                })
+                it("can nearest", () => {
+                    cg("export fun test(a: f32): f32 = a nearest", ({test}) => {
+                        expect(test(25.93)).toEqual(26)
                     })
-                    it("can min", () => {
-                        cg("export fun test(a: f32, b: f32): f32 = a.min(b)", ({test}) => {
-                            expect(test(25, 30)).toEqual(25)
-                        })
+                })
+                it("can min", () => {
+                    cg("export fun test(a: f32, b: f32): f32 = a min b", ({test}) => {
+                        expect(test(25, 30)).toEqual(25)
                     })
-                    it("can max", () => {
-                        cg("export fun test(a: f32, b: f32): f32 = a.max(b)", ({test}) => {
-                            expect(test(25, 30)).toEqual(30)
-                        })
+                })
+                it("can max", () => {
+                    cg("export fun test(a: f32, b: f32): f32 = a max b ", ({test}) => {
+                        expect(test(25, 30)).toEqual(30)
                     })
-                    it("can copysign", () => {
-                        cg("export fun test(a: f32, b: f32): f32 = a.copysign(b)", ({test}) => {
-                            expect(test(1, 23)).toEqual(1)
-                            expect(test(1, -23)).toEqual(-1)
-                        })
+                })
+                it("can copysign", () => {
+                    cg("export fun test(a: f32, b: f32): f32 = a copysign b", ({test}) => {
+                        expect(test(1, 23)).toEqual(1)
+                        expect(test(1, -23)).toEqual(-1)
                     })
                 })
                 describe("conversions", () => {
@@ -1445,52 +1437,50 @@ describe("last codegen", () => {
                         expect(test(14, 2)).toEqual(7)
                     })
                 })
-                describe("builtins", () => {
-                    it("can abs", () => {
-                        cg("export fun test(a: f64): f64 = a.abs()", ({test}) => {
-                            expect(test(-32)).toEqual(32)
-                        })
+                it("can abs", () => {
+                    cg("export fun test(a: f64): f64 = a abs", ({test}) => {
+                        expect(test(-32)).toEqual(32)
                     })
-                    it("can sqrt", () => {
-                        cg("export fun test(a: f64): f64 = a.sqrt()", ({test}) => {
-                            expect(test(25)).toEqual(5)
-                        })
+                })
+                it("can sqrt", () => {
+                    cg("export fun test(a: f64): f64 = a sqrt", ({test}) => {
+                        expect(test(25)).toEqual(5)
                     })
-                    it("can floor", () => {
-                        cg("export fun test(a: f64): f64 = a.floor()", ({test}) => {
-                            expect(test(25.93)).toEqual(25)
-                        })
+                })
+                it("can floor", () => {
+                    cg("export fun test(a: f64): f64 = a floor", ({test}) => {
+                        expect(test(25.93)).toEqual(25)
                     })
-                    it("can ceil", () => {
-                        cg("export fun test(a: f64): f64 = a.ceil()", ({test}) => {
-                            expect(test(25.93)).toEqual(26)
-                        })
+                })
+                it("can ceil", () => {
+                    cg("export fun test(a: f64): f64 = a ceil", ({test}) => {
+                        expect(test(25.93)).toEqual(26)
                     })
-                    it("can trunc", () => {
-                        cg("export fun test(a: f64): f64 = a.trunc()", ({test}) => {
-                            expect(test(25.93)).toEqual(25)
-                        })
+                })
+                it("can trunc", () => {
+                    cg("export fun test(a: f64): f64 = a trunc", ({test}) => {
+                        expect(test(25.93)).toEqual(25)
                     })
-                    it("can nearest", () => {
-                        cg("export fun test(a: f64): f64 = a.nearest()", ({test}) => {
-                            expect(test(25.93)).toEqual(26)
-                        })
+                })
+                it("can nearest", () => {
+                    cg("export fun test(a: f64): f64 = a nearest", ({test}) => {
+                        expect(test(25.93)).toEqual(26)
                     })
-                    it("can min", () => {
-                        cg("export fun test(a: f64, b: f64): f64 = a.min(b)", ({test}) => {
-                            expect(test(25, 30)).toEqual(25)
-                        })
+                })
+                it("can min", () => {
+                    cg("export fun test(a: f64, b: f64): f64 = a min b", ({test}) => {
+                        expect(test(25, 30)).toEqual(25)
                     })
-                    it("can max", () => {
-                        cg("export fun test(a: f64, b: f64): f64 = a.max(b)", ({test}) => {
-                            expect(test(25, 30)).toEqual(30)
-                        })
+                })
+                it("can max", () => {
+                    cg("export fun test(a: f64, b: f64): f64 = a max b", ({test}) => {
+                        expect(test(25, 30)).toEqual(30)
                     })
-                    it("can copysign", () => {
-                        cg("export fun test(a: f64, b: f64): f64 = a.copysign(b)", ({test}) => {
-                            expect(test(1, 23)).toEqual(1)
-                            expect(test(1, -23)).toEqual(-1)
-                        })
+                })
+                it("can copysign", () => {
+                    cg("export fun test(a: f64, b: f64): f64 = a copysign b", ({test}) => {
+                        expect(test(1, 23)).toEqual(1)
+                        expect(test(1, -23)).toEqual(-1)
                     })
                 })
                 describe("conversions", () => {
