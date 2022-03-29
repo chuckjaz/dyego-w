@@ -35,6 +35,10 @@ export const enum LastKind {
     Minimum,
     Maximum,
     CopySign,
+    ConvertTo,
+    WrapTo,
+    ReinterpretAs,
+    TruncateTo,
     As,
     AddressOf,
     SizeOf,
@@ -110,6 +114,10 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.Minimum: return "Minimum"
         case LastKind.Maximum: return "Maximum"
         case LastKind.CopySign: return "CopySign"
+        case LastKind.ConvertTo: return "ConvertTo"
+        case LastKind.WrapTo: return "WrapTo"
+        case LastKind.ReinterpretAs: return "ReinterpretAs"
+        case LastKind.TruncateTo: return "TruncateTo"
         case LastKind.As: return "As"
         case LastKind.AddressOf: return "AddressOf"
         case LastKind.SizeOf: return "SizeOf"
@@ -214,6 +222,10 @@ export type Expression =
     Minimum |
     Maximum |
     CopySign |
+    ConvertTo |
+    WrapTo |
+    ReinterpretAs |
+    TruncateTo |
     As |
     AddressOf |
     SizeOf |
@@ -302,6 +314,11 @@ export type Last =
 export interface Binary {
     left: Expression
     right: Expression
+}
+
+export interface TypeBinary {
+    left: Expression
+    right: TypeExpression
 }
 
 export interface Unary {
@@ -413,6 +430,18 @@ export interface Maximum extends LastNode, Binary { kind: LastKind.Maximum }
 
 /** Copy the sign on target */
 export interface CopySign extends LastNode, Binary { kind: LastKind.CopySign }
+
+/** Convert left to the type specified by right */
+export interface ConvertTo extends LastNode, TypeBinary { kind: LastKind.ConvertTo }
+
+/** Wrap left to the type specified by right */
+export interface WrapTo extends LastNode, TypeBinary { kind: LastKind.WrapTo }
+
+/** Reinterpret left to the type specified by right */
+export interface ReinterpretAs extends LastNode, TypeBinary { kind: LastKind.ReinterpretAs }
+
+/** Truncate left to the type specified by right */
+export interface TruncateTo extends LastNode, TypeBinary { kind: LastKind.TruncateTo, saturate: boolean }
 
 /** Cast of a pointer left to type expression right  */
 export interface As extends LastNode { kind: LastKind.As, left: Expression, right: TypeExpression }

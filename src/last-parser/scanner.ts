@@ -126,6 +126,10 @@ export class Scanner {
                             case "min": result = Token.Min; break
                             case "max": result = Token.Max; break
                             case "copysign": result = Token.CopySign; break
+                            case "convertto": result = Token.ConvertTo; break
+                            case "wrapto": result = Token.WrapTo; break
+                            case "reinterpretas": result = Token.ReinterpretAs; break
+                            case "truncateto": result = Token.TruncateTo; break
                             case "i8": result = Token.I8; break
                             case "i16": result = Token.I16; break
                             case "i32": result = Token.I32; break

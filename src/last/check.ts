@@ -1,4 +1,4 @@
-import { validate } from "../last-validate";
+import { format } from "path";
 import { required, check as chk } from "../utils";
 import {
     BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
@@ -398,6 +398,29 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                     expectPointerOrPointerSized(expression.left, leftType)
                     type = expectPointerOrPointerSized(expression.right, rightType)
                 }
+                break
+            }
+            case LastKind.ConvertTo:
+            case LastKind.WrapTo:
+            case LastKind.ReinterpretAs:
+            case LastKind.TruncateTo: {
+                const left = checkExpression(expression.left, scopes)
+                const right = typeExpr(expression.right, scopes)
+                switch (expression.kind) {
+                    case LastKind.ConvertTo:
+                        validateConvert(expression, left, right)
+                        break
+                    case LastKind.WrapTo:
+                        validateWrap(expression, left, right)
+                        break
+                    case LastKind.ReinterpretAs:
+                        validateReinterpret(expression, left, right)
+                        break
+                    case LastKind.TruncateTo:
+                        validateTruncate(expression, left, right)
+                        break
+                }
+                type = right
                 break
             }
         }
@@ -1080,6 +1103,135 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         return effectiveType
     }
 
+    function validateConvert(location: Locatable, from: Type, to: Type): void {
+        if (to.kind == TypeKind.Location) return validateConvert(location, from, to.type)
+
+        switch (from.kind) {
+            case TypeKind.Location:
+                return validateConvert(location, from.type, to)
+            case TypeKind.I32:
+                if (to.kind == TypeKind.Boolean) return
+                // fallthrough
+            case TypeKind.I8:
+            case TypeKind.I16:
+            case TypeKind.I64:
+            case TypeKind.U8:
+            case TypeKind.U16:
+            case TypeKind.U32:
+            case TypeKind.U64:
+                switch (to.kind) {
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.I64:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                    case TypeKind.U64:
+                    case TypeKind.F32:
+                    case TypeKind.F64:
+                        return
+                }
+                break
+            case TypeKind.F32:
+                switch (to.kind) {
+                    case TypeKind.F64:
+                        return
+                }
+                break
+            case TypeKind.F64:
+                switch (to.kind) {
+                    case TypeKind.F32:
+                        return
+                }
+                break
+            case TypeKind.Boolean:
+                if (to.kind == TypeKind.Boolean) return
+                break
+        }
+        report(location, `Cannot convert ${typeToString(from)} to ${typeToString(to)}`)
+    }
+
+    function validateWrap(location: Locatable, from: Type, to: Type): void {
+        if (from.kind == TypeKind.Location) return validateWrap(location, from.type, to)
+        if (to.kind == TypeKind.Location) return validateWrap(location, from, to.type)
+        if (from.kind != TypeKind.I64 || to.kind != TypeKind.I32) {
+            report(location, `Cannot wrap a ${typeToString(from)} to ${typeToString(to)}`)
+        }
+    }
+
+    function validateReinterpret(location: Locatable, from: Type, to: Type): void {
+        if (to.kind == TypeKind.Location) return validateReinterpret(location, from, to.type)
+
+        switch (from.kind) {
+            case TypeKind.Location:
+                return validateReinterpret(location, from.type, to)
+            case TypeKind.U32:
+                switch (to.kind) {
+                    case TypeKind.Pointer:
+                    case TypeKind.F32:
+                        return
+                }
+                break
+            case TypeKind.U64:
+                switch (to.kind) {
+                    case TypeKind.F64:
+                        return
+                }
+                break
+            case TypeKind.F32:
+                switch (to.kind) {
+                    case TypeKind.U32:
+                        return
+                }
+                break
+            case TypeKind.F64:
+                switch (to.kind) {
+                    case TypeKind.U64:
+                        return
+                }
+                break
+            case TypeKind.Pointer:
+                switch (to.kind) {
+                    case TypeKind.U32:
+                        return
+                    case TypeKind.Pointer:
+                        return
+                }
+                break
+        }
+
+        report(location, `Cannot reinterpret ${typeToString(from)} to ${typeToString(to)}`)
+    }
+
+    function validateTruncate(location: Locatable, from: Type, to: Type): void {
+        if (to.kind == TypeKind.Location) return validateTruncate(location, from, to.type)
+
+        switch (from.kind) {
+            case TypeKind.Location:
+                return validateTruncate(location, from.type, to)
+            case TypeKind.F32:
+                switch (to.kind) {
+                    case TypeKind.I32:
+                    case TypeKind.U32:
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        return
+                }
+                break
+            case TypeKind.F64:
+                switch (to.kind) {
+                    case TypeKind.I32:
+                    case TypeKind.U32:
+                    case TypeKind.I64:
+                    case TypeKind.U64:
+                        return
+                }
+                break
+        }
+        report(location, `Cannot truncate ${typeToString(from)} to ${typeToString(to)}`)
+    }
+
     function read(type: Type): Type {
         if (type.kind == TypeKind.Location) return type.type
         return type
@@ -1122,3 +1274,4 @@ function isArrayType(type: Type): boolean {
     }
     return false
 }
+
