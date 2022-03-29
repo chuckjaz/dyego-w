@@ -5,7 +5,9 @@ import {
     LiteralF64, LiteralI6, LiteralI32, LiteralI64, LiteralI8, PrimitiveKind, LiteralNull, LiteralU16,
     LiteralU32, LiteralU64, LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
     PointerConstructor, Reference, Remainder, Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral,
-    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive, UnionTypeLiteral, AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest, CopySign, Minimum, Maximum
+    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive, UnionTypeLiteral,
+    AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest, CopySign, Minimum, Maximum, ConvertTo, WrapTo,
+    ReinterpretAs, TruncateTo
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -363,6 +365,35 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                     left = l<CopySign>(start, { kind: LastKind.CopySign, left, right })
                     continue
                 }
+                case Token.ConvertTo: {
+                    next()
+                    const right = typeExpression()
+                    left = l<ConvertTo>(start, { kind: LastKind.ConvertTo, left, right })
+                    continue
+                }
+                case Token.WrapTo: {
+                    next()
+                    const right = typeExpression()
+                    left = l<WrapTo>(start, { kind: LastKind.WrapTo, left, right })
+                    continue
+                }
+                case Token.ReinterpretAs: {
+                    next()
+                    const right = typeExpression()
+                    left = l<ReinterpretAs>(start, { kind: LastKind.ReinterpretAs, left, right })
+                    continue
+                }
+                case Token.TruncateTo: {
+                    next()
+                    let saturate = false
+                    if (token as any == Token.Identifier && scanner.value == "saturated") {
+                        next()
+                        saturate = true
+                    }
+                    const right = typeExpression()
+                    left = l<TruncateTo>(start, { kind: LastKind.TruncateTo, left, right, saturate })
+                    continue
+                }
             }
             break
         }
@@ -506,39 +537,28 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
 
     function multiplyExpression(): Expression {
         const start = pos.start
-        let left = asLevelExpression()
+        let left = simpleExpression()
         while(true) {
             switch (token) {
                 case Token.Star: {
                     next()
-                    const right = asLevelExpression()
+                    const right = simpleExpression()
                     left = l<Multiply>(start, { kind: LastKind.Multiply, left, right })
                     continue
                 }
                 case Token.Slash: {
                     next()
-                    const right = asLevelExpression()
+                    const right = simpleExpression()
                     left = l<Divide>(start, { kind: LastKind.Divide, left, right })
                     continue
                 }
                 case Token.Percent: {
                     next()
-                    const right = asLevelExpression()
+                    const right = simpleExpression()
                     left = l<Remainder>(start, { kind: LastKind.Remainder, left, right})
                 }
             }
             break
-        }
-        return left
-    }
-
-    function asLevelExpression(): Expression {
-        const start = pos.start
-        let left = simpleExpression()
-        if (token == Token.As) {
-            next()
-            const right = typeExpression()
-            left = l<As>(start, { kind: LastKind.As, left, right })
         }
         return left
     }
@@ -1017,6 +1037,10 @@ function tokenText(token: Token): string {
         case Token.Min: return "a `min` reserved word"
         case Token.Max: return "a `max` reserved word"
         case Token.CopySign: return "a `copysign` reserved word"
+        case Token.ConvertTo: return " a `convertto` reserved word"
+        case Token.WrapTo: return " a `wrapto` reserved word"
+        case Token.ReinterpretAs: return " a `reinterpretas` reserved word"
+        case Token.TruncateTo: return " a `truncateto` reserved word"
         case Token.I8: return "a `i8` reserved word"
         case Token.I16: return "a `i16` reserved word"
         case Token.I32: return "a `i32` reserved word"

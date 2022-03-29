@@ -1,7 +1,7 @@
 type Node = <left: Node^, right: Node^>;
 
 var freeList: Node^ = null;
-var top: Node^ = memory.top() as Node^;
+var top: Node^ = memory.top() reinterpretas Node^;
 
 fun newNode(left: Node^, right: Node^): Node^ {
     var node: Node^ = freeList;
@@ -10,7 +10,7 @@ fun newNode(left: Node^, right: Node^): Node^ {
     } else {
         node = top;
         var newTop: Node^ = top + 1;
-        if (newTop >= memory.limit() as Node^) {
+        if (newTop >= (memory.limit() reinterpretas Node^)) {
             memory.grow(1);
         }
         top = newTop;

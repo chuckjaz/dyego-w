@@ -213,6 +213,10 @@ export function validate(module: Module): Diagnostic[] {
                 validateExpression(node.target)
                 break
             }
+            case LastKind.ConvertTo:
+            case LastKind.WrapTo:
+            case LastKind.ReinterpretAs:
+            case LastKind.TruncateTo:
             case LastKind.As: {
                 requiredMembers(node, 'left', 'right')
                 validateExpression(node.left)

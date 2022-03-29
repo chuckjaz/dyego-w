@@ -1754,6 +1754,388 @@ export class AssignGenNode extends LoadonlyGenNode implements GenNode {
     }
 }
 
+export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
+    location: Locatable
+    type: GenType
+    target: GenNode
+    from: GenType
+    op: LastKind
+    saturated: boolean
+
+    constructor(location: Locatable, type: GenType, target: GenNode, from: GenType, op: LastKind, saturated: boolean = false) {
+        super(location)
+        this.location = location
+        this.type = type
+        this.target = target
+        this.from = from
+        this.op = op
+        this.saturated = saturated
+    }
+
+    load(g: Generate) {
+        this.target.load(g)
+        const from = this.from.type.kind
+        const to = this.type.type.kind
+        switch (this.op) {
+            case LastKind.ConvertTo:
+                switch (from) {
+                    case TypeKind.I8:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                                return
+                            case TypeKind.I16:
+                            case TypeKind.I32:
+                            case TypeKind.U16:
+                            case TypeKind.U32:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i32_extend8_s)
+                                return
+                            case TypeKind.U64:
+                            case TypeKind.I64:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i64_extend_i32_s)
+                                return
+                            case TypeKind.F32:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i32_extend8_s)
+                                g.inst(Inst.f32_convert_i32_s)
+                                return
+                            case TypeKind.F64:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i32_extend8_s)
+                                g.inst(Inst.f64_convert_i32_s)
+                                return
+                        }
+                        break
+                    case TypeKind.I16:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                                this.from.clamp(this.location, g)
+                                return
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                                return
+                            case TypeKind.I32:
+                                g.inst(Inst.i32_extend16_s)
+                                return
+                            case TypeKind.U32:
+                                this.from.clamp(this.location, g)
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                g.inst(Inst.i32_extend16_s)
+                                g.inst(Inst.i64_extend_i32_s)
+                                return
+                            case TypeKind.F32:
+                                g.inst(Inst.i32_extend16_s)
+                                g.inst(Inst.f32_convert_i32_s)
+                                return
+                            case TypeKind.F64:
+                                g.inst(Inst.i32_extend16_s)
+                                g.inst(Inst.f64_convert_i32_s)
+                                return
+                        }
+                        break
+                    case TypeKind.I32:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                            case TypeKind.I32:
+                            case TypeKind.U32:
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                g.inst(Inst.i64_extend_i32_s)
+                                return
+                            case TypeKind.F32:
+                                g.inst(Inst.f32_convert_i32_s)
+                                return
+                            case TypeKind.F64:
+                                g.inst(Inst.f64_convert_i32_s)
+                                return
+                        }
+                        break
+                    case TypeKind.I64:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                            case TypeKind.I32:
+                            case TypeKind.U32:
+                                g.inst(Inst.i32_wrap_i64)
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                return
+                            case TypeKind.F32:
+                                g.inst(Inst.f32_convert_i64_s)
+                                return
+                            case TypeKind.F64:
+                                g.inst(Inst.f64_convert_i64_s)
+                                return
+                        }
+                        break
+                    case TypeKind.U8:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                            case TypeKind.I32:
+                            case TypeKind.U32:
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i64_extend_i32_u)
+                                return
+                            case TypeKind.F32:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.f32_convert_i32_u)
+                                return
+                            case TypeKind.F64:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.f64_convert_i32_u)
+                                return
+                        }
+                        break
+                    case TypeKind.U16:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                                this.from.clamp(this.location, g)
+                                return
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                            case TypeKind.I32:
+                            case TypeKind.U32:
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i64_extend_i32_u)
+                                return
+                            case TypeKind.F32:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.f32_convert_i32_u)
+                                return
+                            case TypeKind.F64:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.f64_convert_i32_u)
+                                return
+                        }
+                        break
+                    case TypeKind.U32:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                                this.from.clamp(this.location, g)
+                                return
+                            case TypeKind.I32:
+                            case TypeKind.U32:
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                g.inst(Inst.i64_extend_i32_u)
+                                return
+                            case TypeKind.F32:
+                                g.inst(Inst.f32_convert_i32_u)
+                                return
+                            case TypeKind.F64:
+                                g.inst(Inst.f64_convert_i32_u)
+                                return
+                        }
+                        break
+                    case TypeKind.U64:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                                this.from.clamp(this.location, g)
+                                // fallthrough
+                            case TypeKind.I32:
+                            case TypeKind.U32:
+                                g.inst(Inst.i32_wrap_i64)
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                return
+                            case TypeKind.F32:
+                                g.inst(Inst.f32_convert_i64_u)
+                                return
+                            case TypeKind.F64:
+                                g.inst(Inst.f64_convert_i64_u)
+                                return
+                        }
+                        break
+                    case TypeKind.F32:
+                        switch (to) {
+                            case TypeKind.F32:
+                                return
+                            case TypeKind.F64:
+                                g.inst(Inst.f64_promote_f32)
+                                return
+                        }
+                        break
+                    case TypeKind.F64:
+                        switch (to) {
+                            case TypeKind.F32:
+                                g.inst(Inst.f32_demote_f64)
+                                return
+                            case TypeKind.F32:
+                                return
+                        }
+                        break
+                }
+                break
+            case LastKind.WrapTo:
+                switch (from) {
+                    case TypeKind.I32:
+                        switch (to) {
+                            case TypeKind.I64:
+                                g.inst(Inst.i32_wrap_i64)
+                                return
+                        }
+                        break
+                }
+                break
+            case LastKind.ReinterpretAs:
+                switch (from) {
+                    case TypeKind.Pointer:
+                        switch (to) {
+                            case TypeKind.Pointer:
+                            case TypeKind.U32:
+                                return
+                        }
+                        break
+                    case TypeKind.U32:
+                        switch (to) {
+                            case TypeKind.U32:
+                            case TypeKind.Pointer:
+                                return
+                            case TypeKind.F32:
+                                g.inst(Inst.f32_reinterpret_i32)
+                                return
+                        }
+                        break
+                    case TypeKind.U64:
+                        switch (to) {
+                            case TypeKind.U64:
+                                return
+                            case TypeKind.F64:
+                                g.inst(Inst.f64_reinterpret_i64)
+                                return
+                        }
+                        break
+                    case TypeKind.F32:
+                        switch (to) {
+                            case TypeKind.F32:
+                                return
+                            case TypeKind.U32:
+                                g.inst(Inst.i32_reinterpret_f32)
+                                return
+                        }
+                        break
+                    case TypeKind.F64:
+                        switch (to) {
+                            case TypeKind.F64:
+                                return
+                            case TypeKind.U64:
+                                g.inst(Inst.i64_reinterpret_f64)
+                                return
+                        }
+                        break
+                }
+                break
+            case LastKind.TruncateTo:
+                switch (from) {
+                    case TypeKind.F32:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.I16:
+                            case TypeKind.I32:
+                                if (this.saturated)
+                                    g.inst(Inst.i32_trunc_sat_f32_s)
+                                else
+                                    g.inst(Inst.i32_trunc_f32_s)
+                                return
+                            case TypeKind.I64:
+                                if (this.saturated)
+                                    g.inst(Inst.i64_trunc_sat_f32_s)
+                                else
+                                    g.inst(Inst.i64_trunc_f32_u)
+                                return
+                            case TypeKind.U8:
+                            case TypeKind.U16:
+                            case TypeKind.U32:
+                                if (this.saturated)
+                                    g.inst(Inst.i32_trunc_sat_f32_u)
+                                else
+                                    g.inst(Inst.i32_trunc_f32_u)
+                                return
+                            case TypeKind.U64:
+                                if (this.saturated)
+                                    g.inst(Inst.i64_trunc_sat_f32_u)
+                                else
+                                    g.inst(Inst.i64_trunc_f32_u)
+                                return
+                        }
+                        break
+                    case TypeKind.F64:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.I16:
+                            case TypeKind.I32:
+                                if (this.saturated)
+                                    g.inst(Inst.i32_trunc_sat_f64_s)
+                                else
+                                    g.inst(Inst.i32_trunc_f64_s)
+                                return
+                            case TypeKind.I64:
+                                if (this.saturated)
+                                    g.inst(Inst.i64_trunc_sat_f64_s)
+                                else
+                                    g.inst(Inst.i64_trunc_f64_u)
+                                return
+                            case TypeKind.U8:
+                            case TypeKind.U16:
+                            case TypeKind.U32:
+                                if (this.saturated)
+                                    g.inst(Inst.i32_trunc_sat_f64_u)
+                                else
+                                    g.inst(Inst.i32_trunc_f64_u)
+                                return
+                            case TypeKind.U64:
+                                if (this.saturated)
+                                    g.inst(Inst.i64_trunc_sat_f64_u)
+                                else
+                                    g.inst(Inst.i64_trunc_f64_u)
+                                return
+                        }
+                        break
+                }
+                break
+        }
+        unsupported(this.location, `Unsupported type conversion`)
+    }
+
+    simplify(): GenNode {
+        return this
+    }
+
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new TypeConvertGenNode(location, type ?? this.type, this.target, this.from, this.op, this.saturated)
+    }
+}
+
 export class UnaryOpGenNode extends LoadonlyGenNode implements GenNode {
     location: Locatable
     type: GenType
@@ -2101,153 +2483,9 @@ export function builtinGenNodeFor(
 ): GenNode {
     let inst = Inst.Unreachable
     let offset: number | undefined = undefined
-    let clamp = false
     if (type.kind == TypeKind.Location)
         return builtinGenNodeFor(location, type.type, result, name, target)
     switch (name) {
-        case "countLeadingZeros":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.U8:
-                    offset = 8
-                    clamp = true
-                case TypeKind.I16:
-                case TypeKind.U16:
-                    offset = (offset ?? 0) + 16
-                    clamp = true
-                case TypeKind.I32:
-                case TypeKind.U32:
-                    inst = Inst.i32_clz
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.i64_clz
-                    break
-            }
-            break
-        case "countTrailingZeros":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                case TypeKind.I32:
-                case TypeKind.U8:
-                case TypeKind.U16:
-                case TypeKind.U32:
-                    inst = Inst.i32_ctz
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.i64_ctz
-                    break
-            }
-            break
-        case "countNonZeros":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                case TypeKind.U8:
-                case TypeKind.U16:
-                    clamp = true
-                case TypeKind.I32:
-                case TypeKind.U32:
-                    inst = Inst.i32_popcnt
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.i64_popcnt
-                    break
-            }
-            break
-        case "abs":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_abs
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_abs
-                    break
-            }
-            break
-        case "sqrt":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_sqrt
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_sqrt
-                    break
-            }
-            break
-        case "floor":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_floor
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_floor
-                    break
-            }
-            break
-        case "ceil":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_ceil
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_ceil
-                    break
-            }
-            break
-        case "trunc":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_trunc
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_trunc
-                    break
-            }
-            break
-        case "nearest":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_nearest
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_nearest
-                    break
-            }
-            break
-        case "min":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_min
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_min
-                    break
-            }
-            break
-        case "max":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_max
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_max
-                    break
-            }
-            break
-        case "copysign":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f32_copysign
-                    break
-                case TypeKind.F64:
-                    inst = Inst.f64_copysign
-                    break
-            }
-            break
         case "top":
             switch (type.kind) {
                 case TypeKind.Memory:
@@ -2279,234 +2517,6 @@ export function builtinGenNodeFor(
                     })
             }
             break
-        case "toInt8":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.U8:
-                case TypeKind.I16:
-                case TypeKind.U16:
-                    clamp = true
-                case TypeKind.I32:
-                case TypeKind.U32:
-                    inst = Inst.Nop
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.i32_wrap_i64
-                    break
-            }
-            break
-        case "toInt16":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                    inst = Inst.i32_extend8_s
-                    break
-                case TypeKind.U8:
-                case TypeKind.U16:
-                    clamp = true
-                case TypeKind.I32:
-                case TypeKind.U32:
-                    inst = Inst.Nop
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.i32_wrap_i64
-                    break
-            }
-            break
-        case "toInt":
-            switch (type.kind) {
-                case TypeKind.I8:
-                    inst = Inst.i32_extend8_s
-                    break
-                case TypeKind.I16:
-                    inst = Inst.i32_extend16_s
-                    break
-                case TypeKind.U8:
-                case TypeKind.U16:
-                case TypeKind.I32:
-                case TypeKind.U32:
-                    inst = Inst.Nop
-                    break
-                case TypeKind.U64:
-                case TypeKind.I64:
-                    inst = Inst.i32_wrap_i64
-                    break
-            }
-            break
-        case "toInt64":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                case TypeKind.I32:
-                    clamp = true
-                    inst = Inst.i64_extend_i32_s
-                    break
-                case TypeKind.U8:
-                case TypeKind.U16:
-                case TypeKind.U32:
-                    clamp = true
-                    inst = Inst.i64_extend_i32_u
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.Nop
-                    break
-            }
-            break
-        case "toUInt8":
-        case "toUInt16":
-            clamp = true
-            // fallthrough
-        case "toUInt":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                case TypeKind.U8:
-                case TypeKind.U16:
-                case TypeKind.I32:
-                case TypeKind.U32:
-                    inst = Inst.Nop
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.i32_wrap_i64
-                    break
-            }
-            break
-        case "toUInt64":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                case TypeKind.U8:
-                case TypeKind.U16:
-                    clamp = true
-                case TypeKind.I32:
-                case TypeKind.U32:
-                    inst = Inst.i64_extend_i32_u
-                    break
-                case TypeKind.I64:
-                case TypeKind.U64:
-                    inst = Inst.Nop
-                    break
-            }
-            break
-        case "toFloat32":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                    clamp = true
-                case TypeKind.I32:
-                    inst = Inst.f32_convert_i32_s
-                    break
-                case TypeKind.U8:
-                case TypeKind.U16:
-                    clamp = true
-                case TypeKind.U32:
-                    inst = Inst.f32_convert_i32_u
-                    break
-                case TypeKind.I64:
-                    inst = Inst.f32_convert_i64_s
-                    break
-                case TypeKind.U64:
-                    inst = Inst.f32_convert_i64_u
-                    break
-            }
-            break
-        case "toFloat64":
-            switch (type.kind) {
-                case TypeKind.I8:
-                case TypeKind.I16:
-                    clamp = true
-                case TypeKind.I32:
-                    inst = Inst.f64_convert_i32_s
-                    break
-                case TypeKind.U8:
-                case TypeKind.U16:
-                    clamp = true
-                case TypeKind.U32:
-                    inst = Inst.f64_convert_i32_u
-                    break
-                case TypeKind.I64:
-                    inst = Inst.f64_convert_i64_s
-                    break
-                case TypeKind.U64:
-                    inst = Inst.f64_convert_i64_u
-                    break
-            }
-            break
-        case "truncToInt32":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.i32_trunc_f32_s
-                    break
-                case TypeKind.F64:
-                    inst = Inst.i32_trunc_f64_s
-                    break
-            }
-            break
-        case "truncToUInt32":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.i32_trunc_f32_u
-                    break
-                case TypeKind.F64:
-                    inst = Inst.i32_trunc_f64_u
-                    break
-            }
-            break
-        case "truncToInt64":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.i64_trunc_f32_s
-                    break
-                case TypeKind.F64:
-                    inst = Inst.i64_trunc_f64_s
-                    break
-            }
-            break
-        case "truncToUInt64":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.i64_trunc_f32_u
-                    break
-                case TypeKind.F64:
-                    inst = Inst.i64_trunc_f64_u
-                    break
-            }
-            break
-        case "promoteToFloat64":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.f64_promote_f32
-                    break
-            }
-            break
-        case "reinterpretToUInt32":
-            switch (type.kind) {
-                case TypeKind.F32:
-                    inst = Inst.i32_reinterpret_f32
-                    break
-            }
-            break
-        case "demoteToFloat32":
-            switch (type.kind) {
-                case TypeKind.F64:
-                    inst = Inst.f32_demote_f64
-                    break
-            }
-            break
-        case "reinterpretToUInt64":
-            switch (type.kind) {
-                case TypeKind.F64:
-                    inst = Inst.i64_reinterpret_f64
-                    break
-            }
-            break
-    }
-    if (clamp && target.type.needsClamp()) {
-        target = new ClampGenNode(location, target)
     }
     if (inst == Inst.Unreachable) unsupported(location, `${name} for type ${typeToString(type)}`)
 

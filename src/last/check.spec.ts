@@ -492,17 +492,17 @@ describe("check", () => {
     })
 
     describe("pointers", () => {
-        it("can check a pointer converted to an u32", () => {
+        it("can check a pointer reinterpret as an u32", () => {
             t(`
                 var a: i32;
                 var b: i32^ = &a;
-                var c: u32 = b as u32;
+                var c: u32 = b reinterpretas u32;
             `)
         })
         it("can check a conversion of a u32 to a pointer", () => {
             t(`
                 var a: u32;
-                var b: i32^ = a as i32^;
+                var b: i32^ = a reinterpretas i32^;
             `)
         })
     })

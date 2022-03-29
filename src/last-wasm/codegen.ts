@@ -15,7 +15,7 @@ import {
     CompareGenNode, DataAllocator, DataGenNode, DoubleConstGenNode, DropGenNode, emptyGenNode, flattenTypes,
     FunctionGenNode, GenNode, GenType, genTypeOf, GotoGenNode, i32GenType, LocalAllocator, LocationAllocator,
     MemoryGenNode, NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
-    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode, GlobalsAllocator, LocalIndexes, GlobalGenNode,
+    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode, GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode,
 } from "./gennode"
 
 interface Scopes {
@@ -241,7 +241,16 @@ export function codegen(
                 const type = typeOf(node)
                 return new UnaryOpGenNode(node, type, target, node.kind)
             }
-
+            case LastKind.ConvertTo:
+            case LastKind.WrapTo:
+            case LastKind.ReinterpretAs:
+            case LastKind.TruncateTo: {
+                const left = lastToGenNode(node.left, scopes)
+                const from = typeOf(node.left)
+                const type = typeOf(node)
+                const saturated = node.kind == LastKind.TruncateTo && node.saturate
+                return new TypeConvertGenNode(node, type, left, from, node.kind, saturated)
+            }
             case LastKind.Not: {
                 const target = lastToGenNode(node.target, scopes)
                 const type = typeOf(node)
