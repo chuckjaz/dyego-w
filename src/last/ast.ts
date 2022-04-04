@@ -60,6 +60,7 @@ export const enum LastKind {
     Function,
     Parameter,
     Call,
+    Memory,
     Let,
     Var,
     Global,
@@ -139,6 +140,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.Function: return "Function"
         case LastKind.Parameter: return "Parameter"
         case LastKind.Call: return "Call"
+        case LastKind.Memory: return "Memory"
         case LastKind.Let: return "Let"
         case LastKind.Var: return "Var"
         case LastKind.Global: return "Global"
@@ -164,8 +166,7 @@ export const enum PrimitiveKind {
     F32, F64,
     Bool,
     Void,
-    Null,
-    Memory,
+    Null
 }
 
 export function nameOfPrimitiveKind(kind: PrimitiveKind): string {
@@ -183,7 +184,6 @@ export function nameOfPrimitiveKind(kind: PrimitiveKind): string {
         case PrimitiveKind.Bool: return "bool"
         case PrimitiveKind.Null: return "null"
         case PrimitiveKind.Void: return "void"
-        case PrimitiveKind.Memory: return "memory"
     }
 }
 
@@ -237,6 +237,7 @@ export type Expression =
     Select |
     Index |
     Call |
+    Memory |
     ArrayLiteral |
     StructLiteral
 
@@ -252,8 +253,12 @@ export type Literal =
     LiteralF32 |
     LiteralF64 |
     LiteralBool |
-    LiteralNull |
-    LiteralMemory
+    LiteralNull
+
+export type Memory =
+    MemoryTop |
+    MemoryLimit |
+    MemoryGrow
 
 export type Exportable =
     Global |
@@ -505,13 +510,6 @@ export interface LiteralNull extends LastNode {
     value: null
 }
 
-/** A memory literal (memory) */
-export interface LiteralMemory extends LastNode {
-    kind: LastKind.Literal
-    primitiveKind: PrimitiveKind.Memory
-    value: null
-}
-
 /** A structured type initializer ({ ... }) */
 export interface StructLiteral extends LastNode {
     kind: LastKind.StructLiteral
@@ -629,6 +627,32 @@ export interface Call extends LastNode {
     kind: LastKind.Call
     target: Expression
     arguments: Expression[]
+}
+
+/** Memory method */
+export const enum MemoryMethod {
+    Top,
+    Limit,
+    Grow,
+}
+
+/** Returns the top of memory */
+export interface MemoryTop extends LastNode {
+    kind: LastKind.Memory
+    method: MemoryMethod.Top
+}
+
+/** Returns the limit */
+export interface MemoryLimit extends LastNode {
+    kind: LastKind.Memory
+    method: MemoryMethod.Limit
+}
+
+/** Grows memory by amount */
+export interface MemoryGrow extends LastNode {
+    kind: LastKind.Memory
+    method: MemoryMethod.Grow
+    amount: Expression
 }
 
 /** Declare a constant expresion of the given name, type and value */

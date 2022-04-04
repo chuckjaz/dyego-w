@@ -1,6 +1,7 @@
 import {
-    ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last, LastKind, Let, PrimitiveKind,
-    Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type, TypeKind, Var, u8Type
+    ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last,
+    LastKind, Let, PrimitiveKind, Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type,
+    TypeKind, Var, u8Type, MemoryMethod
 } from "../last"
 import {
     error, required, unsupported
@@ -14,8 +15,9 @@ import {
     ArrayLiteralGenNode, AssignGenNode, BigIntConstGenNode, BlockGenNode, BodyGenNode, BranchTableGenNode, ClampGenNode,
     CompareGenNode, DataAllocator, DataGenNode, DoubleConstGenNode, DropGenNode, emptyGenNode, flattenTypes,
     FunctionGenNode, GenNode, GenType, genTypeOf, GotoGenNode, i32GenType, LocalAllocator, LocationAllocator,
-    MemoryGenNode, NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
-    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode, GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode,
+    NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
+    voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode,
+    GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode, MemoryMethodGenNode,
 } from "./gennode"
 
 interface Scopes {
@@ -55,8 +57,6 @@ export function codegen(
     }
 
     const rootScope = new Scope<GenNode>()
-    rootScope.enter("memory", new MemoryGenNode({ start: 0 }))
-
     const globalSection = new GlobalSection(importSection.globalsCount)
     const globalsAllocator = new GlobalsAllocator(globalSection)
     const rootScopes: Scopes = {
@@ -341,8 +341,6 @@ export function codegen(
                         return zeroGenNode
                     case PrimitiveKind.Bool:
                         return node.value ? trueGenNode : falseGenNode
-                    case PrimitiveKind.Memory:
-                        return new MemoryGenNode(node)
                 }
                 break
             case LastKind.StructLiteral:
@@ -377,6 +375,14 @@ export function codegen(
                 return lastToGenNode(node.left, scopes)
             case LastKind.Exported:
                 return lastToGenNode(node.target, scopes)
+            case LastKind.Memory:
+                switch (node.method) {
+                    case MemoryMethod.Limit:
+                    case MemoryMethod.Top:
+                        return new MemoryMethodGenNode(node, node.method)
+                    case MemoryMethod.Grow:
+                        return new MemoryMethodGenNode(node, node.method, lastToGenNode(node.amount, scopes))
+                }
             case LastKind.Type:
             case LastKind.StructTypeLiteral:
             case LastKind.FieldLiteral:

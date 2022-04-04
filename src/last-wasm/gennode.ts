@@ -1,5 +1,5 @@
 import {
-    booleanType, i32Type, LastKind, Locatable, memoryType, nameOfLastKind, Type, TypeDeclaration, TypeKind,
+    booleanType, i32Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, Type, TypeDeclaration, TypeKind,
     typeToString, voidPointerType, voidType
 } from "../last";
 import { check, error, required, unsupported } from "../utils";
@@ -3096,10 +3096,47 @@ export class DataGenNode implements GenNode {
     }
 }
 
-export class MemoryGenNode extends LoadonlyGenNode implements GenNode {
-    type = memoryGenType
+export class MemoryMethodGenNode extends LoadonlyGenNode implements GenNode {
+    location: Locatable
+    private method: MemoryMethod
+    private amount?: GenNode
 
-    load(g: Generate) { }
+    constructor(location: Locatable, method: MemoryMethod, amount?: GenNode) {
+        super(location)
+        this.location = location
+        this.method = method
+        this.amount = amount
+    }
+
+    get type(): GenType {
+        switch (this.method) {
+            case MemoryMethod.Grow:
+                return i32GenType
+            case MemoryMethod.Limit:
+            case MemoryMethod.Top:
+                return voidPointerGenType
+        }
+    }
+
+    load(g: Generate) {
+        switch (this.method) {
+            case MemoryMethod.Grow:
+                this.amount?.load(g)
+                g.inst(Inst.Memory_grow)
+                g.index(0)
+                break
+            case MemoryMethod.Limit:
+                g.inst(Inst.Memory_size)
+                g.index(0)
+                g.inst(Inst.i32_const)
+                g.inst(16)
+                g.inst(Inst.i32_shl)
+                break
+            case MemoryMethod.Top:
+                i32GenType.loadData(this.location, g, zeroGenNode, 0)
+                break
+        }
+    }
 
     reference(location: Locatable): GenNode {
         return this
