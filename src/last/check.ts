@@ -1,9 +1,8 @@
-import { format } from "path";
 import { required, check as chk } from "../utils";
 import {
     BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
     TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, PrimitiveKind,
-    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral
+    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral, Memory, MemoryMethod
 } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
@@ -11,7 +10,7 @@ import { Scope } from "./scope";
 import {
     globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType,
     ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type,
-    u32Type, u64Type, f32Type, f64Type, nullType, builtInMethodsOf, voidPointerType, memoryType, UnionType
+    u32Type, u64Type, f32Type, f64Type, nullType, voidPointerType, UnionType
 } from "./types";
 
 const builtins = new Scope<Type>(globals)
@@ -381,6 +380,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Index:
                 type = index(expression, scopes)
                 break
+            case LastKind.Memory:
+                type = memory(expression, scopes)
+                break
             case LastKind.Block:
                 type = checkBlockOrLoop(expression, scopes)
                 break
@@ -575,25 +577,8 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case TypeKind.Union:
                 return fieldTypeOf(targetType);
             default:
-                const builtins = builtInMethodsOf(targetType)
-                const memberType = builtins.find(node.name.name)
-                if (!memberType) {
-                    report(node.name, `Type ${typeToString(targetType)} does not have a member "${node.name.name}"`)
-                    return errorType
-                }
-                if (memberType.kind == TypeKind.Function) {
-                    const thisParameter = memberType.parameters.find("this")
-                    if (thisParameter != null) {
-                        mustMatch(node, originalTarget, thisParameter)
-                        return {
-                            kind: TypeKind.Function,
-                            name: memberType.name,
-                            parameters: memberType.parameters.without("this"),
-                            result: memberType.result
-                        }
-                    }
-                }
-                return memberType
+                report(node.name, `Type ${typeToString(targetType)} does not have a member "${node.name.name}"`)
+                return errorType
         }
     }
 
@@ -607,6 +592,18 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         if (targetType.kind == TypeKind.Location)
             return { kind: TypeKind.Location, type: elementType, addressable: targetType.addressable }
         return elementType
+    }
+
+    function memory(node: Memory, scopes: Scopes): Type {
+        switch (node.method) {
+            case MemoryMethod.Top:
+            case MemoryMethod.Limit:
+                return voidPointerType
+            case MemoryMethod.Grow:
+                const amountType = checkExpression(node.amount, scopes)
+                mustMatch(node.amount, amountType, i32Type)
+                return i32Type
+        }
     }
 
     function assign(node: Assign, scopes: Scopes): Type {
@@ -637,7 +634,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case PrimitiveKind.Bool: return booleanType
             case PrimitiveKind.Null: return nullType
             case PrimitiveKind.Void: return voidType
-            case PrimitiveKind.Memory: return memoryType
             case PrimitiveKind.Null: return nullType
         }
     }

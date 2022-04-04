@@ -1,8 +1,9 @@
 import {
     BodyElement, Declaration, Diagnostic, Exportable, Expression, Field, Import, ImportItem, Last, LastKind,
     LiteralBigInt, PrimitiveKind, LiteralNumeric, Locatable, Module, nameOfLastKind, Parameter, Reference,
-    FieldLiteral, TypeExpression, Primitive, ArrayLiteral
+    FieldLiteral, TypeExpression, Primitive, ArrayLiteral, MemoryMethod
 } from "../last";
+import { MemoryMethodGenNode } from "../last-wasm/gennode";
 
 export function validate(module: Module): Diagnostic[] {
     const diagnostics: Diagnostic[] = []
@@ -53,7 +54,7 @@ export function validate(module: Module): Diagnostic[] {
     }
 
     function validatePrimitiveKind(location: Locatable, primitive: PrimitiveKind) {
-        required(location, primitive >= PrimitiveKind.I8 && primitive <= PrimitiveKind.Memory, "Unexpected primitive kind")
+        required(location, primitive >= PrimitiveKind.I8 && primitive <= PrimitiveKind.Null, "Unexpected primitive kind")
     }
 
     function validateReference(reference: Reference) {
@@ -265,9 +266,6 @@ export function validate(module: Module): Diagnostic[] {
                     case PrimitiveKind.F64:
                         required(node, typeof node.value === "number", "Expected value to be a number")
                         break
-                    case PrimitiveKind.Memory:
-                        required(node, node.value === null, "Expected value to be null")
-                        break
                     default:
                         fatal(node, "Unknown primitiveKind")
                 }
@@ -298,6 +296,14 @@ export function validate(module: Module): Diagnostic[] {
             requiredMembers(node, 'target', 'arguments')
             validateExpression(node.target)
             validateArray(node, 'arguments', node.arguments, validateExpression)
+            break
+        case LastKind.Memory:
+            requiredMembers(node, 'method')
+            required(node, node.method >= MemoryMethod.Top && node.method <= MemoryMethod.Grow, "Invalid memory method")
+            if (node.method == MemoryMethod.Grow) {
+                requiredMembers(node, 'amount')
+                validateExpression(node.amount)
+            }
             break
         case LastKind.Block:
         case LastKind.IfThenElse:

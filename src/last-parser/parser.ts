@@ -1,13 +1,13 @@
 import {
-    Add, AddressOf, And, ArrayConstructor, ArrayLiteral, As, Assign, BitAnd, BitOr, BitRotl, BitRotr, BitShl, BitShr, BitXor, Block, BodyElement, Branch, BranchIndexed,
-    Call, CountLeadingZeros, CountNonZeros, CountTrailingZeros, Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, Global, IfThenElse,
-    Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBool, LiteralF32,
-    LiteralF64, LiteralI6, LiteralI32, LiteralI64, LiteralI8, PrimitiveKind, LiteralNull, LiteralU16,
-    LiteralU32, LiteralU64, LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter,
-    PointerConstructor, Reference, Remainder, Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral,
-    Subtact, TypeDeclaration, TypeExpression, TypeSelect, Var, LiteralMemory, Primitive, UnionTypeLiteral,
-    AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest, CopySign, Minimum, Maximum, ConvertTo, WrapTo,
-    ReinterpretAs, TruncateTo
+    Add, AddressOf, And, ArrayConstructor, ArrayLiteral, Assign, BitAnd, BitOr, BitRotl, BitRotr, BitShl, BitShr,
+    BitXor, Block, BodyElement, Branch, BranchIndexed, Call, CountLeadingZeros, CountNonZeros, CountTrailingZeros,
+    Declaration, Dereference, Diagnostic, Divide, Exportable, Exported, Expression, Field, Function, Global, IfThenElse,
+    Import, ImportFunction, ImportItem, ImportVariable, Index, LastKind, Let, LiteralBool, LiteralF32, LiteralF64,
+    LiteralI6, LiteralI32, LiteralI64, LiteralI8, PrimitiveKind, LiteralNull, LiteralU16, LiteralU32, LiteralU64,
+    LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter, PointerConstructor, Reference, Remainder,
+    Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral, Subtact, TypeDeclaration, TypeExpression,
+    TypeSelect, Var, Primitive, UnionTypeLiteral, AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest,
+    CopySign, Minimum, Maximum, ConvertTo, WrapTo, ReinterpretAs, TruncateTo, Memory, MemoryMethod
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -700,7 +700,21 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
             }
             case Token.Memory: {
                 next()
-                return l<LiteralMemory>(start, { kind: LastKind.Literal, primitiveKind: PrimitiveKind.Memory, value: null })
+                expect(Token.Dot)
+                const methodName = expectName()
+                switch (methodName.name) {
+                    case "top": return l<Memory>(start, { kind: LastKind.Memory, method: MemoryMethod.Top })
+                    case "limit": return l<Memory>(start, { kind: LastKind.Memory, method: MemoryMethod.Limit })
+                    case "grow": {
+                        expect(Token.LParen)
+                        const amount = expression()
+                        expect(Token.RParen)
+                        return l<Memory>(start, { kind: LastKind.Memory, method: MemoryMethod.Grow,  amount })
+                    }
+                    default:
+                        report("expected one of 'top', 'limit' or 'grow'", methodName)
+                }
+                return undefined as any as Expression
             }
             case Token.Plus: {
                 next()
