@@ -6,6 +6,9 @@ import { codegen } from "../last-wasm"
 import { validate } from "../last-validate"
 import { transform } from "../last-debug"
 import { Options } from "./options"
+import { importJson } from "../last-import-json/import"
+import { ExtensionConverter } from "../last-import-json/extension-converter"
+import { FilterConverter } from "../last-import-json/filter-converter"
 
 export interface CompileResult {
     module: Uint8Array
@@ -51,16 +54,30 @@ export function compile(
                 diagnostics.push({ message: `Error reading file: ${source}`})
                 return emptyModule
             }
-            const json = JSON.parse(text) as Module
-            const validateResult = validate(json)
+            const module = importJson(text, [
+                new ExtensionConverter(),
+                new FilterConverter(
+                    "func_write",
+                    "func_read",
+                    "func_open",
+                    "func_close",
+                    "func_openat",
+                    "func_exit",
+                    "func_wait",
+                    "func_lseek",
+                    "func_mmap",
+                    "func_execve"
+                )
+            ])
+            const validateResult = validate(module)
             if (validateResult.length > 0) {
                 diagnostics.push(...validateResult)
                 return emptyModule
             }
             if (options.debug) {
-                return transform(json)
+                return transform(module)
             }
-            return json
+            return module
         } else {
             diagnostics.push({ message: `Unrecognized file type: ${source}`})
             return emptyModule

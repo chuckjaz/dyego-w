@@ -505,6 +505,13 @@ describe("check", () => {
                 var b: i32^ = a reinterpretas i32^;
             `)
         })
+        it("can use array indexing as a substitute for pointer arithmetic", () => {
+            t(`
+                var a: u8[123];
+                var p = (&(a[10])) reinterpretas u8[]^;
+                var p2 = &p^[1];
+            `)
+        })
     })
 
     describe("string literal", () => {

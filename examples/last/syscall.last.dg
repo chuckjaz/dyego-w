@@ -1,0 +1,51 @@
+fun func_write(fd: i64, s: void[]^, n: i64): i64 {
+//    return syscall3(SYS_write, fd, s, n);
+    return 0l;
+}
+
+fun func_exit(status: i64): i64 {
+//    return syscall1(SYS_exit, status);
+    return 0l;
+}
+
+fun func_read(fd: i64, s: void[]^, n: i64): i64 {
+//    return syscall3(SYS_read, fd, s, n);
+    return 0l;
+}
+
+fun func_open(path: u8[]^, flags: i64, mode: i64): i64 {
+//    return syscall3(SYS_open, path, flags, mode);
+    return 0l;
+}
+
+fun func_close(fd: i64): i64 {
+//    return syscall1(SYS_close, fd);
+    return 0l;
+}
+
+fun func_openat(fd: i64, path: u8[]^, flags: i64, mode: i64): i64 {
+//    return syscall4(SYS_openat, fd, path, flags, mode);
+    return 0l;
+}
+
+fun func_wait(status: i64[]^): i64 {
+//    return syscall4(SYS_wait4, -1, status, 0, 0);
+    return 0l;
+}
+
+fun func_lseek(fd: i64, offset: i64, whence: i64): i64 {
+//    return syscall3(SYS_lseek, fd, offset, whence);
+    return 0l;
+}
+
+fun func_mmap(addr: void[]^, len: i64, prot: i64, flags: i64, fd: i64, offset: i64): void[]^ {
+//    return syscall6(SYS_mmap, addr, len, prot, flags, fd, offset);
+    return null;
+}
+
+fun func_execve(filename: u8[]^, argv: u8[]^[]^, envp: u8[]^[]^): i64 {
+//    return syscall3(SYS_execve, filename, argv, envp);
+    return 0l;
+}
+
+fun func_fork(): i64 { return 0l }

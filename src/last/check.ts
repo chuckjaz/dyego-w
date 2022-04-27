@@ -437,7 +437,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     ): Type {
         const type = checkExpression(target, scopes)
         if (type.kind == TypeKind.Location && type.addressable) {
-            return { kind: TypeKind.Pointer, target: type.type }
+            return { kind: TypeKind.Pointer, target: type }
         }
         report(node, "The value does not have an address")
         return errorType
@@ -459,7 +459,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     ): Type {
         const type = read(checkExpression(target, scopes));
         if (type.kind == TypeKind.Pointer) {
-            return { kind: TypeKind.Location, type: type.target }
+            return { kind: TypeKind.Location, type: type.target, addressable: true }
         }
         report(node, "Expected a pointer type")
         return errorType
@@ -1105,11 +1105,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         switch (from.kind) {
             case TypeKind.Location:
                 return validateConvert(location, from.type, to)
-            case TypeKind.I32:
-                if (to.kind == TypeKind.Boolean) return
-                // fallthrough
             case TypeKind.I8:
             case TypeKind.I16:
+            case TypeKind.I32:
             case TypeKind.I64:
             case TypeKind.U8:
             case TypeKind.U16:
@@ -1126,6 +1124,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                     case TypeKind.U64:
                     case TypeKind.F32:
                     case TypeKind.F64:
+                    case TypeKind.Boolean:
                         return
                 }
                 break
@@ -1141,8 +1140,27 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                         return
                 }
                 break
+            case TypeKind.Pointer:
+                switch (to.kind) {
+                    case TypeKind.Boolean:
+                        return
+                }
+                break
             case TypeKind.Boolean:
-                if (to.kind == TypeKind.Boolean) return
+                switch (to.kind) {
+                    case TypeKind.Boolean:
+                    case TypeKind.I8:
+                    case TypeKind.I16:
+                    case TypeKind.I32:
+                    case TypeKind.I64:
+                    case TypeKind.U8:
+                    case TypeKind.U16:
+                    case TypeKind.U32:
+                    case TypeKind.U64:
+                    case TypeKind.F32:
+                    case TypeKind.F64:
+                        return
+                }
                 break
         }
         report(location, `Cannot convert ${typeToString(from)} to ${typeToString(to)}`)
@@ -1162,6 +1180,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         switch (from.kind) {
             case TypeKind.Location:
                 return validateReinterpret(location, from.type, to)
+            case TypeKind.I32:
+                switch (to.kind) {
+                    case TypeKind.Pointer:
+                        return
+                }
+                break
             case TypeKind.U32:
                 switch (to.kind) {
                     case TypeKind.Pointer:
@@ -1189,14 +1213,15 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 break
             case TypeKind.Pointer:
                 switch (to.kind) {
+                    case TypeKind.I32:
                     case TypeKind.U32:
-                        return
                     case TypeKind.Pointer:
                         return
                 }
                 break
+            case TypeKind.Error:
+                return
         }
-
         report(location, `Cannot reinterpret ${typeToString(from)} to ${typeToString(to)}`)
     }
 
@@ -1234,7 +1259,10 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
     function enter<T>(location: Locatable, name: string, item: T, scope: Scope<T>) {
-        if (scope.has(name)) report(location, `Duplicate symbol ${name}`)
+        if (scope.has(name)) {
+            report(location, `Duplicate symbol ${name}`);
+            return
+        }
         scope.enter(name, item)
     }
 
@@ -1262,12 +1290,3 @@ function unwrap(type: Type): Type {
         default: return type
     }
 }
-
-function isArrayType(type: Type): boolean {
-    switch (type.kind) {
-        case TypeKind.Array: return true
-        case TypeKind.Location: return isArrayType(type.type)
-    }
-    return false
-}
-

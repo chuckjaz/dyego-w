@@ -1,8 +1,9 @@
 import * as fs from "fs"
 import { FileSet } from "../files";
-import { Diagnostic } from "../last";
+import { Diagnostic, Last, Locatable, nameOfLastKind } from "../last";
+import { childrenOf, Separator } from "../last-debug";
 import { SourceMap } from "../source-map";
-import { Mapping } from "../wasm";
+import { Mapping, SectionIndex } from "../wasm";
 import { compile } from "./compile";
 import { debug } from "./debugger";
 import { Options } from "./options";
@@ -59,10 +60,40 @@ export function main(sources: string[], options: Options): number {
     return 0
 }
 
+function findLocationNode(loc: Locatable, root: Last): Last[] {
+    const path: Last[] = []
+
+    function scan(node: Last): boolean {
+        if (node == loc) return true
+        path.push(node)
+        for (let child of childrenOf(node)) {
+            if (child instanceof Separator) continue
+            if (scan(child)) return true
+        }
+        path.pop()
+        return false
+    }
+
+    scan(root)
+    return path
+}
+
+function nodePathText(path: Last[]): string | undefined {
+    if (path.length == 0) return undefined
+    let result: string[] = []
+
+    for (const element of path) {
+        if (typeof element.kind === "string") result.push(element.kind)
+        else result.push(nameOfLastKind(element.kind))
+    }
+    return result.join("/")
+}
+
 function report(diagnostics: Partial<Diagnostic>[], fileSet: FileSet, prefix: string = "") {
     for (const diagnostic of diagnostics) {
         const position = diagnostic.location ? fileSet.position(diagnostic.location) : undefined
-        console.log(`${prefix}${position ? position.display() + ": " : ''}${diagnostic.message}`)
+        const loc = position ? position.display() : (diagnostic?.location?.loc)
+        console.log(`${prefix}${loc ? loc + ": " : ''}${diagnostic.message}`)
         if (diagnostic.related) {
             report(diagnostic.related, fileSet, prefix + "  ")
         }

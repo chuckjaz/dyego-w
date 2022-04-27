@@ -3,54 +3,106 @@ import {
     LiteralBigInt, PrimitiveKind, LiteralNumeric, Locatable, Module, nameOfLastKind, Parameter, Reference,
     FieldLiteral, TypeExpression, Primitive, ArrayLiteral, MemoryMethod
 } from "../last";
-import { MemoryMethodGenNode } from "../last-wasm/gennode";
 
 export function validate(module: Module): Diagnostic[] {
     const diagnostics: Diagnostic[] = []
+    const context: (LastKind | { name: string, index: number } | string)[] = []
+
+    function c(kind: LastKind, block: () => void) {
+        context.push(kind)
+        block()
+        context.pop()
+    }
+
+    function i(name: string, index: number, block: () => void) {
+        context.push({ name, index })
+        block()
+        context.pop()
+    }
+
+    function unref(node: any): string | undefined {
+        return node.name?.kind == LastKind.Reference ? node.name.name : undefined
+    }
+
+    function n(node: any, block: () => void) {
+        const name = unref(node)
+        if (name) {
+            if (node.kind !== undefined) {
+                context.push(`${nameOfLastKind(node.kind)}(${name})`)
+            } else {
+                context.push(name)
+            }
+        } else if (node.kind !== undefined) {
+            context.push(node.kind)
+        } else context.push("???")
+        block()
+        context.pop()
+    }
+
+    function contextToString(): string {
+        return context.map(item => {
+            if (typeof item === "number") {
+                return nameOfLastKind(item)
+            } else if (typeof item == "string") {
+                return item
+            } else {
+                return `${item.name}[${item.index}]`
+            }
+        }).join("/")
+    }
+
     try {
         validateModule(module)
     } catch (e: any) {
-        report(e.location ?? module, e.message)
+        report(e.location ?? module, `${contextToString()}: ${e.message}`)
     }
     return diagnostics
 
     function validateModule(module: Module) {
-        requiredKind(module, LastKind.Module)
-        requiredMembers(module, 'imports', 'declarations')
-        validateArray(module, 'imports', module.imports, validateImport)
-        validateArray(module, 'declarations', module.declarations, validateDeclaration)
+        c(LastKind.Module, () => {
+            requiredKind(module, LastKind.Module)
+            requiredMembers(module, 'imports', 'declarations')
+            validateArray(module, 'imports', module.imports, validateImport)
+            validateArray(module, 'declarations', module.declarations, validateDeclaration)
+        })
     }
 
     function validateImport(importNode: Import) {
-        requiredKind(importNode, LastKind.Import)
-        requiredMembers(importNode, 'imports')
-        validateArray(importNode, 'imports', importNode.imports, validateImportItem)
+        c(LastKind.Import, () => {
+            requiredKind(importNode, LastKind.Import)
+            requiredMembers(importNode, 'imports')
+            validateArray(importNode, 'imports', importNode.imports, validateImportItem)
+        })
     }
 
     function validateImportItem(importItem: ImportItem) {
-        requiredMembers(importItem, 'module', 'name')
-        validateReference(importItem.module)
-        validateReference(importItem.name)
-        if (importItem.as !== undefined) validateReference(importItem.as)
-        switch (importItem.kind) {
-            case LastKind.ImportFunction:
-                requiredMembers(importItem, 'parameters', 'result')
-                validateArray(importItem, 'parameters', importItem.parameters, validateParameter)
-                validateTypeExpression(importItem.result)
-                break
-            case LastKind.ImportVariable:
-                requiredMembers(importItem, 'type')
-                validateTypeExpression(importItem.type)
-                break
-            default:
-                fatal(importItem, "Expected and ImportItem")
-        }
+        c(importItem.kind, () => {
+            requiredMembers(importItem, 'module', 'name')
+            validateReference(importItem.module)
+            validateReference(importItem.name)
+            if (importItem.as !== undefined) validateReference(importItem.as)
+            switch (importItem.kind) {
+                case LastKind.ImportFunction:
+                    requiredMembers(importItem, 'parameters', 'result')
+                    validateArray(importItem, 'parameters', importItem.parameters, validateParameter)
+                    validateTypeExpression(importItem.result)
+                    break
+                case LastKind.ImportVariable:
+                    requiredMembers(importItem, 'type')
+                    validateTypeExpression(importItem.type)
+                    break
+                default:
+                    fatal(importItem, "Expected and ImportItem")
+            }
+        })
     }
 
     function validatePrimitive(node: Primitive) {
-        requiredKind(node, LastKind.Primitive)
-        requiredMembers(node, 'primitive')
-        validatePrimitiveKind(node, node.primitive)
+        c(LastKind.Primitive, () => {
+            requiredKind(node, LastKind.Primitive)
+            requiredMembers(node, 'primitive')
+            validatePrimitiveKind(node, node.primitive)
+        })
     }
 
     function validatePrimitiveKind(location: Locatable, primitive: PrimitiveKind) {
@@ -58,9 +110,11 @@ export function validate(module: Module): Diagnostic[] {
     }
 
     function validateReference(reference: Reference) {
-        requiredKind(reference, LastKind.Reference)
-        requiredMembers(reference, 'name')
-        required(reference, typeof reference.name === "string", "Expected name to be a string")
+        c(LastKind.Reference, () => {
+            requiredKind(reference, LastKind.Reference)
+            requiredMembers(reference, 'name')
+            required(reference, typeof reference.name === "string", "Expected name to be a string")
+        })
     }
 
     function validateTypeExpression(type: TypeExpression) {
@@ -72,23 +126,31 @@ export function validate(module: Module): Diagnostic[] {
                 validateReference(type)
                 break
             case LastKind.TypeSelect:
-                requiredMembers(type, 'target', 'name')
-                validateTypeExpression(type.target)
-                validateReference(type.name)
+                c(LastKind.TypeSelect, () => {
+                    requiredMembers(type, 'target', 'name')
+                    validateTypeExpression(type.target)
+                    validateReference(type.name)
+                })
                 break
             case LastKind.StructTypeLiteral:
-                requiredMembers(type, 'fields')
-                validateArray(type, 'fields', type.fields, validateStructFieldLiteral)
+                c(LastKind.StructTypeLiteral, () => {
+                    requiredMembers(type, 'fields')
+                    validateArray(type, 'fields', type.fields, validateStructFieldLiteral)
+                })
                 break
             case LastKind.ArrayConstructor:
-                requiredMembers(type, 'element')
-                if (type.size !== undefined) {
-                    required(type, typeof type.size === "number", "Expected size to be a number")
-                }
+                c(LastKind.ArrayConstructor, () => {
+                    requiredMembers(type, 'element')
+                    if (type.size !== undefined) {
+                        required(type, typeof type.size === "number", "Expected size to be a number")
+                    }
+                })
                 break
             case LastKind.PointerConstructor:
-                requiredMembers(type, 'target')
-                validateTypeExpression(type.target)
+                c(LastKind.PointerConstructor, () => {
+                    requiredMembers(type, 'target')
+                    validateTypeExpression(type.target)
+                })
                 break
             default:
                 fatal(type, "Expected a TypeExpression")
@@ -96,52 +158,64 @@ export function validate(module: Module): Diagnostic[] {
     }
 
     function validateStructFieldLiteral(field: FieldLiteral) {
-        requiredKind(field, LastKind.FieldLiteral)
-        requiredMembers(field, 'name', 'type')
-        validateReference(field.name)
-        validateTypeExpression(field.type)
+        c(LastKind.FieldLiteral, () => {
+            requiredKind(field, LastKind.FieldLiteral)
+            requiredMembers(field, 'name', 'type')
+            validateReference(field.name)
+            validateTypeExpression(field.type)
+        })
     }
 
     function validateParameter(parameter: Parameter) {
-        requiredKind(parameter, LastKind.Parameter)
-        requiredMembers(parameter, 'name', 'type')
-        validateReference(parameter.name)
-        validateTypeExpression(parameter.type)
+        c(LastKind.Parameter, () => {
+            requiredKind(parameter, LastKind.Parameter)
+            requiredMembers(parameter, 'name', 'type')
+            validateReference(parameter.name)
+            validateTypeExpression(parameter.type)
+        })
     }
 
     function validateDeclaration(declaration: Declaration) {
         switch (declaration.kind) {
             case LastKind.Let:
-                requiredMembers(declaration, 'name', 'type', 'value')
-                validateReference(declaration.name)
-                validateTypeExpression(declaration.type)
-                validateExpression(declaration.value)
+                n(declaration, () => {
+                    requiredMembers(declaration, 'name', 'type', 'value')
+                    validateReference(declaration.name)
+                    validateTypeExpression(declaration.type)
+                    validateExpression(declaration.value)
+                })
                 break
             case LastKind.Var:
-                requiredMembers(declaration, 'name')
-                validateReference(declaration.name)
-                if (declaration.type) {
-                    validateTypeExpression(declaration.type)
-                }
-                if (declaration.value) {
-                    validateExpression(declaration.value)
-                }
-                if (!declaration.type && !declaration.value) {
-                    report(declaration, "A type or value is required")
-                }
+                n(declaration, () => {
+                    requiredMembers(declaration, 'name')
+                    validateReference(declaration.name)
+                    if (declaration.type) {
+                        validateTypeExpression(declaration.type)
+                    }
+                    if (declaration.value) {
+                        validateExpression(declaration.value)
+                    }
+                    if (!declaration.type && !declaration.value) {
+                        report(declaration, "A type or value is required")
+                    }
+                })
                 break
             case LastKind.Type:
-                requiredMembers(declaration, 'name', 'type')
-                validateReference(declaration.name)
-                validateTypeExpression(declaration.type)
+                c(LastKind.Type, () => {
+                    requiredMembers(declaration, 'name', 'type')
+                    validateReference(declaration.name)
+                    validateTypeExpression(declaration.type)
+                })
                 break
             case LastKind.Function:
             case LastKind.Global:
                 validateExportable(declaration)
                 break
             case LastKind.Exported:
-                requiredMembers(declaration, 'target')
-                validateExportable(declaration.target)
+                c(LastKind.Exported, () => {
+                    requiredMembers(declaration, 'target')
+                    validateExportable(declaration.target)
+                })
                 break
             default:
                 fatal(declaration, "Expected a Declration")
@@ -151,17 +225,21 @@ export function validate(module: Module): Diagnostic[] {
     function validateExportable(node: Exportable) {
         switch (node.kind) {
             case LastKind.Global:
-                requiredMembers(node, 'name', 'type', 'value')
-                validateReference(node.name)
-                validateTypeExpression(node.type)
-                validateExpression(node.value)
+                n(node, () => {
+                    requiredMembers(node, 'name', 'type', 'value')
+                    validateReference(node.name)
+                    validateTypeExpression(node.type)
+                    validateExpression(node.value)
+                })
                 break
             case LastKind.Function:
-                requiredMembers(node, 'name', 'parameters', 'result', 'body')
-                validateReference(node.name)
-                validateArray(node, 'parameters', node.parameters, validateParameter)
-                validateTypeExpression(node.result)
-                validateArray(node, 'body', node.body, validateBodyElement)
+                n(node, () => {
+                    requiredMembers(node, 'name', 'parameters', 'result', 'body')
+                    validateReference(node.name)
+                    validateArray(node, 'parameters', node.parameters, validateParameter)
+                    validateTypeExpression(node.result)
+                    validateArray(node, 'body', node.body, validateBodyElement)
+                })
                 break
             default:
                 fatal(node, "Expected an Exportable")
@@ -193,9 +271,11 @@ export function validate(module: Module): Diagnostic[] {
             case LastKind.Minimum:
             case LastKind.Maximum:
             case LastKind.CopySign: {
-                requiredMembers(node, 'left', 'right')
-                validateExpression(node.left)
-                validateExpression(node.right)
+                c(node.kind, () => {
+                    requiredMembers(node, 'left', 'right')
+                    validateExpression(node.left)
+                    validateExpression(node.right)
+                })
                 break
             }
             case LastKind.Negate:
@@ -210,8 +290,10 @@ export function validate(module: Module): Diagnostic[] {
             case LastKind.Ceiling:
             case LastKind.Truncate:
             case LastKind.RoundNearest:{
-                requiredMembers(node, 'target')
-                validateExpression(node.target)
+                c(node.kind, () => {
+                    requiredMembers(node, 'target')
+                    validateExpression(node.target)
+                })
                 break
             }
             case LastKind.ConvertTo:
@@ -219,99 +301,124 @@ export function validate(module: Module): Diagnostic[] {
             case LastKind.ReinterpretAs:
             case LastKind.TruncateTo:
             case LastKind.As: {
-                requiredMembers(node, 'left', 'right')
-                validateExpression(node.left)
-                validateTypeExpression(node.right)
+                c(node.kind, () => {
+                    requiredMembers(node, 'left', 'right')
+                    validateExpression(node.left)
+                    validateTypeExpression(node.right)
+                })
                 break
             }
             case LastKind.SizeOf: {
-                requiredMembers(node, 'target')
-                validateTypeExpression(node.target)
+                c(node.kind, () => {
+                    requiredMembers(node, 'target')
+                    validateTypeExpression(node.target)
+                })
                 break
             }
             case LastKind.Literal: {
-                requiredMembers(node, 'primitiveKind', 'value')
-                switch (node.primitiveKind) {
-                    case PrimitiveKind.I8:
-                        validateNumericRange(node, -128, 127)
-                        break
-                    case PrimitiveKind.U8:
-                        validateNumericRange(node, 0, 255)
-                        break
-                    case PrimitiveKind.I16:
-                        validateNumericRange(node, -32768, 32767)
-                        break
-                    case PrimitiveKind.U16:
-                        validateNumericRange(node, 0, 65535)
-                        break
-                    case PrimitiveKind.I32:
-                        validateNumericRange(node, -2147483648, 2147483647)
-                        break
-                    case PrimitiveKind.U32:
-                        validateNumericRange(node, 0, (1 >> 32) - 1)
-                        break
-                    case PrimitiveKind.I64:
-                        validateBigIntRange(node, -(1n << 63n), (1n << 63n) - 1n)
-                        break
-                    case PrimitiveKind.U64:
-                        validateBigIntRange(node, 0n, (1n << 64n) - 1n)
-                        break
-                    case PrimitiveKind.Bool:
-                        required(node, typeof node.value === "boolean", "Expected value to be a boolena")
-                        break
-                    case PrimitiveKind.Null:
-                        required(node, node.value === null, "Expected value to be null")
-                        break
-                    case PrimitiveKind.F32:
-                    case PrimitiveKind.F64:
-                        required(node, typeof node.value === "number", "Expected value to be a number")
-                        break
-                    default:
-                        fatal(node, "Unknown primitiveKind")
-                }
+                c(node.kind, () => {
+                    requiredMembers(node, 'primitiveKind', 'value')
+                    switch (node.primitiveKind) {
+                        case PrimitiveKind.I8:
+                            validateNumericRange(node, -128, 127)
+                            break
+                        case PrimitiveKind.U8:
+                            validateNumericRange(node, 0, 255)
+                            break
+                        case PrimitiveKind.I16:
+                            validateNumericRange(node, -32768, 32767)
+                            break
+                        case PrimitiveKind.U16:
+                            validateNumericRange(node, 0, 65535)
+                            break
+                        case PrimitiveKind.I32:
+                            validateNumericRange(node, -2147483648, 2147483647)
+                            break
+                        case PrimitiveKind.U32:
+                            validateNumericRange(node, 0, (1 >> 32) - 1)
+                            break
+                        case PrimitiveKind.I64:
+                            validateBigIntRange(node, -(1n << 63n), (1n << 63n) - 1n)
+                            break
+                        case PrimitiveKind.U64:
+                            validateBigIntRange(node, 0n, (1n << 64n) - 1n)
+                            break
+                        case PrimitiveKind.Bool:
+                            required(node, typeof node.value === "boolean", "Expected value to be a boolena")
+                            break
+                        case PrimitiveKind.Null:
+                            required(node, node.value === null, "Expected value to be null")
+                            break
+                        case PrimitiveKind.F32:
+                        case PrimitiveKind.F64:
+                            required(node, typeof node.value === "number", "Expected value to be a number")
+                            break
+                        default:
+                            fatal(node, "Unknown primitiveKind")
+                    }
+                })
                 break
             }
         case LastKind.StructLiteral:
-            requiredMembers(node, 'fields')
-            validateArray(node, 'fields', node.fields, validateField)
+            c(node.kind, () => {
+                requiredMembers(node, 'fields')
+                validateArray(node, 'fields', node.fields, validateField)
+            })
             break
         case LastKind.ArrayLiteral:
-            requiredMembers(node, 'values')
-            validateArrayLiteralValues(node, node)
+            c(node.kind, () => {
+                requiredMembers(node, 'values')
+                validateArrayLiteralValues(node, node)
+            })
             break
         case LastKind.Reference:
             validateReference(node)
             break
         case LastKind.Select:
-            requiredMembers(node, 'target', 'name')
-            validateExpression(node.target)
-            validateReference(node.name)
+            c(node.kind, () => {
+                requiredMembers(node, 'target', 'name')
+                validateExpression(node.target)
+                validateReference(node.name)
+            })
             break
         case LastKind.Index:
-            requiredMembers(node, 'target', 'index')
-            validateExpression(node.target)
-            validateExpression(node.index)
+            c(node.kind, () => {
+                requiredMembers(node, 'target', 'index')
+                validateExpression(node.target)
+                validateExpression(node.index)
+            })
             break
         case LastKind.Call:
-            requiredMembers(node, 'target', 'arguments')
-            validateExpression(node.target)
-            validateArray(node, 'arguments', node.arguments, validateExpression)
+            c(node.kind, () => {
+                requiredMembers(node, 'target', 'arguments')
+                validateExpression(node.target)
+                validateArray(node, 'arguments', node.arguments, validateExpression)
+            })
             break
         case LastKind.Memory:
-            requiredMembers(node, 'method')
-            required(node, node.method >= MemoryMethod.Top && node.method <= MemoryMethod.Grow, "Invalid memory method")
-            if (node.method == MemoryMethod.Grow) {
-                requiredMembers(node, 'amount')
-                validateExpression(node.amount)
-            }
+            c(node.kind, () => {
+                requiredMembers(node, 'method')
+                required(node, node.method >= MemoryMethod.Top && node.method <= MemoryMethod.Grow, "Invalid memory method")
+                if (node.method == MemoryMethod.Grow) {
+                    requiredMembers(node, 'amount')
+                    validateExpression(node.amount)
+                }
+            })
             break
         case LastKind.Block:
         case LastKind.IfThenElse:
             validateBodyElement(node)
             break
         default:
-            fatal(node, "Expected an Expression")
+            console.log(node)
+            fatal(node, `Expected an Expression, received: ${nodeText(node)}`)
         }
+    }
+
+    function nodeText(node: any) {
+        if (typeof node.kind === "number") return nameOfLastKind(node.kind)
+        if (node.kind === undefined) return "no kind field"
+        return `${node.kind}`
     }
 
     function validateNumericRange(node: Last & LiteralNumeric, min: number, max: number) {
@@ -342,34 +449,46 @@ export function validate(module: Module): Diagnostic[] {
                 break
             case LastKind.Loop:
             case LastKind.Block:
-                requiredMembers(node, 'body')
-                if (node.name !== undefined) validateReference(node.name)
-                validateArray(node, 'body', node.body, validateBodyElement)
+                c(node.kind, () => {
+                    requiredMembers(node, 'body')
+                    if (node.name !== undefined) validateReference(node.name)
+                    validateArray(node, 'body', node.body, validateBodyElement)
+                })
                 break
             case LastKind.IfThenElse:
-                requiredMembers(node, 'condition', 'then', 'else')
-                validateExpression(node.condition)
-                validateArray(node, 'then', node.then, validateBodyElement)
-                validateArray(node, 'else', node.else, validateBodyElement)
+                c(node.kind, () => {
+                    requiredMembers(node, 'condition', 'then', 'else')
+                    validateExpression(node.condition)
+                    validateArray(node, 'then', node.then, validateBodyElement)
+                    validateArray(node, 'else', node.else, validateBodyElement)
+                })
                 break
             case LastKind.Assign:
-                requiredMembers(node, 'target', 'value')
-                validateExpression(node.target)
-                validateExpression(node.value)
+                c(node.kind, () => {
+                    requiredMembers(node, 'target', 'value')
+                    validateExpression(node.target)
+                    validateExpression(node.value)
+                })
                 break
             case LastKind.Branch:
-                requiredMembers(node)
-                if (node.target) validateReference(node.target)
+                c(node.kind, () => {
+                    requiredMembers(node)
+                    if (node.target) validateReference(node.target)
+                })
                 break
             case LastKind.BranchIndexed:
-                requiredMembers(node, 'condition', 'targets', 'else')
-                validateExpression(node.condition)
-                validateArray(node, 'targets', node.targets, validateReference)
-                validateReference(node.else)
+                c(node.kind, () => {
+                    requiredMembers(node, 'condition', 'targets', 'else')
+                    validateExpression(node.condition)
+                    validateArray(node, 'targets', node.targets, validateReference)
+                    validateReference(node.else)
+                })
                 break
             case LastKind.Return:
-                requiredMembers(node)
-                if (node.value) validateExpression(node.value)
+                c(node.kind, () => {
+                    requiredMembers(node)
+                    if (node.value) validateExpression(node.value)
+                })
                 break
             default:
                 validateExpression(node)
@@ -378,8 +497,12 @@ export function validate(module: Module): Diagnostic[] {
     }
 
     function validateArray<T>(location: Locatable, name: string, items: T[], validator: (item: T) => void) {
-        required(location, Array.isArray(items), `Expected ${name} to be an an array`)
-        items.forEach(validator)
+        required(location, Array.isArray(items), `Expected ${name} to be an array`)
+        items.forEach((value, index) => {
+            i(name, index, () => {
+                validator(value)
+            })
+        })
     }
 
     function validateArrayLiteralValues(location: Locatable, last: ArrayLiteral) {
