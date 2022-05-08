@@ -153,7 +153,7 @@ export function importJson(text: string, converters: Converter[] = []): Module {
                 case LastKind.Reference:
                     return copy(node, { kind })
                 case LastKind.Select:
-                    return copy(node, { kind, target: convertNode(node.target) })
+                    return copy(node, { kind, target: convertNode(node.target), name: convertNode(node.name) })
                 case LastKind.Index:
                     return copy(node, { kind, target: convertNode(node.target), index: convertNode(node.index) })
                 case LastKind.Assign:

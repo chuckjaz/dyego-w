@@ -516,7 +516,8 @@ export function validate(module: Module): Diagnostic[] {
     }
 
     function requiredKind(last: Last, kind: LastKind) {
-        if (last.kind !== kind) fatal(last, `Expected a node of kind ${nameOfLastKind(kind)}`)
+        if (last.kind !== kind)
+            fatal(last, `Expected a node of kind ${nameOfLastKind(kind)}, received ${last.kind}`)
     }
 
     function requiredMembers(last: Last, ...members: string[]) {

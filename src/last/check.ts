@@ -439,7 +439,8 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         if (type.kind == TypeKind.Location && type.addressable) {
             return { kind: TypeKind.Pointer, target: type }
         }
-        report(node, "The value does not have an address")
+        if (type.kind != TypeKind.Error)
+            report(node, "The value does not have an address")
         return errorType
     }
 
@@ -461,7 +462,8 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         if (type.kind == TypeKind.Pointer) {
             return { kind: TypeKind.Location, type: type.target, addressable: true }
         }
-        report(node, "Expected a pointer type")
+        if (type.kind != TypeKind.Error)
+            report(node, "Expected a pointer type")
         return errorType
     }
 
@@ -576,6 +578,8 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case TypeKind.Struct:
             case TypeKind.Union:
                 return fieldTypeOf(targetType);
+            case TypeKind.Error:
+                return targetType
             default:
                 report(node.name, `Type ${typeToString(targetType)} does not have a member "${node.name.name}"`)
                 return errorType
