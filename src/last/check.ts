@@ -2,7 +2,8 @@ import { required, check as chk } from "../utils";
 import {
     BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
     TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, PrimitiveKind,
-    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral, Memory, MemoryMethod
+    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral, Memory,
+    MemoryMethod
 } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
@@ -638,7 +639,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case PrimitiveKind.Bool: return booleanType
             case PrimitiveKind.Null: return nullType
             case PrimitiveKind.Void: return voidType
-            case PrimitiveKind.Null: return nullType
         }
     }
 

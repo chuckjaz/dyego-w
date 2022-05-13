@@ -2,7 +2,7 @@ import {
     BodyElement, Call, copy, Declaration, Exportable, Expression, Function, Last, LastKind, LiteralI32, PrimitiveKind,
     Module, Parameter, Reference, Return, Primitive
 } from '../last'
-import { childrenOf, Separator, updateFromChildren } from './children'
+import { childrenOf, Separator, updateFromChildren } from '../last-transform'
 
 export function transform(module: Module): Module {
     let counter = 0

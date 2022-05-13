@@ -2,7 +2,7 @@ import {
     ArrayConstructor, ArrayLiteral, Binary, copy, Function, Global, ImportFunction, ImportVariable, Last, LastKind,
     Let, Literal, Memory, MemoryMethod, Module, Primitive, PrimitiveKind, Unary, Var
 } from "../last";
-import { childrenOf, Separator } from "../last-debug";
+import { childrenOf, Separator } from "../last-transform";
 import { validate } from "../last-validate";
 
 export interface ConvertContext {

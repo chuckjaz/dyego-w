@@ -1,7 +1,7 @@
 import * as fs from "fs"
 import { FileSet } from "../files";
 import { Diagnostic, Last, Locatable, nameOfLastKind } from "../last";
-import { childrenOf, Separator } from "../last-debug";
+import { childrenOf, Separator } from "../last-transform";
 import { SourceMap } from "../source-map";
 import { Mapping, SectionIndex } from "../wasm";
 import { compile } from "./compile";
