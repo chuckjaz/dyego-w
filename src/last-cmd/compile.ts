@@ -94,8 +94,8 @@ export function compile(
     }
 
     const checkResult = check(module)
-    if (Array.isArray(checkResult)) {
-        return checkResult
+    if (checkResult.definitions.length != 0) {
+        return checkResult.diagnostics
     }
 
     const wasmModule = new WasmModule()

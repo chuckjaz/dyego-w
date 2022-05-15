@@ -59,7 +59,7 @@ function tx(text: string, name: string = "<text>", cb: (exports: any) => void): 
     const module = v(p(text, name, fileSet), fileSet)
     const debugModule = v(transform(module), fileSet)
     const checkResult = check(debugModule)
-    if (Array.isArray(checkResult)) report(checkResult, fileSet)
+    if (checkResult.diagnostics.length != 0) report(checkResult.diagnostics, fileSet)
 
     const wasmModule = new WasmModule()
 

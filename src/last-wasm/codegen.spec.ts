@@ -1627,7 +1627,10 @@ function cg(text: string, cb: (exports: any) => void, name: string = "<text>", i
     const scanner = new Scanner(text + "\0", fileBuilder)
     fileBuilder.build()
     const module = s(parse(scanner, fileBuilder))
-    const checkResult = s(check(module))
+    const checkResult = check(module)
+    if (checkResult.diagnostics.length > 0) {
+        report(text, name, checkResult.diagnostics, fileSet)
+    }
     const wasmModule = new Module()
 
     codegen(module, checkResult, wasmModule, true)

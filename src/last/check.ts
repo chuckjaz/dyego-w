@@ -16,30 +16,86 @@ import {
 
 const builtins = new Scope<Type>(globals)
 
+export enum CheckDiagnosticCode {
+    ArgumentNumber,
+    ArrayExpected,
+    ArraySizeRequired,
+    CannotConvert,
+    CannotReinterpret,
+    CannotTruncate,
+    CannotWrap,
+    DuplicateFieldName,
+    DuplicateParameter,
+    DuplicateSymbol,
+    FunctionReferenceExpected,
+    InvalidAssignment,
+    InvalidBranch,
+    InvalidGlobalOrLocalType,
+    LastStatementRequired,
+    MemberNotFound,
+    NotAnAddress,
+    NotCallable,
+    PointerTypeExpected,
+    RecursiveType,
+    TypeOrInitializerRequired,
+    TypeExpected,
+    TypeMismatch,
+    UndefinedSymbol,
+    UnsupportedOperator,
+    Unsupported
+}
+
+export interface CheckDiagnostic extends Diagnostic {
+    code: CheckDiagnosticCode
+}
+
+export interface Definition {
+    name: string
+    type: Type
+    node?: Last
+    references: Reference[]
+}
+
 interface Scopes {
-    scope: Scope<Type>,
+    scope: Scope<Definition>
     branchTargets: Scope<BranchTarget>
+    references: Map<Reference, Definition>
+    definitions: Array<Definition>
 }
 
 export interface CheckResult {
     types: Map<Last, Type>
     exported: Set<string>
+    references: Map<Reference, Definition>
+    definitions: Definition[]
+    diagnostics: CheckDiagnostic[]
 }
 
-export function check(module: Module): CheckResult | Diagnostic[] {
-    const diagnostics: Diagnostic[] = []
+function createModuleScope(): Scope<Definition> {
+    const result = new Scope<Definition>()
+    builtins.forEach((name, type) => result.enter(name, { name, type, references: [] }))
+    return result
+}
+
+export function check(module: Module): CheckResult {
+    const diagnostics: CheckDiagnostic[] = []
     const types = new Map<Last, Type>()
     const fixups = new Map<UnknownType, ((final: Type) => void)[]>()
     const scanned = new Set<Type>()
-    const moduleScope = new Scope(builtins)
+    const moduleScope = createModuleScope()
     const errorType: ErrorType = { kind: TypeKind.Error }
     const exported = new Set<string>()
+    const references = new Map<Reference, Definition>()
+    const definitions: Definition[] = []
 
     checkModule(module, {
         scope: moduleScope,
-        branchTargets: new Scope()
+        branchTargets: new Scope(),
+        references,
+        definitions
     })
-    return diagnostics.length > 0 ? diagnostics : { types, exported }
+
+    return { types, exported, references, definitions, diagnostics }
 
     function checkModule(module: Module, scopes: Scopes) {
         enterDeclarations(module.declarations, scopes)
@@ -48,14 +104,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
     function enterDeclarations(declarations: Declaration[], scopes: Scopes) {
-        const scope = scopes.scope
-
         // Predeclare any types
         for (const declaration of declarations) {
             switch (declaration.kind) {
                 case LastKind.Type:
                     const instance: UnknownType = { kind: TypeKind.Unknown }
-                    enter(declaration, declaration.name.name, instance, scope)
+                    enterDef(declaration, declaration.name.name, instance, scopes)
                     break
             }
         }
@@ -67,7 +121,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
     function enterDeclaration(declaration: Declaration, scopes: Scopes) {
-        const scope = scopes.scope
         switch(declaration.kind) {
             case LastKind.Exported:
                 exported.add(declaration.target.name.name)
@@ -75,7 +128,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 break
             case LastKind.Let: {
                 const type = typeExpr(declaration.type, scopes)
-                enter(declaration, declaration.name.name, type, scope)
+                enterDef(declaration, declaration.name.name, type, scopes)
                 bind(declaration, type)
                 break
             }
@@ -85,7 +138,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 const rawType = typeExp ?
                     typeExpr(typeExp, scopes) : initializer ?
                         checkExpression(initializer, scopes) : (function() {
-                            report(declaration, "A type or an initializer is required'")
+                            report(declaration, CheckDiagnosticCode.TypeOrInitializerRequired, "A type or an initializer is required'")
                             return errorType
                         })();
                 let type = rawType
@@ -96,24 +149,24 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                             // Copy the type from the initializer
                             type = { kind: TypeKind.Array, elements: rawType.elements, size: initializerType.size }
                         } else {
-                            report(typeExp ?? declaration, "Unspecified array size requires an initializer value to define the size")
+                            report(typeExp ?? declaration, CheckDiagnosticCode.ArraySizeRequired, "Unspecified array size requires an initializer value to define the size")
                         }
                     } else {
-                        report(typeExp ?? declaration, "Unspecified array size requires an initializer value to define the size")
+                        report(typeExp ?? declaration, CheckDiagnosticCode.ArraySizeRequired, "Unspecified array size requires an initializer value to define the size")
                     }
                 }
-                const addressable = scope === moduleScope
+                const addressable = scopes.scope === moduleScope
                 if (!addressable) {
                     validateCanBeLocalOrGlobal(typeExp ?? declaration, type)
                 }
-                enter(declaration, declaration.name.name, { kind: TypeKind.Location, type, addressable }, scope)
+                enterDef(declaration, declaration.name.name, { kind: TypeKind.Location, type, addressable }, scopes)
                 bind(declaration, type)
                 break
             }
             case LastKind.Global: {
                 const type = typeExpr(declaration.type, scopes)
                 validateCanBeLocalOrGlobal(declaration.type, type)
-                enter(declaration, declaration.name.name, { kind: TypeKind.Location, type }, scope)
+                enterDef(declaration, declaration.name.name, { kind: TypeKind.Location, type }, scopes)
                 bind(declaration, type)
                 break
             }
@@ -123,20 +176,21 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 validateCanBeLocalOrGlobal(declaration.result, result)
                 const name = declaration.name.name
                 const type: FunctionType = { kind: TypeKind.Function, name, parameters, result }
-                enter(declaration, name, type, scope)
+                enterDef(declaration, name, type, scopes)
                 bind(declaration, type)
                 break
             }
             case LastKind.Type: {
-                const preentered = required(scope.find(declaration.name.name))
+                const preentered = required(scopes.scope.find(declaration.name.name))
                 const type = typeExpr(declaration.type, scopes);
                 if (type.kind == TypeKind.Struct || type.kind == TypeKind.Union) {
                     type.name = declaration.name.name;
                 }
                 bind(declaration, type)
-                renter(declaration, declaration.name.name, type, scopes.scope)
-                if (preentered.kind == TypeKind.Unknown) {
-                    fixup(preentered, type)
+                const previous = preentered.type
+                updateType(declaration.name.name, type, scopes.scope)
+                if (previous.kind == TypeKind.Unknown) {
+                    fixup(previous, type)
                 }
                 break
             }
@@ -150,6 +204,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case TypeKind.Memory:
                 report(
                     location,
+                    CheckDiagnosticCode.InvalidGlobalOrLocalType,
                     `A value of type ${typeToString(type)} (or struct containing that type) cannot be passed as a ` +
                     `parameter, returned as a result, declared as global, or stored in a local variable`
                 );
@@ -161,7 +216,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
     function enterImports(imports: Import[], scopes: Scopes) {
-        const scope = scopes.scope
         for (const importStatement of imports) {
             for (const importItem of importStatement.imports) {
                 switch (importItem.kind) {
@@ -169,13 +223,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                         const parameters = funcParameters(importItem.parameters, scopes)
                         const result = typeExpr(importItem.result, scopes)
                         const type: FunctionType = { kind: TypeKind.Function, parameters, result }
-                        enter(importItem, (importItem.as ?? importItem.name).name, type, scope)
+                        enterDef(importItem, (importItem.as ?? importItem.name).name, type, scopes)
                         bind(importItem, type)
                         break
                     }
                     case LastKind.ImportVariable: {
                         const type = typeExpr(importItem.type, scopes)
-                        enter(importItem, (importItem.as ?? importItem.name).name, type, scope)
+                        enterDef(importItem, (importItem.as ?? importItem.name).name, type, scopes)
                         bind(importItem, type)
                         break
                     }
@@ -195,7 +249,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         declaration = noExport(declaration)
         switch (declaration.kind) {
             case LastKind.Let: {
-                const type = required(scope.find(declaration.name.name))
+                const type = required(scope.find(declaration.name.name)).type
                 const valueType = checkExpression(declaration.value, scopes)
                 mustMatch(declaration.value, type, valueType)
                 return voidType
@@ -203,36 +257,41 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Var: {
                 const value = declaration.value
                 if (value) {
-                    const type = required(scope.find(declaration.name.name))
+                    const definition = required(scope.find(declaration.name.name))
                     const valueType = checkExpression(value, scopes)
-                    mustMatch(value, type, valueType)
+                    mustMatch(value, definition.type, valueType)
                 }
                 return voidType
             }
             case LastKind.Global: {
                 const value = declaration.value
                 if (value) {
-                    const type = required(scope.find(declaration.name.name))
+                    const definition = required(scope.find(declaration.name.name))
                     const valueType = checkExpression(value, scopes)
-                    mustMatch(value, type, valueType)
+                    mustMatch(value, definition.type, valueType)
                 }
                 return voidType
             }
             case LastKind.Type: return voidType
             case LastKind.Function: {
-                const functionType = required(scope.find(declaration.name.name)) as FunctionType
+                const functionType = required(scope.find(declaration.name.name)).type as FunctionType
                 chk(functionType.kind == TypeKind.Function)
                 const resultType = functionType.result
                 const bodyScope = new Scope(scope)
-                bodyScope.enter("$$result", resultType)
+                bodyScope.enter("$$result", { name: "$$result", type: resultType, references: [] })
+                const d = declaration
                 functionType.parameters.forEach((name, type) => {
-                    bodyScope.enter(name, type)
+                    const node = required(d.parameters.find(value => value.name.name == name))
+                    bodyScope.enter(name, { name, type, node, references: [] })
                 })
                 const body = declaration.body
-                const bodyType = checkBody(
-                    declaration.body,
-                    { scope: bodyScope, branchTargets: scopes.branchTargets }
-                )
+                const bodyScopes: Scopes = {
+                    scope: bodyScope,
+                    branchTargets: scopes.branchTargets,
+                    references: scopes.references,
+                    definitions: scopes.definitions
+                }
+                const bodyType = checkBody(declaration.body, bodyScopes)
                 if (
                     bodyType.kind == TypeKind.Void && resultType.kind != TypeKind.Void &&
                     resultType.kind != TypeKind.Error
@@ -240,7 +299,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                     // Last statement must be a return
                     const last = body[body.length - 1]
                     if (last?.kind !== LastKind.Return) {
-                        report(last ?? declaration, "Last statement must be a return or an expresion")
+                        report(last ?? declaration, CheckDiagnosticCode.LastStatementRequired, "Last statement must be a return or an expresion")
                     }
                 } else {
                     if (resultType.kind != TypeKind.Void) {
@@ -441,17 +500,23 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             return { kind: TypeKind.Pointer, target: type }
         }
         if (type.kind != TypeKind.Error)
-            report(node, "The value does not have an address")
+            report(node, CheckDiagnosticCode.NotAnAddress, "The value does not have an address")
         return errorType
+    }
+
+    function recordReference(ref: Reference, definition: Definition, scopes: Scopes) {
+        scopes.references.set(ref, definition)
+        definition.references.push(ref)
     }
 
     function reference(ref: Reference, scopes: Scopes): Type {
         const result = scopes.scope.find(ref.name)
         if (!result) {
-            report(ref, `Symbol "${ref.name}" not found`)
+            report(ref, CheckDiagnosticCode.UndefinedSymbol,  `Symbol "${ref.name}" not found`)
             return errorType
         }
-        return result
+        recordReference(ref, result, scopes)
+        return result.type
     }
 
     function dereference(
@@ -464,7 +529,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             return { kind: TypeKind.Location, type: type.target, addressable: true }
         }
         if (type.kind != TypeKind.Error)
-            report(node, "Expected a pointer type")
+            report(node, CheckDiagnosticCode.PointerTypeExpected, "Expected a pointer type")
         return errorType
     }
 
@@ -484,7 +549,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         for (const field of node.fields) {
             const fieldType = checkExpression(field.value, scopes)
             if (fields.has(field.name.name)) {
-                report(field, `Duplicate field name`)
+                report(field, CheckDiagnosticCode.DuplicateFieldName, `Duplicate field name`)
             } else {
                 fields.enter(field.name.name, { kind: TypeKind.Location, type: fieldType })
             }
@@ -542,11 +607,11 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         requireCapability(callType, Capabilities.Callable, node.target)
         if (callType.kind != TypeKind.Function) {
             if (callType.kind != TypeKind.Error)
-                report(node.target, `Expected a function reference`)
+                report(node.target, CheckDiagnosticCode.FunctionReferenceExpected, `Expected a function reference`)
             return errorType
         }
         if (node.arguments.length != callType.parameters.size) {
-            report(node, `Expected ${callType.parameters.size} argument${
+            report(node, CheckDiagnosticCode.ArgumentNumber, `Expected ${callType.parameters.size} argument${
                 callType.parameters.size == 1 ? '' : 's'
             }, received ${node.arguments.length}`)
             return errorType
@@ -567,7 +632,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             if ((type as Type).kind == TypeKind.Error) return type
             const fieldType = type.fields.find(node.name.name)
             if (!fieldType) {
-                report(node.name, `Type ${typeToString(targetType)} does not have member "${node.name.name}"`)
+                report(node.name, CheckDiagnosticCode.MemberNotFound, `Type ${typeToString(targetType)} does not have member "${node.name.name}"`)
                 return errorType
             }
             if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
@@ -582,7 +647,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case TypeKind.Error:
                 return targetType
             default:
-                report(node.name, `Type ${typeToString(targetType)} does not have a member "${node.name.name}"`)
+                report(node.name, CheckDiagnosticCode.MemberNotFound, `Type ${typeToString(targetType)} does not have a member "${node.name.name}"`)
                 return errorType
         }
     }
@@ -614,7 +679,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function assign(node: Assign, scopes: Scopes): Type {
         const targetType = checkExpression(node.target, scopes)
         if (targetType.kind != TypeKind.Location) {
-            report(node.target, `This expression cannot be assigned`)
+            report(node.target, CheckDiagnosticCode.InvalidAssignment, `This expression cannot be assigned`)
             return errorType
         }
         const type = targetType.type
@@ -726,13 +791,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 case LastKind.NotEqual: name = `"!="`; break;
                 default:
                     if ((required & Capabilities.Callable) != 0) {
-                        report(node, `An expression of type ${typeToString(type)} is not callable`)
+                        report(node, CheckDiagnosticCode.NotCallable, `An expression of type ${typeToString(type)} is not callable`)
                         return
                     }
                     name = nameOfLastKind(node.kind)
                     break
             }
-            report(node, `Operator ${name} not supported for type ${typeToString(type)}`);
+            report(node, CheckDiagnosticCode.UnsupportedOperator, `Operator ${name} not supported for type ${typeToString(type)}`);
         }
     }
 
@@ -744,7 +809,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             enter(block, name.name, block, blockBranchTargets)
         }
         enter(block, "$$top", block, blockBranchTargets)
-        return checkBody(block.body, { scope: blockScope, branchTargets: blockBranchTargets})
+        const blockScopes: Scopes = {
+            scope: blockScope,
+            branchTargets: blockBranchTargets,
+            references: scopes.references,
+            definitions: scopes.definitions
+        }
+        return checkBody(block.body, blockScopes)
     }
 
     function checkBody(body: BodyElement[], scopes: Scopes): Type {
@@ -787,7 +858,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Return: {
                 const value = node.value
                 if (value) {
-                    const resultType = required(scopes.scope.find("$$result"))
+                    const resultType = required(scopes.scope.find("$$result")).type
                     const valueType = checkExpression(value, scopes)
                     mustMatch(value, resultType, valueType)
                 }
@@ -805,9 +876,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const targetBlock = scopes.branchTargets.find(target ?? "$$top")
         if (!targetBlock) {
             if (target) {
-                report(location, `Branch target "${target}" not found`)
+                report(location, CheckDiagnosticCode.InvalidBranch, `Branch target "${target}" not found`)
             } else {
-                report(location, "Not in a block or loop")
+                report(location, CheckDiagnosticCode.InvalidBranch, "Not in a block or loop")
             }
         }
     }
@@ -816,7 +887,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const parameters = new Scope<Type>()
         for (const parameter of parameterNodes) {
             if (parameters.has(parameter.name.name)) {
-                report(parameter, `Duplicate parameter name`)
+                report(parameter, CheckDiagnosticCode.DuplicateParameter, `Duplicate parameter name`)
                 continue
             }
             const type = typeExpr(parameter.type, scopes)
@@ -833,18 +904,19 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Reference: {
                 const result = scopes.scope.find(node.name)
                 if (!result)  {
-                    report(node, `Type "${node.name}" not found`)
+                    report(node, CheckDiagnosticCode.UndefinedSymbol, `Type "${node.name}" not found`)
                     return errorType
                 }
-                if (result.kind == TypeKind.Location) {
-                    report(node, "Expected a type reference")
+                if (result.type.kind == TypeKind.Location) {
+                    report(node, CheckDiagnosticCode.TypeExpected, "Expected a type reference")
                 }
-                return result
+                recordReference(node, result, scopes)
+                return result.type
             }
             case LastKind.Primitive:
                 return primitiveType(node.primitive)
             case LastKind.Select:
-                report(node, "Nested scopes not yet supported")
+                report(node, CheckDiagnosticCode.Unsupported, "Nested scopes not yet supported")
                 return errorType
             case LastKind.ArrayConstructor: {
                 const elements = typeExpr(node.element, scopes)
@@ -859,7 +931,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.UnionTypeLiteral:
                 return unionTypeLiteral(node, scopes)
             default:
-                report(node, `Unsupported node in type expression: ${nameOfLastKind(node.kind)}`)
+                report(node, CheckDiagnosticCode.Unsupported, `Unsupported node in type expression: ${nameOfLastKind(node.kind)}`)
                 return errorType
         }
     }
@@ -868,12 +940,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const fields = new Scope<Type>()
         for (const field of tree.fields) {
             if (fields.has(field.name.name)) {
-                report(field, `Dupicate symbol`)
+                report(field, CheckDiagnosticCode.DuplicateSymbol, `Duplicate symbol`)
             }
             const fieldType = typeExpr(field.type, scopes)
             const unknown = hasUnknown(fieldType)
             if (unknown) {
-                report(field.type, `Fields cannot be of an incomplete or recursive type ${unknown.name}`);
+                report(field.type, CheckDiagnosticCode.RecursiveType, `Fields cannot be of an incomplete or recursive type ${unknown.name}`);
             }
             fields.enter(field.name.name, fieldType)
         }
@@ -1016,16 +1088,16 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function unify(location: Locatable, from: StructType, to: StructType): Type {
         if (from === to) return from
         if (from.name != undefined && to.name != undefined) {
-            report(location, `Expected ${typeToString(from)}, received ${typeToString(to)}`)
+            report(location, CheckDiagnosticCode.TypeMismatch, `Expected ${typeToString(from)}, received ${typeToString(to)}`)
         }
         from.fields.forEach(name => {
             if (!to.fields.has(name)) {
-                report(location, `Expected type ${typeToString(to)} to have a field named "${name}"`)
+                report(location, CheckDiagnosticCode.TypeMismatch, `Expected type ${typeToString(to)} to have a field named "${name}"`)
             }
         })
         to.fields.forEach((name, type) => {
             if (!from.fields.has(name)) {
-                report(location, `Expected type ${typeToString(from)} to have a field named "${name}"`)
+                report(location, CheckDiagnosticCode.TypeMismatch,  `Expected type ${typeToString(from)} to have a field named "${name}"`)
             } else {
                 const fromFieldType = required(from.fields.find(name), location)
                 mustMatch(location, fromFieldType, type)
@@ -1035,26 +1107,15 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         // Replace fields
         const primary = from.name ? from : to
         const secondary = primary === to ? from : to
-        types.forEach((value, key) => {
-            substitute(value, primary, secondary)
-        })
+        types.forEach(value => substitute(value, primary, secondary))
 
         return primary
-    }
-
-    function expectStruct(type: Type, location: Locatable): StructType {
-        const t = type.kind == TypeKind.Location ? type.type : type
-        if (t.kind != TypeKind.Struct) {
-            report(location, `Expected a struct type`)
-            return errorType as any as StructType
-        }
-        return t
     }
 
     function expectArray(type: Type, location: Locatable): ArrayType {
         const t = type.kind == TypeKind.Location ? type.type : type
         if (t.kind != TypeKind.Array) {
-            report(location, `Expected an array type`)
+            report(location, CheckDiagnosticCode.ArrayExpected, `Expected an array type`)
             return { kind: TypeKind.Array, elements: errorType }
         }
         return t
@@ -1070,7 +1131,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             if (effectiveFrom.kind == TypeKind.Null || effectiveTo.kind == TypeKind.Null) {
                 return nullTypeMatch(location, effectiveFrom, effectiveTo)
             }
-            report(location, `Expected type ${typeToString(to)}, received ${typeToString(from)}`);
+            report(location, CheckDiagnosticCode.TypeMismatch, `Expected type ${typeToString(to)}, received ${typeToString(from)}`);
         }
         return to
     }
@@ -1096,7 +1157,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const effectiveType = read(type)
         if (effectiveType.kind != TypeKind.Pointer) {
             if (effectiveType.kind != TypeKind.Error) {
-                report(location, `Expected type ${typeToString(type)} be a pointer was ${nameOfTypeKind(type.kind)}`)
+                report(location, CheckDiagnosticCode.TypeMismatch, `Expected type ${typeToString(type)} be a pointer was ${nameOfTypeKind(type.kind)}`)
             }
             return errorType as any as PointerType
         }
@@ -1167,14 +1228,14 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 }
                 break
         }
-        report(location, `Cannot convert ${typeToString(from)} to ${typeToString(to)}`)
+        report(location, CheckDiagnosticCode.CannotConvert, `Cannot convert ${typeToString(from)} to ${typeToString(to)}`)
     }
 
     function validateWrap(location: Locatable, from: Type, to: Type): void {
         if (from.kind == TypeKind.Location) return validateWrap(location, from.type, to)
         if (to.kind == TypeKind.Location) return validateWrap(location, from, to.type)
         if (from.kind != TypeKind.I64 || to.kind != TypeKind.I32) {
-            report(location, `Cannot wrap a ${typeToString(from)} to ${typeToString(to)}`)
+            report(location, CheckDiagnosticCode.CannotWrap, `Cannot wrap a ${typeToString(from)} to ${typeToString(to)}`)
         }
     }
 
@@ -1226,7 +1287,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case TypeKind.Error:
                 return
         }
-        report(location, `Cannot reinterpret ${typeToString(from)} to ${typeToString(to)}`)
+        report(location, CheckDiagnosticCode.CannotReinterpret, `Cannot reinterpret ${typeToString(from)} to ${typeToString(to)}`)
     }
 
     function validateTruncate(location: Locatable, from: Type, to: Type): void {
@@ -1254,7 +1315,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 }
                 break
         }
-        report(location, `Cannot truncate ${typeToString(from)} to ${typeToString(to)}`)
+        report(location, CheckDiagnosticCode.CannotTruncate, `Cannot truncate ${typeToString(from)} to ${typeToString(to)}`)
     }
 
     function read(type: Type): Type {
@@ -1262,23 +1323,35 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         return type
     }
 
+    function enterDef(node: Last | undefined, name: string, type: Type, scopes: Scopes) {
+        if (scopes.scope.has(name)) {
+            node && report(node, CheckDiagnosticCode.DuplicateSymbol, `Duplicate symbol ${name}`);
+            return
+        }
+        const definition: Definition = { name, type, node, references: [] }
+        scopes.scope.enter(name, definition)
+        scopes.definitions.push(definition)
+    }
+
     function enter<T>(location: Locatable, name: string, item: T, scope: Scope<T>) {
         if (scope.has(name)) {
-            report(location, `Duplicate symbol ${name}`);
+            report(location, CheckDiagnosticCode.DuplicateSymbol, `Duplicate symbol ${name}`);
             return
         }
         scope.enter(name, item)
     }
 
-    function renter<T>(location: Locatable, name: string, item: T, scope: Scope<T>) {
-        scope.renter(name, item)
+    function updateType(name: string, type: Type, scope: Scope<Definition>) {
+        const definition = required(scope.find(name))
+        definition.type = type
     }
 
-    function report(location: Locatable, message: string, ...related: Diagnostic[]) {
+    function report(location: Locatable, code: CheckDiagnosticCode, message: string, ...related: Diagnostic[]) {
         diagnostics.push({
             location,
             message,
-            related
+            related,
+            code
         })
     }
 

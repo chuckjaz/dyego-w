@@ -617,8 +617,8 @@ function t(text: string, name: string = "<text>"): [Module, CheckResult] {
     const fileSet = new FileSet()
     const module = p(text, name, fileSet)
     const types = check(module)
-    if (Array.isArray(types)) {
-        report(text, name, types, fileSet)
+    if (types.diagnostics.length > 0) {
+        report(text, name, types.diagnostics, fileSet)
     }
     return [module, types]
 }
