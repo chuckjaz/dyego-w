@@ -10,6 +10,7 @@ flags.string("out", "Name of the output file")
 flags.boolean("debug", "Debug the application", false, "d")
 flags.boolean("run", "Run the application", false, "r")
 flags.boolean("mapFile", "Write a map file", false)
+flags.boolean("stack", "Enable stack allocations", false, "s")
 flags.string("host", "Host file to run the module (required for run or debug)")
 
 flags.parse(process.argv.slice(2))
@@ -37,6 +38,7 @@ const options: Options = {
     mapFileName: flags.options.mapFileName ?? defaultMapFile,
     outFile: out,
     debug: flags.options.debug,
+    stack: flags.options.stack,
     run: flags.options.run,
     hostName: flags.options.host,
     args: flags.unprocessed

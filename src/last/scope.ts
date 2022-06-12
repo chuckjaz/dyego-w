@@ -62,6 +62,14 @@ export class Scope<T> {
         return result
     }
 
+    all(callback: (name: string, value: T) => boolean): boolean {
+        let result = true
+        this.internalForEach(new Set(), (name, value) => {
+            result = result || callback(name, value)
+        })
+        return result
+    }
+
     private internalForEach(emitted: Set<string>, callback: (name: string, value: T) => void) {
         for (const entry of this.entries.entries()) {
             if (!emitted.has(entry[0])) {

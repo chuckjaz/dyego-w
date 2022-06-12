@@ -1,5 +1,5 @@
 import {
-    booleanType, i32Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, Type, TypeDeclaration, TypeKind,
+    booleanType, i32Type, i64Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, nameOfTypeKind, Type, TypeDeclaration, TypeKind,
     typeToString, voidPointerType, voidType
 } from "../last";
 import { check, error, required, unsupported } from "../utils";
@@ -1103,6 +1103,7 @@ export function genTypeOf(location: Locatable | undefined, type: Type, cache?: M
 }
 
 export const i32GenType = genTypeOf(undefined, i32Type)
+export const i64GenType = genTypeOf(undefined, i64Type)
 export const voidGenType = genTypeOf(undefined, voidType)
 export const voidPointerGenType = genTypeOf(undefined, voidPointerType)
 const booleanGenType = genTypeOf(undefined, booleanType)
@@ -1806,6 +1807,10 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                                 g.inst(Inst.i32_extend8_s)
                                 g.inst(Inst.f64_convert_i32_s)
                                 return
+                            case TypeKind.Boolean:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i32_eqz)
+                                return
                         }
                         break
                     case TypeKind.I16:
@@ -1836,6 +1841,10 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                                 g.inst(Inst.i32_extend16_s)
                                 g.inst(Inst.f64_convert_i32_s)
                                 return
+                            case TypeKind.Boolean:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i32_eqz)
+                                return
                         }
                         break
                     case TypeKind.I32:
@@ -1857,6 +1866,9 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                             case TypeKind.F64:
                                 g.inst(Inst.f64_convert_i32_s)
                                 return
+                            case TypeKind.Boolean:
+                                g.inst(Inst.i32_eqz)
+                                return
                         }
                         break
                     case TypeKind.I64:
@@ -1877,6 +1889,9 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                                 return
                             case TypeKind.F64:
                                 g.inst(Inst.f64_convert_i64_s)
+                                return
+                            case TypeKind.Boolean:
+                                g.inst(Inst.i64_eqz)
                                 return
                         }
                         break
@@ -1901,6 +1916,10 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                             case TypeKind.F64:
                                 this.from.clamp(this.location, g)
                                 g.inst(Inst.f64_convert_i32_u)
+                                return
+                            case TypeKind.Boolean:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i32_eqz)
                                 return
                         }
                         break
@@ -1928,6 +1947,10 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                                 this.from.clamp(this.location, g)
                                 g.inst(Inst.f64_convert_i32_u)
                                 return
+                            case TypeKind.Boolean:
+                                this.from.clamp(this.location, g)
+                                g.inst(Inst.i32_eqz)
+                                return
                         }
                         break
                     case TypeKind.U32:
@@ -1950,6 +1973,9 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                                 return
                             case TypeKind.F64:
                                 g.inst(Inst.f64_convert_i32_u)
+                                return
+                            case TypeKind.Boolean:
+                                g.inst(Inst.i32_eqz)
                                 return
                         }
                         break
@@ -1974,8 +2000,26 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                             case TypeKind.F64:
                                 g.inst(Inst.f64_convert_i64_u)
                                 return
+                            case TypeKind.Boolean:
+                                g.inst(Inst.i64_eqz)
+                                return
                         }
                         break
+                    case TypeKind.Boolean:
+                        switch (to) {
+                            case TypeKind.I8:
+                            case TypeKind.I8:
+                            case TypeKind.U8:
+                            case TypeKind.I16:
+                            case TypeKind.U16:
+                            case TypeKind.I32:
+                            case TypeKind.U32:
+                                return
+                            case TypeKind.I64:
+                            case TypeKind.U64:
+                                g.inst(Inst.i64_extend8_s)
+                                return
+                        }
                     case TypeKind.F32:
                         switch (to) {
                             case TypeKind.F32:
@@ -2124,7 +2168,7 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                 }
                 break
         }
-        unsupported(this.location, `Unsupported type conversion`)
+        unsupported(this.location, `Unsupported type conversion, from ${nameOfTypeKind(from)} to ${nameOfTypeKind(to)}`)
     }
 
     simplify(): GenNode {
@@ -2529,6 +2573,7 @@ export function builtinGenNodeFor(
 export const trueGenNode = new NumberConstGenNode(undefined, booleanGenType, 1)
 export const falseGenNode = new NumberConstGenNode(undefined, booleanGenType, 0)
 export const zeroGenNode = new NumberConstGenNode(undefined, i32GenType, 0)
+export const zeroI64GenNode = new NumberConstGenNode(undefined, i64GenType, 0)
 
 export class CompareGenNode extends LoadonlyGenNode implements GenNode {
     location: Locatable

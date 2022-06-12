@@ -74,7 +74,7 @@ describe("check", () => {
             it("can detect a missing return", () => {
                 d(`
                     fun test(): i64 {
-                        !{Last statement must be a return or an expresion}!let a: i32 = 10;
+                        !{Last statement must be a return or an expression}!let a: i32 = 10;
                     }
                 `)
             })

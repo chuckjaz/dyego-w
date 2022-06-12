@@ -16,7 +16,7 @@ import {
 
 const builtins = new Scope<Type>(globals)
 
-export enum CheckDiagnosticCode {
+export const enum CheckDiagnosticCode {
     ArgumentNumber,
     ArrayExpected,
     ArraySizeRequired,
@@ -297,10 +297,7 @@ export function check(module: Module): CheckResult {
                     resultType.kind != TypeKind.Error
                 ) {
                     // Last statement must be a return
-                    const last = body[body.length - 1]
-                    if (last?.kind !== LastKind.Return) {
-                        report(last ?? declaration, CheckDiagnosticCode.LastStatementRequired, "Last statement must be a return or an expresion")
-                    }
+                    body.length && requireLastReturn(declaration, body)
                 } else {
                     if (resultType.kind != TypeKind.Void) {
                         mustMatch(body[body.length - 1], resultType, bodyType)
@@ -309,6 +306,20 @@ export function check(module: Module): CheckResult {
                 return voidType
             }
         }
+    }
+
+    function requireLastReturn(context: Last, body: BodyElement[]) {
+        const last = body[body.length - 1]
+        if (last) {
+            switch (last.kind) {
+                case LastKind.Return:
+                    return
+                case LastKind.Block:
+                    requireLastReturn(context, last.body)
+                    return
+            }
+        }
+        report(last ?? context, CheckDiagnosticCode.LastStatementRequired, "Last statement must be a return or an expression")
     }
 
     function widenType(type: Type): Type {
@@ -446,10 +457,12 @@ export function check(module: Module): CheckResult {
             case LastKind.Block:
                 type = checkBlockOrLoop(expression, scopes)
                 break
-            case LastKind.SizeOf:
-                typeExpr(expression.target, scopes)
+            case LastKind.SizeOf: {
+                const targetType = typeExpr(expression.target, scopes)
+                bind(expression.target, targetType)
                 type = i32Type
                 break
+            }
             case LastKind.As: {
                 const leftType = checkExpression(expression.left, scopes)
                 const rightType = typeExpr(expression.right, scopes)
@@ -500,7 +513,7 @@ export function check(module: Module): CheckResult {
             return { kind: TypeKind.Pointer, target: type }
         }
         if (type.kind != TypeKind.Error)
-            report(node, CheckDiagnosticCode.NotAnAddress, "The value does not have an address")
+            report(target, CheckDiagnosticCode.NotAnAddress, "The value does not have an address")
         return errorType
     }
 
@@ -636,7 +649,7 @@ export function check(module: Module): CheckResult {
                 return errorType
             }
             if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
-                return { kind: TypeKind.Location, type: fieldType }
+                return { kind: TypeKind.Location, type: fieldType, addressable: originalTarget.addressable }
             return fieldType
 
         }
@@ -819,7 +832,7 @@ export function check(module: Module): CheckResult {
     }
 
     function checkBody(body: BodyElement[], scopes: Scopes): Type {
-        enterDeclarations(body.filter(i => i.kind == LastKind.Var || i.kind == LastKind.Let) as Declaration[], scopes)
+        enterDeclarations(body.filter(i => i.kind == LastKind.Var || i.kind == LastKind.Let || i.kind == LastKind.Type) as Declaration[], scopes)
         let type = voidType
         for (const element of body) {
             type = checkBodyElement(element, scopes)

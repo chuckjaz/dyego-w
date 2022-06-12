@@ -9,6 +9,7 @@ export function transform(module: Module): Module {
     const imports = module.imports.slice(0)
     imports.push({
         kind: LastKind.Import,
+        module: ref('debug-host'),
         imports: [
             {
                 kind: LastKind.ImportFunction,

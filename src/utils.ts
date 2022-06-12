@@ -6,7 +6,7 @@ export function unsupported(location: Locatable | undefined, message?: string): 
 
 export function error(message: string, location?: Locatable): never {
     const e = new Error(message) as any
-    if (location) e.position = location.start
+    if (location) e.position = location.start ?? location.loc
     throw e
 }
 

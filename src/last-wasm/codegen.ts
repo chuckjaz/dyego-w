@@ -1,7 +1,7 @@
 import {
     ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last,
     LastKind, Let, PrimitiveKind, Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type,
-    TypeKind, Var, u8Type, MemoryMethod
+    TypeKind, Var, u8Type, MemoryMethod, SizeOf
 } from "../last"
 import {
     error, required, unsupported
@@ -17,7 +17,7 @@ import {
     FunctionGenNode, GenNode, GenType, genTypeOf, GotoGenNode, i32GenType, LocalAllocator, LocationAllocator,
     NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
     voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode,
-    GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode, MemoryMethodGenNode,
+    GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode, MemoryMethodGenNode, zeroI64GenNode,
 } from "./gennode"
 
 interface Scopes {
@@ -267,6 +267,8 @@ export function codegen(
                     case TypeKind.I16:
                     case TypeKind.I32:
                         return new OpGenNode(node, type, zeroGenNode, target, LastKind.Subtract)
+                    case TypeKind.I64:
+                        return new OpGenNode(node, type, zeroI64GenNode, target, LastKind.Subtract)
                 }
                 break
             }
@@ -343,14 +345,18 @@ export function codegen(
                         return node.value ? trueGenNode : falseGenNode
                 }
                 break
+            case LastKind.SizeOf:
+                return sizeOfToGenNode(node, scopes)
             case LastKind.StructLiteral:
                 return structLiteralToGenNode(node, scopes)
             case LastKind.Field:
                 return lastToGenNode(node.value, scopes)
             case LastKind.ArrayLiteral:
                 return arrayLitToGenNode(node, scopes)
-            case LastKind.Reference:
-                return required(scopes.nodes.find(node.name), node).reference(node)
+            case LastKind.Reference: {
+                const t = scopes.nodes.find(node.name)
+                return required(t, node).reference(node)
+            }
             case LastKind.Select:
                 return selectToGenNode(node, scopes)
             case LastKind.Index:
@@ -384,13 +390,28 @@ export function codegen(
                         return new MemoryMethodGenNode(node, node.method, lastToGenNode(node.amount, scopes))
                 }
             case LastKind.Type:
+            case LastKind.Primitive:
             case LastKind.StructTypeLiteral:
             case LastKind.FieldLiteral:
             case LastKind.ArrayConstructor:
+            case LastKind.PointerConstructor:
+            case LastKind.Parameter:
+            case LastKind.TypeSelect:
+            case LastKind.UnionTypeLiteral:
+            case LastKind.Import:
+            case LastKind.ImportFunction:
+            case LastKind.ImportVariable:
+            case LastKind.Module:
+            case LastKind.Error:
                 return emptyGenNode
         }
 
         unsupported(node, `Unhandled node type ${nameOfLastKind(node.kind)}`)
+    }
+
+    function sizeOfToGenNode(node: SizeOf, scopes: Scopes): GenNode {
+        const type = typeOf(node.target)
+        return new NumberConstGenNode(node, i32GenType, type.size)
     }
 
     function structLiteralToGenNode(tree: StructLiteral, scopes: Scopes): GenNode {

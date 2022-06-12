@@ -9,6 +9,8 @@ import { Options } from "./options"
 import { importJson } from "../last-import-json/import"
 import { ExtensionConverter } from "../last-import-json/extension-converter"
 import { FilterConverter } from "../last-import-json/filter-converter"
+import * as stack from "../last-stack"
+import { lastToText } from "../last-text/text"
 
 export interface CompileResult {
     module: Uint8Array
@@ -88,14 +90,33 @@ export function compile(
         return diagnostics
     }
 
-    const module = mergeModules(modules)
+    let module = mergeModules(modules)
     if (Array.isArray(module)) {
         return module
     }
 
-    const checkResult = check(module)
-    if (checkResult.definitions.length != 0) {
-        return checkResult.diagnostics
+    let checkResult = check(module)
+    if (checkResult.diagnostics.length != 0) {
+        // Try to fix the result by using a stack transform.
+        if (options.stack) {
+            try {
+                const transformedModule = stack.transform(module, checkResult)
+
+                // Recheck after the transform.
+                const transformedCheck = check(transformedModule)
+                if (transformedCheck.diagnostics.length != 0) {
+                    console.log(lastToText(transformedModule))
+                    return transformedCheck.diagnostics
+                }
+                module = transformedModule
+                checkResult = transformedCheck
+            } catch(e) {
+                console.log(`Transform failure: ${(e as any).stack}`)
+                return checkResult.diagnostics
+            }
+        } else {
+            return checkResult.diagnostics
+        }
     }
 
     const wasmModule = new WasmModule()

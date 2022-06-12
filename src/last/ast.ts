@@ -76,7 +76,8 @@ export const enum LastKind {
     Import,
     ImportFunction,
     ImportVariable,
-    Module
+    Module,
+    Error
 }
 
 export function nameOfLastKind(kind: LastKind): string {
@@ -157,6 +158,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.ImportFunction: return "ImportFunction"
         case LastKind.ImportVariable: return "ImportVariable"
         case LastKind.Module: return "Module"
+        case LastKind.Error: return "Error"
     }
 }
 
@@ -241,6 +243,65 @@ export type Expression =
     ArrayLiteral |
     StructLiteral
 
+export function isExpression(node: Last): node is Expression {
+    switch (node.kind) {
+        case LastKind.Add:
+        case LastKind.Subtract:
+        case LastKind.Multiply:
+        case LastKind.Divide:
+        case LastKind.Remainder:
+        case LastKind.Negate:
+        case LastKind.Not:
+        case LastKind.Equal:
+        case LastKind.NotEqual:
+        case LastKind.GreaterThan:
+        case LastKind.GreaterThanEqual:
+        case LastKind.LessThan:
+        case LastKind.LessThanEqual:
+        case LastKind.And:
+        case LastKind.Or:
+        case LastKind.BitAnd:
+        case LastKind.BitOr:
+        case LastKind.BitXor:
+        case LastKind.BitShl:
+        case LastKind.BitShr:
+        case LastKind.BitRotr:
+        case LastKind.BitRotl:
+        case LastKind.CountLeadingZeros:
+        case LastKind.CountTrailingZeros:
+        case LastKind.CountNonZeros:
+        case LastKind.AbsoluteValue:
+        case LastKind.SquareRoot:
+        case LastKind.Floor:
+        case LastKind.Ceiling:
+        case LastKind.Truncate:
+        case LastKind.RoundNearest:
+        case LastKind.Minimum:
+        case LastKind.Maximum:
+        case LastKind.CopySign:
+        case LastKind.ConvertTo:
+        case LastKind.WrapTo:
+        case LastKind.ReinterpretAs:
+        case LastKind.TruncateTo:
+        case LastKind.As:
+        case LastKind.AddressOf:
+        case LastKind.SizeOf:
+        case LastKind.Dereference:
+        case LastKind.Literal:
+        case LastKind.IfThenElse:
+        case LastKind.Block:
+        case LastKind.Reference:
+        case LastKind.Select:
+        case LastKind.Index:
+        case LastKind.Call:
+        case LastKind.Memory:
+        case LastKind.ArrayLiteral:
+        case LastKind.StructLiteral:
+            return true
+    }
+    return false
+}
+
 export type Literal =
     LiteralI8 |
     LiteralI6 |
@@ -283,9 +344,29 @@ export type Statement =
     Return |
     Assign
 
+export function isStatement(node: Last): node is Statement {
+    switch (node.kind) {
+        case LastKind.Let:
+        case LastKind.Var:
+        case LastKind.Type:
+        case LastKind.Loop:
+        case LastKind.Block:
+        case LastKind.Branch:
+        case LastKind.BranchIndexed:
+        case LastKind.Return:
+        case LastKind.Assign:
+            return true
+    }
+    return false
+}
+
 export type BodyElement =
     Statement |
     Expression
+
+export function isBodyElement(node: Last): node is BodyElement {
+    return isExpression(node) || isStatement(node)
+}
 
 export type TypeExpression =
     Primitive |
@@ -314,7 +395,8 @@ export type Last =
     ImportItem |
     Field |
     FieldLiteral |
-    Module
+    Module |
+    LastError
 
 export interface Binary {
     left: Expression
@@ -333,6 +415,8 @@ export interface Unary {
 export interface LastNode extends Locatable {
     _brand?: never
 }
+
+export interface LastError extends LastNode { kind: LastKind.Error; message: string }
 
 /** Numeric addition (+) of left and right */
 export interface Add extends LastNode, Binary { kind: LastKind.Add }
@@ -537,7 +621,7 @@ export interface ArrayLiteral extends LastNode {
         Float64Array
 }
 
-/** A block of statements or expresions ({ ... }). Branches to a block branch to after the block */
+/** A block of statements or expressions ({ ... }). Branches to a block branch to after the block */
 export interface Block extends LastNode {
     kind: LastKind.Block
     name?: Reference
@@ -655,7 +739,7 @@ export interface MemoryGrow extends LastNode {
     amount: Expression
 }
 
-/** Declare a constant expresion of the given name, type and value */
+/** Declare a constant expression of the given name, type and value */
 export interface Let extends LastNode {
     kind: LastKind.Let
     name: Reference
@@ -718,7 +802,7 @@ export interface FieldLiteral extends LastNode {
     type: TypeExpression
 }
 
-/** An array type expresion ([]) */
+/** An array type expression ([]) */
 export interface ArrayConstructor extends LastNode {
     kind: LastKind.ArrayConstructor
     element: TypeExpression
@@ -747,6 +831,7 @@ export interface ImportDescription {
 /** A list of import (import) */
 export interface Import extends LastNode {
     kind: LastKind.Import
+    module: Reference
     imports: ImportItem[]
 }
 

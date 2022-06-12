@@ -22,7 +22,12 @@ export function * childrenOf(last: Last): Iterable<Last | Separator> {
         case LastKind.LessThanEqual:
         case LastKind.And:
         case LastKind.Or:
-        case LastKind.As: {
+        case LastKind.As:
+        case LastKind.CopySign:
+        case LastKind.ConvertTo:
+        case LastKind.ReinterpretAs:
+        case LastKind.WrapTo:
+        case LastKind.TruncateTo: {
             yield last.left
             yield last.right
             break
@@ -53,6 +58,7 @@ export function * childrenOf(last: Last): Iterable<Last | Separator> {
         case LastKind.Block:
         case LastKind.Loop: {
             if (last.name) yield last.name
+            yield separator
             yield * last.body
             yield separator
             break
@@ -241,7 +247,13 @@ export function updateFromChildren(last: Last, children: Iterable<Last | Separat
         case LastKind.LessThan:
         case LastKind.LessThanEqual:
         case LastKind.And:
-        case LastKind.Or: {
+        case LastKind.Or:
+        case LastKind.As:
+        case LastKind.CopySign:
+        case LastKind.ConvertTo:
+        case LastKind.ReinterpretAs:
+        case LastKind.WrapTo:
+        case LastKind.TruncateTo: {
             const left = next<Expression>()
             const right = next<Expression>()
             if (left !==  last.left || right !== last.right) {

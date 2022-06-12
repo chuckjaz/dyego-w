@@ -1,0 +1,25 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Import",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/src/last-cmd/last.ts",
+            "outFiles": [
+                "${workspaceFolder}/**/*.js"
+            ],
+            "args": [
+                "-s",
+                "/home/chuckjaz/src/dyego-w/examples/last/syscall.last.dg",
+                "/home/chuckjaz/src/external/cup/build/hello.json",
+            ]
+        }
+    ]
+}

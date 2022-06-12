@@ -197,6 +197,8 @@ export function importJson(text: string, converters: Converter[] = []): Module {
                     return convertImportVariable(node, kind)
                 case LastKind.Module:
                     return convertModule(node, kind)
+                case LastKind.Error:
+                    return copy(node, { kind })
                 default: {
                     let result = node;
                     for (const converter of converters) {

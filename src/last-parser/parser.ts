@@ -46,7 +46,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         expect(Token.LBrace)
         const imports = importItems(module)
         expect(Token.RBrace)
-        return l<Import>(start, { kind: LastKind.Import, imports })
+        return l<Import>(start, { kind: LastKind.Import, module, imports })
     }
 
     function importItems(module: Reference): ImportItem[] {

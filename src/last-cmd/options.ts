@@ -4,6 +4,7 @@ export interface Options {
     outFile: string
     debug: boolean
     run: boolean
+    stack: boolean
     args?: string[]
     hostName?: string
 }
