@@ -70,6 +70,7 @@ export type Type =
     ErrorType
 
 export const enum Capabilities {
+    None = 0 << 0,
     Numeric = 1 << 0,
     Bitwizeable = 1 << 1,
     Rotatable = 1 << 2,
@@ -247,15 +248,15 @@ export function capabilitesOf(type: Type): Capabilities {
         case TypeKind.Null:
             return Capabilities.Comparable;
         case TypeKind.Struct:
-            return 0;
+            return Capabilities.None;
         case TypeKind.Union:
-            return 0;
+            return Capabilities.None;
         case TypeKind.Void:
-            return 0;
+            return Capabilities.None;
         case TypeKind.Unknown:
-            return 0;
+            return Capabilities.None;
         case TypeKind.Error:
-            return 0;
+            return Capabilities.None;
         case TypeKind.Memory:
             return Capabilities.Builtins;
     }

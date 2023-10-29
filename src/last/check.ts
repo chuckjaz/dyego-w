@@ -864,7 +864,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         const fields = new Scope<Type>()
         for (const field of tree.fields) {
             if (fields.has(field.name.name)) {
-                report(field, `Dupicate symbol`)
+                report(field, `Duplicate symbol`)
             }
             const fieldType = typeExpr(field.type, scopes)
             const unknown = hasUnknown(fieldType)
@@ -900,7 +900,6 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
     function bind(node: Last, type: Type) {
-        required(types.get(node) === undefined, node)
         types.set(node, type)
         if (type.kind == TypeKind.Unknown) {
             addFixup(type, final => types.set(node, final))
