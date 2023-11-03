@@ -1,0 +1,25 @@
+type Node = { children: Self[] }
+
+fun bottomUpTree(depth: i32): Node {
+    match depth {
+        0 -> { children: [] }
+        else -> { children: [bottomUpTree(depth - 1), bottomUpTree(depth - 1)] }
+    }
+}
+
+fun itemCheck(tree: Node): i32 {
+    var result = 1 
+    for child in tree.children {
+        result += itemCheck(child)
+    }
+    result
+}
+
+export fun work(iterations: i32, depth: i32): i32 {
+    var check = 0
+    for iteration in 0..iterations - 1 {
+        val tree = bottomUpTree(depth)
+        check += itemCheck(tree)
+    }
+    check
+}

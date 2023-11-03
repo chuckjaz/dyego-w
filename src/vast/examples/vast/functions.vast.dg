@@ -1,0 +1,92 @@
+// Definition with actual val arguments: Add/left/right/0
+//  - starts with a fun keyword (like Kotlin)
+//  - arguments are val arguments by default (like Kotlin and Hylo)
+//  - each argument must have its own type declaration (like Kotlin, unlike Go)
+//  - calls are named by default and the name is part of the signature (similar to Swift)
+//  - Add is public because it is capitalized (like Go)
+//  - Types from other modules are capitolized (unless aliased)
+//  - named parameter are canonicolized in order as part of the name (Unicode code-point order)
+//  - type is of the signature but not the name (e.g. there is no overloading by type)
+//  - mapping of the name to WASM does not include the arity part as it makes import from non-diego languages easier.
+// Called like: Add(left: a, right: b) or Add(right: b, left: a) // which are synonyms
+
+fun Add(left: Int, right: Int): Int {
+    // left++ // illegal, cannot modify a value parameter
+
+    // Last expression is the result
+    left + right
+}
+
+
+// Definition with an actual var parameter
+// - val parameter can be modified but the modification is local (like struct in Swift and Hylo)
+// - var has local effect (it is not part of the name of the functiob but it is part of the signature)
+// - Pascal as the default style for pubic, camel case for private (unlike Rust or Java)
+// Called like: AddPlusOne(left: a, right: b)
+fun AddPlusOne(var left: Int, right: Int): Int {
+    left++ // legal here because left is a var
+    left + rigth
+}
+
+// Definition with parameters called by order
+// Called like: Add(a, b)
+fun Add(_ left: Int, _ right: Int): Int {
+    left + right
+}
+
+// Definition with mixed named and ordered parameters
+// Called like: Add(a, right: b) or Add(right: b, a) // which are synonyms
+fun Add(_ left: Int, right: Int): Int {
+    left + right
+}
+
+// Definition with default parameters
+// - any parameters can have a default value
+fun AddWithDefaults(left: Int = 0, right: Int = 0): Int {
+    left + right
+}
+// Called like:
+//   // All synonyms
+//   AddWithDefaults()
+//   AddWithDefault(left: 0)
+//   AddWithDefault(right: 0)
+//   AddWithDefault(left: 0, right: 0)
+//   AddWithDefault(right: 0, left: 0)
+
+// Under specification at the call sight Curries
+//   Add()          // Invalid as it is ambigious as both Add/2 and Add/left/right/0 above match
+//   Add(1)         // Curries Add/2> to Fn/1
+//   Add(right: 1)  // Curries Add/left/right/0 to Fn/left/0
+
+// Uncalled function is an underspecified call and curries to it's Fn signature
+//   AddPlusOne     // Curries to Fn/left/right/0
+
+// Juxtaposition calls (which could result in an underspecified call)
+// - paren calls syntax is prefered in most cases
+//   Add            // Invalid as it is ambigious
+//   AddPlusOne 1   // Equivilent to AddPlusOne(1) which is a Fn/1
+//   Add 1 2        // Equivilent to Add(1, 2)  which is an Int
+
+// Juxtaposition allows DSL like syntax (similar to Kotlin DSL syntax but using Juxtaposition instead trailing lambdas)
+// Called like: Html { P { P { } } }
+fun Hmtl.P(content: {context Html -> }): Unit {
+    ...
+}
+
+// Definition with context
+// - Can have multiple context by splatting types
+// - context must be explicitly provided or using UCS
+// Called like:
+//  val them = Theme { ... }
+//  val html = Heml { ... }
+//      ...
+//  provide theme = theme {
+//    html.Text("Some text")
+//  }
+
+fun { ...Html, theme: Theme }.Text(value: String): Unit {
+    Span(class = theme.textClass) {
+        Append(value)
+    }
+}
+
