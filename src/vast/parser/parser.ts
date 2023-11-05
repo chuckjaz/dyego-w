@@ -1,9 +1,11 @@
 import { Diagnostic, Locatable, PrimitiveKind } from "../../last";
-import { error } from "../../utils";
-import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Expression, FieldLiteral, FieldLiteralModifier, Function, Kind, Let, Module, Node, Parameter, ParameterModifier, Reference, Statement, StructLiteral, StructTypeConstuctorField, TypeDeclaration, TypeExpression, Val, Var, While } from "../ast";
+import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, Expression, FieldLiteral, FieldLiteralModifier, Function, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, Reference, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, While } from "../ast";
 import { Scanner } from "./scanner";
-import { Token } from "./tokens";
+import { Token, toString  } from "./tokens";
 
+function tokenString(token: Token): string {
+    return toString(token)
+}
 
 interface PositionMap {
     pos(offset: number): number
@@ -14,31 +16,33 @@ export interface ParseResult {
     diagnostics: Diagnostic[]
 }
 
-export function parser(scanner: Scanner, builder?: PositionMap) {
+export function parse(scanner: Scanner, builder?: PositionMap): { module: Module, diagnostics: Diagnostic[] } {
     let follows = setOf(Token.EOF, Token.Fun, Token.Var, Token.Let, Token.Type)
     let token = scanner.next()
-    const diagnostics: Diagnostic[] = []
+    let diagnostics: Diagnostic[] = []
     const pos = builder ? {
         get start() { return builder.pos(scanner.start) },
         get end() { return builder.pos(scanner.end) }
-    } : scanner
-    
+    } : {
+        get start() { return scanner.start },
+        get end() { return scanner.end},
+    };
+
     const result = module()
     return { module: result, diagnostics }
 
-    function module(): Module { 
+    function module(): Module {
         return loc(() => {
-            const statements = declarationStatements()
-            return { kind: Kind.Module, statements }
+            const declarations = declarationStatements()
+            return { kind: Kind.Module, declarations }
         })
     }
 
-    function declarationStatements(): Statement[] {
-        return sequence(declarationStatement, declarationFirstSet, declarationFirstSet)        
+    function declarationStatements(): Declaration[] {
+        return sequence(declarationStatement, declarationFirstSet, declarationFirstSet)
     }
 
-    function declarationStatement(): Statement {
-        const start = pos.start
+    function declarationStatement(): Declaration {
         switch (token) {
             case Token.Let:
                 return letDeclaration()
@@ -53,7 +57,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             default:
                 report("Expected a declaration")
                 skip()
-                return undefined as any as Statement
+                return undefined as any as Declaration
         }
     }
 
@@ -75,7 +79,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             const type = optionalTypeExpression()
             expect(Token.Equal)
             const value = expression()
-            return { kind: Kind.Val, name, type, value }            
+            return { kind: Kind.Val, name, type, value }
         })
     }
 
@@ -85,7 +89,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             const name = expectName()
             const type = optionalTypeExpression()
             const value = optionalExpression()
-            return { kind: Kind.Var, name, type, value }            
+            return { kind: Kind.Var, name, type, value }
         })
     }
 
@@ -98,7 +102,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             expect(Token.RParen)
             const result = optionalTypeExpression()
             const body = block()
-            return { kind: Kind.Function, parameters, result, body}
+            return { kind: Kind.Function, name, parameters, result, body}
         })
     }
 
@@ -115,7 +119,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             }
             if (token == Token.Var) {
                 next()
-                modifier |= ParameterModifier.Var 
+                modifier |= ParameterModifier.Var
             }
             const name = expectName()
             let alias = name
@@ -153,7 +157,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
                         value = expression()
                     }
                     return { kind: Kind.Return, value }
-                })       
+                })
             }
             case Token.Break:
                 return loc(() => {
@@ -161,7 +165,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
                     const target = optionalName()
                     return { kind: Kind.Break, target }
                 })
-            case Token.Continue: 
+            case Token.Continue:
                 return loc(() => {
                     next()
                     const target = optionalName()
@@ -185,7 +189,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             return { kind: Kind.While, condition, body }
         })
     }
- 
+
     function typeDeclaration(): TypeDeclaration {
         return loc(() => {
             expect(Token.Type)
@@ -242,7 +246,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
         }
         next()
         const right = addExpression()
-        return operatorCall(name, left, right) 
+        return operatorCall(name, left, right)
     }
 
     function addExpression(firstName: Reference | undefined = undefined): Expression {
@@ -251,9 +255,9 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             switch (token) {
                 case Token.Plus: next(); left = operatorCall('infix +', left, multiplyExpression()); break
                 case Token.Dash: next(); left = operatorCall('infix -', left, multiplyExpression()); break
-                default: return left 
+                default: return left
             }
-        } 
+        }
     }
 
     function multiplyExpression(firstName: Reference | undefined = undefined): Expression {
@@ -264,7 +268,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
                 case Token.Slash: next(); left = operatorCall('infix /', left, multiplyExpression()); continue
             }
             break
-        } 
+        }
         return left
     }
 
@@ -273,9 +277,10 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
     }
 
     function simpleExpressionTarget(target: Expression): Expression {
+        const start = pos.start
         while (true) {
             switch (token) {
-                case Token.LParen: 
+                case Token.LParen:
                     target = call(target)
                     continue
                 case Token.LBrack:
@@ -287,9 +292,11 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
                 default: {
                     if (!scanner.nl && expressionFirstSet[token]) {
                         target = extend({
+                            start,
+                            end: start,
                             kind: Kind.Call,
                             target: target,
-                            arguments: [arg(simpleExpression())]
+                            arguments: [arg(primitiveExpression())]
                         })
                         continue
                     }
@@ -301,19 +308,19 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
     }
 
     function call(target: Expression): Expression {
-        expect(Token.LParen)
-        const args = sequence(argument, argumentFirstSet, argumentFollowSet, comma)
-        expect(Token.RParen)
-        return extend({
-            kind: Kind.Call,
-            target,
-            arguments: args
-        }, ...args)
-        
+        return extend(loc(() => {
+            expect(Token.LParen)
+            const args = sequence(argument, argumentFirstSet, argumentFollowSet, comma)
+            expect(Token.RParen)
+            return {
+                kind: Kind.Call,
+                target,
+                arguments: args
+            }
+        }), target)
     }
 
     function argument(): Argument {
-        const start = pos.start
         let modifier = ArgumentModifier.None
         if (token == Token.Var) {
             next()
@@ -333,7 +340,9 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
         } else {
             value = expression()
         }
-        return { kind: Kind.Argument, modifier, name, value }
+        const result: Argument = { kind: Kind.Argument, modifier, value }
+        if (name) result.name = name
+        return result
     }
 
     function index(target: Expression): Expression {
@@ -343,6 +352,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
         expect(Token.RBrack)
         return extend({
             start,
+            end: start,
             kind: Kind.Index,
             target,
             index
@@ -375,8 +385,8 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             case Token.LiteralF32: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.F32, value: scanner.value })
             case Token.LiteralF64: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.F64, value: scanner.value })
             case Token.True:
-            case Token.False: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.F64, value: token == Token.True })
-            case Token.Null: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.F64, value: null })
+            case Token.False: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.Bool, value: token == Token.True })
+            case Token.Null: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.Null, value: null })
             case Token.Plus: {
                 next()
                 return operatorCall('prefix +', simpleExpression())
@@ -391,10 +401,45 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
             }
             case Token.If: return ifExpr()
             case Token.LBrack: return structOrarrayLiteral()
+            case Token.LBrace: return lambda()
         }
         report("Expected an expression")
         skip()
         return undefined as any as Expression
+    }
+
+    function lambda(): Lambda {
+        return loc(() => {
+            expect(Token.LBrace)
+            const parameters = tryParameters()
+            const statements = sequence(statement, statementFirstSet, statementFollowSet)
+            expect(Token.RBrace)
+            const result = optionalTypeExpression()
+            return {
+                kind: Kind.Lambda,
+                parameters,
+                result,
+                body: {
+                    kind: Kind.Block,
+                    statements
+                }
+            }
+        })
+    }
+
+    function tryParameters(): Parameter[] {
+        const oldScanner = scanner.clone()
+        const oldToken = token
+        const oldDiagnostics = [...diagnostics]
+        let result = functionParameters()
+        expect(Token.Arrow)
+        if (diagnostics.length != oldDiagnostics.length) {
+            scanner = oldScanner
+            token = oldToken
+            diagnostics = oldDiagnostics
+            result = []
+        }
+        return result
     }
 
     function ifExpr(): Expression {
@@ -440,7 +485,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
                     }
                 }
                 default:
-                   values = arrayValues() 
+                   values = arrayValues()
             }
             expect(Token.RBrack)
             return {
@@ -488,8 +533,8 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
                 kind: Kind.FieldLiteral,
                 modifier,
                 name,
-                value   
-            }    
+                value
+            }
         })
     }
 
@@ -564,7 +609,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
     function primitiveTypeExpression(): TypeExpression {
         switch (token) {
             case Token.Identifier: return expectName()
-            case Token.LBrack: 
+            case Token.LBrack:
                 return loc(() => {
                     const { fields, methods, types } = structTypeConstructorBody()
                     expect(Token.RBrack)
@@ -592,7 +637,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
                 kind: Kind.FunctionType,
                 parameters,
                 result
-            }    
+            }
         })
     }
 
@@ -605,20 +650,27 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
         const fields = items.filter(i => i.kind == Kind.StructTypeConstuctorField) as StructTypeConstuctorField[]
         const methods = items.filter(i => i.kind == Kind.Function) as Function[]
         const types = items.filter(i => i.kind == Kind.TypeDeclaration) as TypeDeclaration[]
-        return { fields, methods, types } 
+        return { fields, methods, types }
     }
 
     function structTypeConstructorItem(firstName: Reference | undefined): StructTypeConstuctorField | Function | TypeDeclaration {
         return loc(() => {
+            let modifier = StructTypeConstuctorFieldModifier.None
+            if (token == Token.Var) {
+                next()
+                modifier |= StructTypeConstuctorFieldModifier.Var
+                firstName = expectName()
+            }
             if (firstName || token == Token.Identifier) {
                 const name = firstName ?? expectName()
                 expect(Token.Colon)
                 const type = typeExpression()
                 return {
                     kind: Kind.StructTypeConstuctorField,
+                    modifier,
                     name,
                     type
-                } 
+                }
             }
             switch (token) {
                 case Token.Fun: return funDeclaration()
@@ -684,6 +736,15 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
         return token
     }
 
+    function expect(e: Token) {
+        if (token != e) {
+            report(`Expected a ${tokenString(e)}, received ${tokenString(token)}`)
+            skip()
+        } else {
+            next()
+        }
+    }
+
     function report(message: string, location: Locatable = {start: pos.start, end: pos.end }) {
         diagnostics.push({ location, message })
     }
@@ -713,7 +774,7 @@ export function parser(scanner: Scanner, builder?: PositionMap) {
         const end = all.map(n => n.end).filter(s => s != undefined).reduce((p, v) => (p as number) > (v as number) ? p : v)
         node.start = start
         node.end = end
-        return node 
+        return node
     }
 }
 

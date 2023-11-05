@@ -16,7 +16,7 @@ export class Scanner {
     builder: PositionBuilder | undefined
 
     constructor(text: string, builder?: PositionBuilder) {
-        this.text = text + "\0"
+        this.text = text
         this.builder = builder
     }
 
@@ -42,6 +42,7 @@ export class Scanner {
             const c = text[i]
             this.start = i++
             switch (c) {
+                case undefined:
                 case "\0":
                     i--
                     break loop
@@ -240,6 +241,7 @@ export class Scanner {
                             case "`":
                                 i++
                                 break
+                            case undefined:
                             case "\0":
                                 i--
                                 result = Token.Error
@@ -266,21 +268,23 @@ export class Scanner {
                         switch (text[i++]) {
                             case '"':
                                 shift()
-                                this.value = Buffer.from(prefix + '\0', 'utf-8')
+                                this.value = prefix
                                 i++
                                 break loop
+                            case undefined:
+                            case '\0':
                             case '\n':
                                 result = Token.Error
                                 this.message = "Unterminated string"
                                 break loop
                             case '\\':
                                 shift()
-                                i++
-                                switch (text[i]) {
+                                switch (text[i++]) {
                                     case 'n': prefix += "\n"; break
                                     case 'r': prefix += "\r"; break
                                     case 'b': prefix += "\b"; break
                                     case 't': prefix += "\t"; break
+                                    case undefined:
                                     case `\0`:
                                         i--
                                     default:
@@ -335,6 +339,7 @@ export class Scanner {
                                             continue loop
                                         }
                                         break
+                                    case undefined:
                                     case "\0":
                                         i--
                                         this.message = "Unterminated comment"

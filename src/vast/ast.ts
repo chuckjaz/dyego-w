@@ -17,6 +17,7 @@ export const enum Kind {
     IsCondition,
     Index,
     Infer,
+    Lambda,
     Let,
     Literal,
     Module,
@@ -42,25 +43,27 @@ export type Expression =
     Assign |
     Block |
     Call |
-    FieldLiteral |
     If |
     Index |
+    Lambda |
     Literal |
     Reference |
     Select |
     StructLiteral
 
-export type Statement =
-    Break |
-    Continue |
-    Expression |
+export type Declaration =
     Function |
     Let |
-    Module |
-    Return |
     TypeDeclaration |
     Var |
-    Val |
+    Val
+
+export type Statement =
+    Declaration |
+    Expression |
+    Break |
+    Continue |
+    Return |
     While |
     When
 
@@ -71,6 +74,21 @@ export type TypeExpression =
     Reference |
     StructTypeConstructor |
     TypeSelect 
+
+export type Literal =
+    I8Literal |
+    I16Literal |
+    I32Literal |
+    I64Literal |
+    U8Literal |
+    U16Literal |
+    U32Literal |
+    U64Literal |
+    F32Literal |
+    F64Literal |
+    BooleanLiteral |
+    NullLiteral |
+    BooleanLiteral
 
 const brand = Symbol("vast ast brand")
 
@@ -150,6 +168,7 @@ export const enum FieldLiteralModifier {
 
 export interface Function extends Node {
     kind: Kind.Function
+    name: Reference
     parameters: Parameter[]
     result: TypeExpression
     body: Block
@@ -183,6 +202,13 @@ export interface IsCondition extends Node {
     target: TypeExpression
 }
 
+export interface Lambda extends Node {
+    kind: Kind.Lambda
+    parameters: Parameter[]
+    result: TypeExpression
+    body: Block
+}
+
 export interface Let extends Node {
     kind: Kind.Let
     name: Reference
@@ -190,27 +216,26 @@ export interface Let extends Node {
     value: Expression
 }
 
-export interface Literal extends Node {
+export interface LiteralBase extends Node {
     kind: Kind.Literal
     primitiveKind: PrimitiveKind
 }
-export interface I8Literal extends Literal { primitiveKind: PrimitiveKind.I8; value: number }
-export interface I16Literal extends Literal { primitiveKind: PrimitiveKind.I16; value: number }
-export interface I32Literal extends Literal { primitiveKind: PrimitiveKind.I32; value: number }
-export interface I64Literal extends Literal { primitiveKind: PrimitiveKind.I64; value: bigint }
-export interface U8Literal extends Literal { primitiveKind: PrimitiveKind.U8; value: number }
-export interface U16Literal extends Literal { primitiveKind: PrimitiveKind.U16; value: number }
-export interface U32Literal extends Literal { primitiveKind: PrimitiveKind.U32; value: number }
-export interface U64Literal extends Literal { primitiveKind: PrimitiveKind.U64; value: bigint }
-export interface F32Literal extends Literal { primitiveKind: PrimitiveKind.F32; value: number }
-export interface F64Literal extends Literal { primitiveKind: PrimitiveKind.F64; value: number }
-export interface BooleanLiteral extends Literal { primitiveKind: PrimitiveKind.Bool; value: boolean }
-export interface VoidLiteral extends Literal { primitiveKind: PrimitiveKind.Void; value: void }
-export interface NullLiteral extends Literal { primitiveKind: PrimitiveKind.Null; value: null }
+export interface I8Literal extends LiteralBase { primitiveKind: PrimitiveKind.I8; value: number }
+export interface I16Literal extends LiteralBase { primitiveKind: PrimitiveKind.I16; value: number }
+export interface I32Literal extends LiteralBase { primitiveKind: PrimitiveKind.I32; value: number }
+export interface I64Literal extends LiteralBase { primitiveKind: PrimitiveKind.I64; value: bigint }
+export interface U8Literal extends LiteralBase { primitiveKind: PrimitiveKind.U8; value: number }
+export interface U16Literal extends LiteralBase { primitiveKind: PrimitiveKind.U16; value: number }
+export interface U32Literal extends LiteralBase { primitiveKind: PrimitiveKind.U32; value: number }
+export interface U64Literal extends LiteralBase { primitiveKind: PrimitiveKind.U64; value: bigint }
+export interface F32Literal extends LiteralBase { primitiveKind: PrimitiveKind.F32; value: number }
+export interface F64Literal extends LiteralBase { primitiveKind: PrimitiveKind.F64; value: number }
+export interface BooleanLiteral extends LiteralBase { primitiveKind: PrimitiveKind.Bool; value: boolean }
+export interface NullLiteral extends LiteralBase { primitiveKind: PrimitiveKind.Null; value: null }
 
 export interface Module extends Node {
     kind: Kind.Module
-    statements: Statement[]
+    declarations: Declaration[]
 }
 
 export interface Parameter extends Node {
@@ -257,8 +282,14 @@ export interface StructTypeConstructor extends Node {
 
 export interface StructTypeConstuctorField extends Node {
     kind: Kind.StructTypeConstuctorField
+    modifier: StructTypeConstuctorFieldModifier
     name: Reference
     type: TypeExpression
+}
+
+export const enum StructTypeConstuctorFieldModifier {
+    None = 0x0000,
+    Var = 0x0001,
 }
 
 export interface TypeDeclaration extends Node {
