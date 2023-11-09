@@ -1,5 +1,5 @@
-import { Diagnostic, Locatable, PrimitiveKind } from "../../last";
-import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, Expression, FieldLiteral, FieldLiteralModifier, Function, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, Reference, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, While } from "../ast";
+import { Diagnostic, Locatable } from "../../last";
+import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, ElseCondition, Expression, FieldLiteral, FieldLiteralModifier, For, Function, IsCondition, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, When, WhenClause, While } from "../ast";
 import { Scanner } from "./scanner";
 import { Token, toString  } from "./tokens";
 
@@ -29,6 +29,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     };
 
     const result = module()
+    expect(Token.EOF)
     return { module: result, diagnostics }
 
     function module(): Module {
@@ -85,7 +86,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
 
     function varDeclaration(): Var {
         return loc(() => {
-            expect(Token.Val)
+            expect(Token.Var)
             const name = expectName()
             const type = optionalTypeExpression()
             const value = optionalExpression()
@@ -171,12 +172,91 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                     const target = optionalName()
                     return { kind: Kind.Continue, target }
                 })
+            case Token.For:
+                return forStatement()
             case Token.While:
                 return whileStatement()
             default:
                 report("Expected as statement")
                 return undefined as any as Statement
         }
+    }
+
+    function when(): When {
+        return loc(() => {
+            expect(Token.When)
+            let target: Expression | undefined = undefined
+            if (token == Token.LParen) {
+                expect(Token.LParen)
+                target = expression()
+                expect(Token.RParen)
+            }
+            expect(Token.LBrace)
+            const clauses = sequence(whenClause, whenClauseFirstSet, whenClauseFollowSet)
+            expect(Token.RBrace)
+            return {
+                kind: Kind.When,
+                target,
+                clauses
+            }
+        })
+    }
+
+    function whenClause(): WhenClause {
+        return loc(() => {
+            const condition = whenClauseCondition()
+            expect(Token.Arrow)
+            let body: Block
+            if (token == Token.RBrace) {
+                body = block()
+            } else {
+                const statements = [statement()]
+                body = extend({
+                    kind: Kind.Block,
+                    statements
+                }, ...statements)
+            }
+            return {
+                kind: Kind.WhenClause,
+                condition,
+                body
+            }
+        })
+    }
+
+    function whenClauseCondition(): Expression | IsCondition | ElseCondition {
+        return loc(() => {
+            switch (token) {
+                case Token.Else:
+                    next()
+                    return {
+                        kind: Kind.ElseCondition
+                    }
+                case Token.Is: {
+                    next()
+                    const target = typeExpression()
+                    return {
+                        kind: Kind.IsCondition,
+                        target
+                    }
+                }
+                default:
+                    return expression()
+            }
+        })
+    }
+
+    function forStatement(): For {
+        return loc(() => {
+            expect(Token.For)
+            expect(Token.LParen)
+            const name = expectName()
+            expect(Token.In)
+            const target = expression()
+            expect(Token.RParen)
+            const body = block()
+            return { kind: Kind.For, name, target, body }
+        })
     }
 
     function whileStatement(): While {
@@ -209,7 +289,17 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     }
 
     function expression(firstName: Reference | undefined = undefined): Expression {
-        return orExpression(firstName)
+        return assignExpression(firstName)
+    }
+
+    function assignExpression(firstName: Reference | undefined = undefined): Expression {
+        let left = orExpression(firstName)
+        while (token == Token.Equal) {
+            next()
+            const right = orExpression()
+            left = { kind: Kind.Assign, start: left.start, end: right.end, target: left, value: right}
+        }
+        return left
     }
 
     function orExpression(firstName: Reference | undefined = undefined): Expression {
@@ -289,6 +379,9 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                 case Token.Dot:
                     target = select(target)
                     continue
+                case Token.DotDot:
+                    target = range(target)
+                    continue
                 default: {
                     if (!scanner.nl && expressionFirstSet[token]) {
                         target = extend({
@@ -365,9 +458,24 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         const name = expectName()
         return extend({
             start,
+            end: start,
             kind: Kind.Select,
             target,
             name
+        })
+    }
+
+    function range(left: Expression | undefined ): Expression {
+        const start = left?.start ?? pos.start
+        const end =  left?.end ?? pos.start
+        expect(Token.DotDot)
+        const right = expressionFirstSet[token] ? primitiveExpression() : undefined
+        return extend({
+            start,
+            end,
+            kind: Kind.Range,
+            left,
+            right
         })
     }
 
@@ -384,6 +492,8 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             case Token.LiteralU64: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.U64, value: scanner.value })
             case Token.LiteralF32: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.F32, value: scanner.value })
             case Token.LiteralF64: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.F64, value: scanner.value })
+            case Token.LiteralChar: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.Char, value: scanner.value })
+            case Token.LiteralString: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.String, value: scanner.value })
             case Token.True:
             case Token.False: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.Bool, value: token == Token.True })
             case Token.Null: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.Null, value: null })
@@ -400,8 +510,16 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                 return operatorCall('prefix !', simpleExpression())
             }
             case Token.If: return ifExpr()
-            case Token.LBrack: return structOrarrayLiteral()
+            case Token.When: return when();
+            case Token.DotDot: return range(undefined)
+            case Token.LBrack: return structOrArrayLiteral()
             case Token.LBrace: return lambda()
+            case Token.LParen: {
+                next()
+                const result = expression()
+                expect(Token.RParen)
+                return result
+            }
         }
         report("Expected an expression")
         skip()
@@ -460,7 +578,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         })
     }
 
-    function structOrarrayLiteral(): ArrayLiteral | StructLiteral {
+    function structOrArrayLiteral(): ArrayLiteral | StructLiteral {
         return loc(() => {
             expect(Token.LBrack)
             let values: Expression[]
@@ -476,6 +594,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                     const name = expectName()
                     if (token as any == Token.Colon) {
                         const fields = structLiteralFields(name)
+                        expect(Token.RBrack)
                         return {
                             kind: Kind.StructLiteral,
                             fields,
@@ -500,7 +619,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             const result = fieldLiteral(firstName)
             firstName = undefined
             return result
-        }, fieldLiteralFirstSet, fieldLiteralFollowSet, comma)
+        }, fieldLiteralFirstSet, fieldLiteralFollowSet, comma, firstName != undefined)
     }
 
     function arrayValues(firstName: Reference | undefined = undefined): Expression[] {
@@ -508,7 +627,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             const result = expression(firstName)
             firstName = undefined
             return result
-        }, arrayValueFirstSet, arrayValueFollowSet)
+        }, arrayValueFirstSet, arrayValueFollowSet, comma, firstName != undefined)
     }
 
     function fieldLiteral(firstName: Reference | undefined): FieldLiteral {
@@ -520,7 +639,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             }
             let name: Reference
             let value: Expression
-            if (token == Token.Colon) {
+            if (token == Token.Colon && !firstName) {
                 next()
                 value = expression()
                 name = rightMostName(value)
@@ -557,7 +676,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     }
 
     function arg(value: Expression): Argument {
-        return { start: value.start, end: value.end, kind: Kind.Argument, modifier: ArgumentModifier.None, value }
+        return { start: value && value.start, end: value && value.end, kind: Kind.Argument, modifier: ArgumentModifier.None, value }
     }
 
     function optionalTypeExpression(): TypeExpression {
@@ -570,17 +689,20 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
 
     function typeExpression(firstName: Reference | undefined = undefined): TypeExpression {
         return loc(() => {
+            const start = pos.start
             let result = firstName ?? primitiveTypeExpression()
             while (true) {
                 switch (token) {
                     case Token.LBrack: {
                         next()
                         let size: Expression | undefined = undefined
-                        if (token as any != Token.RBrace) {
+                        if (token as any != Token.RBrack) {
                             size = expression()
                         }
                         expect(Token.RBrack)
                         result = extend({
+                            start,
+                            end: start,
                             kind: Kind.ArrayTypeConstructor,
                             element: result,
                             size
@@ -611,6 +733,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             case Token.Identifier: return expectName()
             case Token.LBrack:
                 return loc(() => {
+                    next()
                     const { fields, methods, types } = structTypeConstructorBody()
                     expect(Token.RBrack)
                     return {
@@ -620,7 +743,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                         types
                     }
                 })
-            case Token.RBrace: return functionType()
+            case Token.LBrace: return functionType()
         }
         report("Expected a type expression")
         skip()
@@ -696,11 +819,11 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         return undefined
     }
 
-    function sequence<T>(element: () => T, firstSet: boolean[], followSet: boolean[] = [], separator = semi): T[] {
+    function sequence<T>(element: () => T, firstSet: boolean[], followSet: boolean[] = [], separator = semi, forced: boolean = false): T[] {
         const result: T[] = []
         const savedFollows = follows
         follows = unionOf(followSet, savedFollows)
-        if (firstSet[token]) {
+        if (forced || firstSet[token]) {
             result.push(element())
             if (separator == semi && token == Token.Semi) separator()
             if (separator == comma && token == Token.Comma) separator()
@@ -770,10 +893,10 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
 
     function extend<N extends Node>(node: N, ...children: Node[]): N {
         const all = [node, ...children]
-        const start = all.map(n => n.start).filter(s => s != undefined).reduce((p, v) => (p as number) < (v as number) ? p : v)
-        const end = all.map(n => n.end).filter(s => s != undefined).reduce((p, v) => (p as number) > (v as number) ? p : v)
-        node.start = start
-        node.end = end
+        const start = all.map(n => n?.start).filter(s => s != undefined).reduce((p, v) => (p as number) < (v as number) ? p : v, undefined)
+        const end = all.map(n => n?.end).filter(s => s != undefined).reduce((p, v) => (p as number) > (v as number) ? p : v, undefined)
+        if (start != undefined) node.start = start
+        if (end != undefined) node.end = end
         return node
     }
 }
@@ -795,12 +918,12 @@ const parameterFirstSet = setOf(Token.Identifier, Token.Var, Token.Context)
 const parameterFollowSet = setOf(Token.RParen)
 const expressionFirstSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
     Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
-    Token.LiteralF64, Token.Null, Token.True, Token.False, Token.Dash, Token.Plus, Token.If,
-    Token.LBrack, Token.LBrace)
+    Token.LiteralF64, Token.LiteralChar, Token.Null, Token.True, Token.False, Token.Dash, Token.Plus, Token.If,
+    Token.LBrack, Token.LBrace, Token.LParen, Token.When, Token.DotDot)
 const statementFirstSet = unionOf(
     expressionFirstSet,
     declarationFirstSet,
-    setOf(Token.Break, Token.Continue, Token.Return, Token.While)
+    setOf(Token.Break, Token.Continue, Token.For, Token.Return, Token.While)
 )
 const statementFollowSet = unionOf(statementFirstSet, setOf(Token.EOF, Token.RBrace))
 const argumentFollowSet = setOf(Token.Comma, Token.RParen)
@@ -811,3 +934,5 @@ const fieldLiteralFirstSet = setOf(Token.Identifier, Token.Var)
 const fieldLiteralFollowSet = setOf(Token.Comma, Token.RBrack)
 const structTypeFieldFirstSet = setOf(Token.Identifier, Token.Fun, Token.Type, Token.Var)
 const structTypeFieldFollowSet = setOf(Token.Comma, Token.LBrack)
+const whenClauseFirstSet = unionOf(expressionFirstSet, setOf(Token.Else, Token.Is))
+const whenClauseFollowSet = setOf(Token.RBrace, Token.Semi)

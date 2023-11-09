@@ -23,14 +23,19 @@ export const enum Token {
     False,
     If,
     Else,
+    For,
     Import,
+    In,
+    Is,
     As,
     Null,
     Break,
     Continue,
     Return,
+    When,
     While,
     Dot,
+    DotDot,
     Dash,
     Plus,
     Star,
@@ -43,6 +48,7 @@ export const enum Token {
     Bang,
     Circumflex,
     Tilde,
+    Splat,
     And,
     Amp,
     Bar,
@@ -89,15 +95,21 @@ export function toString(token: Token): string {
         case Token.True: return "True"
         case Token.False: return "False"
         case Token.If: return "If"
+        case Token.In: return "In"
+        case Token.Is: return "Is"
         case Token.Else: return "Else"
+        case Token.For: return "For"
         case Token.Import: return "Import"
         case Token.As: return "As"
         case Token.Null: return "Null"
         case Token.Break: return "Break"
         case Token.Continue: return "Continue"
         case Token.Return: return "Return"
+        case Token.When: return "When"
         case Token.While: return "While"
         case Token.Dot: return "Dot"
+        case Token.DotDot: return "DotDot"
+        case Token.Splat: return "Splat"
         case Token.Dash: return "Dash"
         case Token.Plus: return "Plus"
         case Token.Star: return "Star"

@@ -1,4 +1,4 @@
-import { Locatable, PrimitiveKind } from "../last";
+import { Locatable } from "../last";
 
 export const enum Kind {
     Argument,
@@ -10,7 +10,9 @@ export const enum Kind {
     Block,
     Call,
     Continue,
+    ElseCondition,
     FieldLiteral,
+    For,
     Function,
     FunctionType,
     If,
@@ -22,6 +24,7 @@ export const enum Kind {
     Literal,
     Module,
     Parameter,
+    Range,
     Return,
     Select,
     StructLiteral,
@@ -47,9 +50,11 @@ export type Expression =
     Index |
     Lambda |
     Literal |
+    Range |
     Reference |
     Select |
-    StructLiteral
+    StructLiteral |
+    When
 
 export type Declaration =
     Function |
@@ -61,11 +66,11 @@ export type Declaration =
 export type Statement =
     Declaration |
     Expression |
+    For |
     Break |
     Continue |
     Return |
-    While |
-    When
+    While
 
 export type TypeExpression =
     ArrayTypeConstructor |
@@ -73,7 +78,7 @@ export type TypeExpression =
     Infer |
     Reference |
     StructTypeConstructor |
-    TypeSelect 
+    TypeSelect
 
 export type Literal =
     I8Literal |
@@ -88,7 +93,8 @@ export type Literal =
     F64Literal |
     BooleanLiteral |
     NullLiteral |
-    BooleanLiteral
+    CharLiteral |
+    StringLiteral
 
 const brand = Symbol("vast ast brand")
 
@@ -154,6 +160,10 @@ export interface Continue extends Node {
     target?: Reference
 }
 
+export interface ElseCondition extends Node {
+    kind: Kind.ElseCondition
+}
+
 export interface FieldLiteral extends Node {
     kind: Kind.FieldLiteral
     name: Reference
@@ -164,7 +174,14 @@ export interface FieldLiteral extends Node {
 export const enum FieldLiteralModifier {
     None = 0x0000,
     Var = 0x0001
-} 
+}
+
+export interface For extends Node {
+    kind: Kind.For
+    name: Reference
+    target: Expression
+    body: Block
+}
 
 export interface Function extends Node {
     kind: Kind.Function
@@ -220,6 +237,18 @@ export interface LiteralBase extends Node {
     kind: Kind.Literal
     primitiveKind: PrimitiveKind
 }
+
+export const enum PrimitiveKind {
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64,
+    Bool,
+    Void,
+    Null,
+    Char,
+    String,
+}
+
 export interface I8Literal extends LiteralBase { primitiveKind: PrimitiveKind.I8; value: number }
 export interface I16Literal extends LiteralBase { primitiveKind: PrimitiveKind.I16; value: number }
 export interface I32Literal extends LiteralBase { primitiveKind: PrimitiveKind.I32; value: number }
@@ -232,7 +261,8 @@ export interface F32Literal extends LiteralBase { primitiveKind: PrimitiveKind.F
 export interface F64Literal extends LiteralBase { primitiveKind: PrimitiveKind.F64; value: number }
 export interface BooleanLiteral extends LiteralBase { primitiveKind: PrimitiveKind.Bool; value: boolean }
 export interface NullLiteral extends LiteralBase { primitiveKind: PrimitiveKind.Null; value: null }
-
+export interface CharLiteral extends LiteralBase { primitiveKind: PrimitiveKind.Char, value: string }
+export interface StringLiteral extends LiteralBase { primitiveKind: PrimitiveKind.String, value: string }
 export interface Module extends Node {
     kind: Kind.Module
     declarations: Declaration[]
@@ -250,6 +280,12 @@ export const enum ParameterModifier {
     None = 0x0000,
     Context = 0x0001,
     Var = 0x0002,
+}
+
+export interface Range extends Node {
+    kind: Kind.Range
+    left?: Expression
+    right?: Expression
 }
 
 export interface Reference extends Node {
@@ -315,7 +351,7 @@ export interface Var extends Node {
     kind: Kind.Var
     name: Reference
     type: TypeExpression
-    value?: Expression 
+    value?: Expression
 }
 
 export interface While extends Node {
@@ -332,6 +368,6 @@ export interface When extends Node {
 
 export interface WhenClause extends Node {
     kind: Kind.WhenClause
-    condition: Expression | IsCondition
+    condition: Expression | IsCondition | ElseCondition
     body: Block
 }

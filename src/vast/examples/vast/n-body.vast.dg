@@ -1,0 +1,131 @@
+let PI: f64 = 3.141592653589793;
+let SOLAR_MASS: f64 = 4.0 * PI * PI;
+let DAYS_PER_YEAR: f64 = 365.24;
+
+type Point = [
+    x: f64,
+    y: f64,
+    z: f64,
+
+    fun `infix +`(_ other: Self): Self { [ :x + other.x, :y + other.y, :z + other.z ] },
+    fun `infix -`(_ other: Self): Self { [ :x - other.x, :y - other.y, :z - other.z ] },
+    fun `infix *`(_ scale: f64): Self { [ :x * scale, :y * scale, :z * scale ] },
+    fun `infix /`(_ scale: f64): Self { [ :x / scale, :y / scale, :z / scale ] },
+    fun distanceSquared() { x * x + y * y + z * z },
+];
+
+type BodyValue = [
+    location: Point,
+    velocity: Point,
+    mass:     f64,
+];
+
+let jupiter: BodyValue = [
+    location: [
+        x:      4.84143144246472090e+00,
+        y:     -1.16032004402742839e+00,
+        z:     -1.03622044471123109e-01
+    ],
+    velocity: [
+        x:      1.66007664274403694e-03 * DAYS_PER_YEAR,
+        y:      7.69901118419740425e-03 * DAYS_PER_YEAR,
+        z:      6.90460016972063023e-05 * DAYS_PER_YEAR,
+    ],
+    mass:       9.54791938424326609e-04 * SOLAR_MASS
+];
+
+let saturn: BodyValue = [
+    location: [
+        x:      8.34336671824457987e+00,
+        y:      4.12479856412430479e+00,
+        z:     -4.03523417114321381e-01
+    ],
+    velocity: [
+        x:     -2.76742510726862411e-03 * DAYS_PER_YEAR,
+        y:      4.99852801234917238e-03 * DAYS_PER_YEAR,
+        z:      2.30417297573763929e-05 * DAYS_PER_YEAR
+    ],
+    mass:       2.85885980666130812e-04 * SOLAR_MASS
+];
+
+let uranus: BodyValue = [
+    location: [
+        x:      1.28943695621391310e+01,
+        y:     -1.51111514016986312e+01,
+        z:     -2.23307578892655734e-01
+    ],
+    velocity: [
+        x:      2.96460137564761618e-03 * DAYS_PER_YEAR,
+        y:      2.37847173959480950e-03 * DAYS_PER_YEAR,
+        z:     -2.96589568540237556e-05 * DAYS_PER_YEAR
+    ],
+    mass:       4.36624404335156298e-05 * SOLAR_MASS
+];
+
+let neptune: BodyValue = [
+    location: [
+        x:      1.53796971148509165e+01,
+        y:     -2.59193146099879641e+01,
+        z:      1.79258772950371181e-01
+    ],
+    velocity: [
+        x:      2.68067772490389322e-03 * DAYS_PER_YEAR,
+        y:      1.62824170038242295e-03 * DAYS_PER_YEAR,
+        z:     -9.51592254519715870e-05 * DAYS_PER_YEAR
+    ],
+    mass:       5.15138902046611451e-05 * SOLAR_MASS
+];
+
+let zero: Point = [ x: 0.0, y: 0.0, z: 0.0 ];
+
+let sun: BodyValue = [
+    location: zero,
+    velocity: zero,
+    mass:     SOLAR_MASS
+];
+
+var bodies = [sun, jupiter, saturn, uranus, neptune];
+
+fun OffsetMomentum(var bodies: BodyValue[]): BodyValue[] {
+    var p = zero;
+    for body in bodies {
+        p = p + body.velocity * mass
+    }
+    bodies[0].velocity = -p / SOLAR_MASS
+    bodies
+}
+
+fun Advance(var bodies: BodyValue[], dt: f64): BodyValue[] {
+    for var bodyi, i in bodies {
+        var velocity = body.velocity
+        for bodyj in bodies[i + 1:] {
+            val d = bodyi.location - bodyj.location
+            val d2 = d.distanceSquared()
+            val mag = (dt / (d2 * d2)).sqrt
+            velocity -= d * bodyj.mass * mag
+            bodyj.velocity += d * bodyi.mass * mag
+        }
+        bodyi.velocity = velocity
+    }
+    bodies
+}
+
+fun Energy(bodies: BodyValue[]): f64 {
+    var e = 0.0
+    for bodyi, index in bodies {
+        e = e + 0.5 * bodyi.mass * body.velocity.distanceSquared()
+        for bodyj in bodies[index + 1..] {
+            val delta = bodyi.location - bodyj.location
+            val distance = delta.distance()
+            e -= bodyi.mass * bodyj.mass / distance
+        }
+    }
+    e
+}
+
+export fun main(n: i32) {
+    var bodies = bodies
+    for i in 0..(n - 1) {
+        bodies = advance(bodies, 0.01)
+    }
+}

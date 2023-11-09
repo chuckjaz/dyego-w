@@ -1,8 +1,8 @@
-import exp from "constants"
-import { PrimitiveKind } from "../../last"
-import { Argument, ArgumentModifier, Block, Call, Declaration, Expression, FieldLiteralModifier, Function, I32Literal, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, Reference, Statement, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeExpression } from "../ast"
+import { FileSet } from "../../files"
+import { Argument, ArgumentModifier, Block, Call, Declaration, Expression, FieldLiteralModifier, Function, I32Literal, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Statement, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeExpression } from "../ast"
 import { parse } from "./parser"
 import { Scanner } from "./scanner"
+import * as fs from "fs"
 
 describe("module", () => {
     it("can parse an empty module", () => {
@@ -169,6 +169,18 @@ describe("declarations", () => {
     })
 })
 
+describe("examples", () => {
+    it("can parse sum.vast.dg", () => {
+        parseExample("sum.vast.dg")
+    })
+    it("can parse atoi.vast.dg", () => {
+        parseExample("atoi.vast.dg")
+    })
+    it("can parse binary-tree.vast.dg", () => {
+        parseExample("binary-tree.vast.dg")
+    })
+})
+
 function m(text: string): Module {
     const scanner = new Scanner(text)
     const { module, diagnostics } = parse(scanner)
@@ -178,6 +190,33 @@ function m(text: string): Module {
         return noLocations(module)
     }
     return module
+}
+
+function parseFile(text: string, name: string = "<text>"): Module {
+    const fileSet = new FileSet()
+    const builder = fileSet.buildFile(name, text.length, text)
+    const scanner = new Scanner(text, builder)
+    const fileInfo = builder.build()
+    const { module, diagnostics } = parse(scanner, builder)
+    if (diagnostics.length > 0) {
+        const messages: string[] = []
+        for (const diagnostic of diagnostics) {
+            const location = diagnostic.location
+            if (location.start) {
+                const position = fileInfo.position(location)
+                messages.push(`${position.display()} ${diagnostic.message}`);
+            } else {
+                messages.push(diagnostic.message)
+            }
+        }
+        throw new Error(messages.join("\n"))
+    }
+    return module
+}
+
+function parseExample(name: string): Module {
+    const text = fs.readFileSync(`src/vast/examples/vast/${name}`, 'utf-8')
+    return parseFile(text, name)
 }
 
 function d(text: string): Declaration {
@@ -278,6 +317,11 @@ function noLocations(module: Module): Module {
             case Kind.Break:
             case Kind.Continue:
                 break
+            case Kind.For:
+                noLocation(s.name)
+                expression(s.target)
+                expression(s.body)
+                break
             case Kind.Function:
                 noLocation(s.name)
                 s.parameters.forEach(parameter)
@@ -318,6 +362,8 @@ function noLocations(module: Module): Module {
                         case Kind.IsCondition: 
                             noLocation(condition)
                             typeExpression(condition.target)
+                            break
+                        case Kind.ElseCondition:
                             break
                         default:
                             expression(condition)
@@ -496,6 +542,14 @@ function dump(module: Module): string {
                     dumpExpression(statement.target)
                 }
                 break
+            case Kind.For:
+                emit("for (")
+                dumpExpression(statement.name)
+                emit(" in ")
+                dumpExpression(statement.target)
+                emit(")")
+                dumpExpression(statement.body)
+                break
             case Kind.Return:
                 emit("return ")
                 if (statement.value) {
@@ -525,11 +579,14 @@ function dump(module: Module): string {
                                 emit("is ")
                                 dumpTypeExpression(condition.target)
                                 break
+                            case Kind.ElseCondition:
+                                emit("else")
+                                break
                             default:
                                 dumpExpression(condition)
                                 break
                         }
-                        emit(" => ")
+                        emit(" -> ")
                         dumpExpression(clause.body)
                     })
                 })

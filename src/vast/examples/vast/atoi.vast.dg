@@ -1,0 +1,17 @@
+fun atoi(value: string): i32 {
+    var result = 0;
+    for (ch in values) {
+        result = result + when(ch) {
+            '0'..'9' -> result = result * 10 + ch - '0';
+            else -> break;
+        };
+    };
+    result
+}
+
+val b30 = "30";
+val b12 = "12";
+
+fun Test(): i32 {
+    atoi(b30) + atoi(b12)
+}

@@ -101,10 +101,14 @@ export class Scanner {
                                 this.value = false
                                 break
                             case "if": result = Token.If; break
+                            case "in": result = Token.In; break
+                            case "is": result = Token.Is; break
                             case "else": result = Token.Else; break
+                            case "for": result = Token.For; break
                             case "break": result = Token.Break; break
                             case "continue": result = Token.Continue; break
                             case "return": result = Token.Return; break
+                            case "when": result = Token.When; break
                             case "while": result = Token.While; break
                             case "type": result = Token.Type; break
                             case "val": result = Token.Val; break
@@ -256,6 +260,41 @@ export class Scanner {
                     this.value = text.substring(this.start + 1, i - 1)
                     break
                 }
+                case "'":
+                    result = Token.LiteralChar
+                    let ch = text[i++]
+                    switch (ch) {
+                        case undefined:
+                            result = Token.Error
+                            this.message = "Unterminated char"
+                            break loop
+                        case '\\': {
+                            switch (text[i++]) {
+                                case 'n': this.value = "\n"; break
+                                case 'r': this.value = "\r"; break
+                                case 'b': this.value = "\b"; break
+                                case 't': this.value = "\t"; break
+                                case undefined:
+                                case `\0`:
+                                    result = Token.Error
+                                    this.message = "Unterminated char"
+                                    break loop
+                                default:
+                                    result = Token.Error
+                                    this.message = "Invalid escape character"
+                                    break 
+                            }
+                        }
+                        default:
+                            this.value = ch
+                            break
+                    }
+                    if (text[i++] != "'") {
+                        i--
+                        result = Token.Error
+                        this.message = "Unterniated char"
+                    }
+                    break
                 case '"': {
                     result = Token.LiteralString
                     let startPos = i
@@ -297,6 +336,14 @@ export class Scanner {
                     }
                 case ".":
                     result = Token.Dot
+                    if (text[i] == ".") {
+                        i++
+                        result = Token.DotDot
+                        if (text[i] == ".") {
+                            i++
+                            result = Token.Splat
+                        }
+                    }
                     break
                 case "&":
                     if (text[i] == "&") {
