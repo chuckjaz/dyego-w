@@ -19,8 +19,8 @@ export type Map = <K: Hashable, V>{
         match find(key) {
             index: i32 ->  match slots[index] {
                 slot: Slot -> slot.value = value
-                _ -> panic()  
-            } 
+                _ -> panic()
+            }
             indexes: i32[] -> {
                 indexes += slots.size
                 slots += { :key, :value }
@@ -31,12 +31,12 @@ export type Map = <K: Hashable, V>{
 
     fun remove(key: K): V | Missing {
         match find(key) {
-            slot: var (Slot | Missing) ->  
+            slot: var (Slot | Missing) ->
         }
     }
 
     fun sequence() = slots.sequence()
-    
+
     fun keys(): K* {
         for slot in slots {
             match slot {

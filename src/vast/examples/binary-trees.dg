@@ -8,7 +8,7 @@ fun bottomUpTree(depth: i32): Node {
 }
 
 fun itemCheck(tree: Node): i32 {
-    var result = 1 
+    var result = 1
     for child in tree.children {
         result += itemCheck(child)
     }

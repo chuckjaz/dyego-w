@@ -144,7 +144,12 @@ export class Scanner {
                     let isInt = true;
                     while (true) {
                         switch (text[i]) {
-                            case ".": case "E": case "e": case "-": case "+":
+                            case ".":
+                                if (text[i + 1] == ".") {
+                                    break
+                                }
+                                // fallthrough
+                            case "E": case "e": case "-": case "+":
                                 isInt = false;
                                 // fallthrough
                             case "0": case "1": case "2": case "3": case "4":
@@ -282,7 +287,7 @@ export class Scanner {
                                 default:
                                     result = Token.Error
                                     this.message = "Invalid escape character"
-                                    break 
+                                    break
                             }
                         }
                         default:

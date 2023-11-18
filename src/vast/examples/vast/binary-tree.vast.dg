@@ -10,16 +10,16 @@ fun bottomUpTree(depth: i32): Node {
 fun itemCheck(tree: Node): i32 {
     var result = 1;
     for (child in tree.children) {
-        result = result + itemCheck(child)
+        result = result + itemCheck(tree: child)
     }
     result
 }
 
 fun Work(iterations: i32, depth: i32): i32 {
     var check = 0;
-    for (_ in 0..iterations - 1) {
-        val tree = bottomUpTree(depth);
-        check = check + itemCheck(tree)
+    for (_ in 0..(iterations - 1)) {
+        val tree = bottomUpTree(depth: depth);
+        check = check + itemCheck(tree: tree)
     }
     check
 }

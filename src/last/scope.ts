@@ -38,6 +38,10 @@ export class Scope<T> {
         return this.entries.has(name)
     }
 
+    names(): IterableIterator<string> {
+        return this.entries.keys()
+    }
+
     forEach(callback: (name: string, value: T) => void) {
         this.internalForEach(new Set(), callback);
     }

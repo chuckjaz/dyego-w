@@ -5,9 +5,9 @@ export function writeUnsigned(bytes: Uint8Array, offset: number, value: bigint):
         value >>= 7n;
         if (value != 0n) /* more bytes to come */
             bytes[current++] = byte | 0x80;
-        else bytes[current++] = byte          
+        else bytes[current++] = byte
     } while (value != 0n);
-    return current - offset;      
+    return current - offset;
 }
 
 export function readUnsigned(bytes: Uint8Array, offset: number): bigint {
@@ -45,15 +45,15 @@ export function readSigned(bytes: Buffer, offset: number): bigint {
     let current = offset
     let result = 0n;
     let shift = 0n;
-    let byte    
+    let byte
     do {
       byte = bytes[current++];
       result |= BigInt(byte & 0x7F) << shift;
       shift += 7n;
     } while ((byte & 0x80) != 0);
-    
+
     if ((byte & 0x40) != 0)
-      result |= (~0n << shift);    
+      result |= (~0n << shift);
 
     return result
 }

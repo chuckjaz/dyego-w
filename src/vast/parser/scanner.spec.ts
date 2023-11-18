@@ -39,6 +39,9 @@ describe("scanning literals", () => {
             { token: Token.LiteralString, value: "a\nb" },
         ])
     })
+    it("can scan a range", () => {
+        expect(scan("1..2")).toEqual([ Token.LiteralI32, Token.DotDot, Token.LiteralI32 ])
+    })
 })
 
 describe("scan identifiers", () => {
@@ -58,7 +61,7 @@ describe("scan identifiers", () => {
     })
     it("can scan reserved words", () => {
         expect(scan("let fun if else break continue return while type val var context import as null infer")).toEqual([
-            Token.Let, Token.Fun, Token.If, Token.Else, Token.Break, Token.Continue, Token.Return, Token.While, 
+            Token.Let, Token.Fun, Token.If, Token.Else, Token.Break, Token.Continue, Token.Return, Token.While,
             Token.Type, Token.Val, Token.Var, Token.Context, Token.Import, Token.As, Token.Null, Token.Infer,
         ])
     })
@@ -70,7 +73,7 @@ describe("scan operators", () => {
             Token.Dash, Token.Dot, Token.Amp, Token.And, Token.Bar, Token.Or, Token.Plus, Token.Star, Token.Slash,
             Token.Semi, Token.Comma, Token.Equal, Token.EqualEqual, Token.Bang, Token.NotEqual, Token.Colon,
             Token.Circumflex, Token.Tilde, Token.LParen, Token.RParen, Token.LBrace, Token.RBrace, Token.LBrack,
-            Token.RBrack, Token.Percent, Token.Gt, Token.Gte, Token.Lt, Token.Lte  
+            Token.RBrack, Token.Percent, Token.Gt, Token.Gte, Token.Lt, Token.Lte
         ])
     })
 })

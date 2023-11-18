@@ -98,7 +98,7 @@ fun OffsetMomentum(var bodies: BodyValue[]): BodyValue[] {
 fun Advance(var bodies: BodyValue[], dt: f64): BodyValue[] {
     for var bodyi, i in bodies {
         var velocity = body.velocity
-        for bodyj in bodies[i + 1:] {
+        for bodyj in bodies[i + 1..] {
             val d = bodyi.location - bodyj.location
             val d2 = d.distanceSquared()
             val mag = (dt / (d2 * d2)).sqrt

@@ -1,5 +1,5 @@
 import { Diagnostic, Locatable } from "../../last";
-import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, ElseCondition, Expression, FieldLiteral, FieldLiteralModifier, For, Function, IsCondition, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, When, WhenClause, While } from "../ast";
+import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, ElseCondition, Expression, FieldLiteral, FieldLiteralModifier, For, Function, IsCondition, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Select, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, When, WhenClause, While } from "../ast";
 import { Scanner } from "./scanner";
 import { Token, toString  } from "./tokens";
 
@@ -305,9 +305,9 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     function orExpression(firstName: Reference | undefined = undefined): Expression {
         let left = andExpression(firstName)
         while (token == Token.Or) {
-            next()
+            const name = opName('infix ||')
             const right = andExpression()
-            left = operatorCall('infix ||', left, right)
+            left = operatorCall(name, left, right)
         }
         return left
     }
@@ -315,25 +315,26 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     function andExpression(firstName: Reference | undefined = undefined): Expression {
         let left = compareExpression(firstName)
         while (token == Token.And) {
-            next()
+            const name = opName('infix ||')
             const right = compareExpression()
-            left = operatorCall('infix ||', left, right)
+            left = operatorCall(name, left, right)
         }
         return left
     }
 
     function compareExpression(firstName: Reference | undefined = undefined): Expression {
         const left = addExpression(firstName)
-        let name = ''
+        let operatorName = ''
         switch (token) {
-            case Token.Gt: name = `infix >`; break
-            case Token.Lt: name = `infix <`; break
-            case Token.Gte: name = `infix >=`; break
-            case Token.Lte: name = `infix <=`; break
-            case Token.EqualEqual: name = 'infix =='; break
-            case Token.NotEqual: name = 'infix !='; break
+            case Token.Gt: operatorName = `infix >`; break
+            case Token.Lt: operatorName = `infix <`; break
+            case Token.Gte: operatorName = `infix >=`; break
+            case Token.Lte: operatorName = `infix <=`; break
+            case Token.EqualEqual: operatorName = 'infix =='; break
+            case Token.NotEqual: operatorName = 'infix !='; break
             default: return left
         }
+        const name = opName(operatorName)
         next()
         const right = addExpression()
         return operatorCall(name, left, right)
@@ -343,8 +344,8 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         let left = multiplyExpression(firstName)
         while (true) {
             switch (token) {
-                case Token.Plus: next(); left = operatorCall('infix +', left, multiplyExpression()); break
-                case Token.Dash: next(); left = operatorCall('infix -', left, multiplyExpression()); break
+                case Token.Plus: left = operatorCall(opName('infix +'), left, multiplyExpression()); break
+                case Token.Dash: left = operatorCall(opName('infix -'), left, multiplyExpression()); break
                 default: return left
             }
         }
@@ -354,8 +355,8 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         let left = simpleExpression(firstName)
         while (true) {
             switch (token) {
-                case Token.Star: next(); left = operatorCall('infix *', left, multiplyExpression()); continue
-                case Token.Slash: next(); left = operatorCall('infix /', left, multiplyExpression()); continue
+                case Token.Star: left = operatorCall(opName('infix *'), left, multiplyExpression()); continue
+                case Token.Slash: left = operatorCall(opName('infix /'), left, multiplyExpression()); continue
             }
             break
         }
@@ -383,7 +384,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                     target = range(target)
                     continue
                 default: {
-                    if (!scanner.nl && expressionFirstSet[token]) {
+                    if (!scanner.nl && expressionFirstNoInfixeSet[token]) {
                         target = extend({
                             start,
                             end: start,
@@ -497,18 +498,9 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             case Token.True:
             case Token.False: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.Bool, value: token == Token.True })
             case Token.Null: return l({ kind: Kind.Literal, primitiveKind: PrimitiveKind.Null, value: null })
-            case Token.Plus: {
-                next()
-                return operatorCall('prefix +', simpleExpression())
-            }
-            case Token.Dash: {
-                next()
-                return operatorCall('prefix -', simpleExpression())
-            }
-            case Token.Bang: {
-                next()
-                return operatorCall('prefix !', simpleExpression())
-            }
+            case Token.Plus:  return operatorCall(opName('prefix +'), simpleExpression())
+            case Token.Dash: return operatorCall(opName('prefix -'), simpleExpression())
+            case Token.Bang: return operatorCall(opName('prefix !'), simpleExpression())
             case Token.If: return ifExpr()
             case Token.When: return when();
             case Token.DotDot: return range(undefined)
@@ -668,10 +660,26 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         }
     }
 
-    function operatorCall(name: string, ...exprs:  Expression[]) {
-        const target: Reference = { kind: Kind.Reference, name }
-        const args: Argument[] = exprs.map(arg)
-        const result: Call = { kind: Kind.Call, target, arguments: args }
+    function opName(name: string): Reference {
+        const result: Reference = {
+            start: pos.start,
+            end: pos.end,
+            kind: Kind.Reference,
+            name
+        }
+        next()
+        return result
+    }
+
+    function operatorCall(name: Reference, ...exprs:  Expression[]) {
+        const [receiver, ...rest] = exprs
+        const select: Select = {
+            kind: Kind.Select,
+            target: receiver,
+            name,
+        }
+        const args: Argument[] = rest.map(arg)
+        const result: Call = { kind: Kind.Call, target: select, arguments: args }
         return extend(result, ...args)
     }
 
@@ -919,6 +927,10 @@ const parameterFollowSet = setOf(Token.RParen)
 const expressionFirstSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
     Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
     Token.LiteralF64, Token.LiteralChar, Token.Null, Token.True, Token.False, Token.Dash, Token.Plus, Token.If,
+    Token.LBrack, Token.LBrace, Token.LParen, Token.When, Token.DotDot)
+const expressionFirstNoInfixeSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
+    Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
+    Token.LiteralF64, Token.LiteralChar, Token.Null, Token.True, Token.False, Token.If,
     Token.LBrack, Token.LBrace, Token.LParen, Token.When, Token.DotDot)
 const statementFirstSet = unionOf(
     expressionFirstSet,

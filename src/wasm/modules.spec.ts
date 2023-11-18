@@ -123,10 +123,10 @@ describe("modules", () => {
             g.inst(Inst.f64_const);
             g.float64(1);
             g.inst(Inst.f64_lt);
-            g.if(NumberType.f64)    
+            g.if(NumberType.f64)
         })
         gen();
-        
+
         const thenBlock = gen();
 
     });

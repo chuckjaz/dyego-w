@@ -1,25 +1,25 @@
 fun sum(numbers: i32[]): i32 {
     var result = 0;
     for (number in numbers) {
-        result = reuslt + number;
+        result = result + number;
     };
     result
 };
 
 val numbers = [1, 2, 3, 4, 5, 6];
 
-fun Test1() {
-    sum(numbers)
+fun Test1(): i32 {
+    sum(numbers: numbers[..])
 };
 
-fun Test2() {
-    sum(numbers[3..])
+fun Test2(): i32 {
+    sum(numbers: numbers[3..])
 };
 
 fun Test3() {
     var result = 0;
-    for (i in 1..number.size - 1) {
-        result = result + sum(numbers[i..]);
+    for (i in 1..(numbers.size - 1)) {
+        result = result + sum(numbers: numbers[i..]);
     };
     result
 };

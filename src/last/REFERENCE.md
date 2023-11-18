@@ -18,7 +18,7 @@ Logical and of the operants. Operants must be equivilent type with the `Logical`
 
 ### ArrayConstructor `<type-expression>[<size?>]`
 
-Declare an array type. If size is unspecified it is an unbound bound array of zero size (allocates no memory), Elements are sequencial in their unpacked size. The size of the array is size of the elmeent times the size. 
+Declare an array type. If size is unspecified it is an unbound bound array of zero size (allocates no memory), Elements are sequencial in their unpacked size. The size of the array is size of the elmeent times the size.
 
 ### ArrayIndex `A[i32] -> E where (A : (EP[]+Locatable, E: EP+Locatable) or (A: E[])`
 
@@ -26,7 +26,7 @@ Retrive the specified element from an array. The result of the expression is the
 
 ### ArrayLiteral `[ T, ... ]`
 
-Specifies an array literal. 
+Specifies an array literal.
 
 ### As `T as N -> N where T: Pointer | PointerSized, N: Pointer | PointerSized`
 
@@ -74,7 +74,7 @@ Branch to the enclosing `Block` or `Loop` or the specified target.
 
 ### BranchIndexed `branch i32 [Ref,...] else Ref -> Never`
 
-Branch to the referenced target based on the index. If the expression is out of range then the else reference is taken.  
+Branch to the referenced target based on the index. If the expression is out of range then the else reference is taken.
 
 ### Call `T(P, ...) -> R where T: Callable(R) -> R`
 
@@ -120,7 +120,7 @@ Compares operants for equality. Operants must be equivilent type with the `Equat
 
 Export a global variable or function.
 
-### Field `<name>: T -> n/a` 
+### Field `<name>: T -> n/a`
 
 Specifies the value of a struct literal. A `Field` is only valid in a `StructLiteral`.
 
@@ -226,7 +226,7 @@ Specifies an `u64` literal.
 
 ### Loop `loop { ... } -> Void`
 
-A sequence of block elements. The `Loop` can have an optional name which can be the target of a `Branch`. A `Branch` that targets a `Loop` will branch to the first statement of the loop. 
+A sequence of block elements. The `Loop` can have an optional name which can be the target of a `Branch`. A `Branch` that targets a `Loop` will branch to the first statement of the loop.
 
 ### MemoryLimit `memory$limit -> Void^`
 
@@ -334,7 +334,7 @@ The truncated value of the operant. The operant type must have the `Floatable` c
 
 ### TruncateTo `T trunc N -> N`
 
-Truncate the operant to the specified type with the specified saturation. The truncation must be valid from the type truncation table below. 
+Truncate the operant to the specified type with the specified saturation. The truncation must be valid from the type truncation table below.
 
 ### TypeDeclaration `<type-expression> -> T`
 
@@ -372,7 +372,7 @@ Wrap the operant to `i32`. The operant must be of type `i64`.
 | f64  |  8 bytes    | 8 bytes       | F64       | 64 bit floating point value                             |
 | Bool |  1 byte     | 4 bytes       | I32       | A Boolean value 0 - false, 1 - true                     |
 | Void |  0 bytes    | 0 bytes       | N/A       | Returned by a function with no return value             |
-| Null |  4 bytes    | 4 bytes       | I32       | A null pointer                                          | 
+| Null |  4 bytes    | 4 bytes       | I32       | A null pointer                                          |
 
 ## Type capabilites
 
@@ -381,16 +381,16 @@ The following primitive types have the given capabilites:
 | Type    | Capabilities                                                        |
 | ------- | ----------------------------------------------------------------------------------------------- |
 | Boolean | Logical, Equatable                                                                              |
-| i8      | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          | 
-| i16     | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          | 
-| i32     | Bitcountable, Bitwiseable, Comparable, Equatable, Negatable, Numeric, PointerSized, Rotateable  | 
+| i8      | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          |
+| i16     | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          |
+| i32     | Bitcountable, Bitwiseable, Comparable, Equatable, Negatable, Numeric, PointerSized, Rotateable  |
 | i64     | Bitcountable, Bitwiseable, Comparable, Equatable, Negatable, Numeric, Rotatable                 |
-| f32     | Equatable, Comparable, Floatable, Negatable, Numeric                                            |  
-| f64     | Equatable, Comparable, Floatable, Negatable, Numeric                                            |  
-| u8      | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          | 
-| u16     | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          | 
-| u32     | Bitcountable, Bitwiseable, Comparable, Equatable, Negatable, Numeric, PointerSized, Rotateable  | 
-| u64     | Bitcountable, Bitwiseable, Comparable, Equatable, Negatable, Numeric, Rotatable                 | 
+| f32     | Equatable, Comparable, Floatable, Negatable, Numeric                                            |
+| f64     | Equatable, Comparable, Floatable, Negatable, Numeric                                            |
+| u8      | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          |
+| u16     | Bitwiseable, Comparable, Equatable, Negatable, Numeric                                          |
+| u32     | Bitcountable, Bitwiseable, Comparable, Equatable, Negatable, Numeric, PointerSized, Rotateable  |
+| u64     | Bitcountable, Bitwiseable, Comparable, Equatable, Negatable, Numeric, Rotatable                 |
 
 Types of the form `T[]` have the `Indexable` capability.
 
@@ -437,7 +437,7 @@ The following types can be reinterpeted as
 | ------- | ------------- |
 | f32     | u32           |
 | f64     | u64           |
-| Pointer | Pointer, u32  | 
+| Pointer | Pointer, u32  |
 | u32     | Pointer, f32  |
 | u64     | f64           |
 

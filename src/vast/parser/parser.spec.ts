@@ -359,7 +359,7 @@ function noLocations(module: Module): Module {
                 s.clauses.forEach(c => {
                     const condition = c.condition
                     switch (condition.kind) {
-                        case Kind.IsCondition: 
+                        case Kind.IsCondition:
                             noLocation(condition)
                             typeExpression(condition.target)
                             break
@@ -493,7 +493,7 @@ function dump(module: Module): string {
 
     function dumpStatement(statement: Statement) {
         switch (statement.kind) {
-            case Kind.Function: 
+            case Kind.Function:
                 dumpFunction(statement)
                 break
             case Kind.Let:
@@ -617,7 +617,7 @@ function dump(module: Module): string {
             emit("context ")
         }
         if (typeof parameter.name == 'number') {
-            emit("_")            
+            emit("_")
         } else {
             dumpExpression(parameter.name)
         }
@@ -779,11 +779,11 @@ function dump(module: Module): string {
     }
 
     function emit(text: string) {
-        if (first) { 
+        if (first) {
             result += linePrefix
             first = false
         }
-        result += text 
+        result += text
     }
 
     function indent(content: () => void) {

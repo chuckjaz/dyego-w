@@ -11,7 +11,7 @@ export class TypeSection implements Section {
     empty(): boolean {
         return this.types.length == 0;
     }
-    
+
     funtionType(type: FunctionType): TypeIndex {
         const key = functionTypeToString(type);
         return this.map.get(key) ?? this.newIndex(key, type);
@@ -24,7 +24,7 @@ export class TypeSection implements Section {
             writer.write32u(types.length);
             for (const type of types) {
                 writeFunctionType(writer, type)
-            }    
+            }
         });
     }
 
