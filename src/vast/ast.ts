@@ -35,6 +35,7 @@ export const enum Kind {
     Reference,
     Val,
     Var,
+    VarForItem,
     While,
     When,
     WhenClause,
@@ -178,9 +179,15 @@ export const enum FieldLiteralModifier {
 
 export interface For extends Node {
     kind: Kind.For
-    name: Reference
+    item: Reference | VarForItem
+    index?: Reference
     target: Expression
     body: Block
+}
+
+export interface VarForItem extends Node {
+    kind: Kind.VarForItem
+    name: Reference
 }
 
 export interface Function extends Node {

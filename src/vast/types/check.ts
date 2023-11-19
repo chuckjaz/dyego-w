@@ -2,6 +2,7 @@ import { Diagnostic, Locatable, Scope } from "../../last";
 import { required } from "../../utils";
 import { Call, Declaration, Expression, For, Function as FunctionNode, If, Index, Kind, Lambda, Let, Literal, Module, Parameter, PrimitiveKind, Range, Reference, Select, Statement, StructLiteral, StructTypeConstructor, StructTypeConstuctorField, TypeDeclaration, TypeExpression, Val, Var, When, While } from "../ast";
 import { Type, Parameter as FunctionTypeParameter, ParameterModifier as FunctionTypeParameterModifier, Function, FunctionType, ErrorType, StructField, StructType, FunctionModifier, StructFieldModifier, OpenType, LambdaType, ArrayType, SliceType, TypeKind } from "./types";
+import { dump } from '../dump-ast'
 
 interface PendingFunction {
     func: FunctionNode
@@ -25,7 +26,6 @@ const rangeType: Type = { kind: TypeKind.Range }
 const voidType: Type = { kind: TypeKind.Void }
 const neverType: Type = { kind: TypeKind.Never }
 const errorType: ErrorType = { kind: TypeKind.Error }
-
 
 const enum Capabilities {
     None = 0 << 0,
@@ -194,6 +194,9 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         infix("==", booleanType)
         infix("!=", booleanType)
     }
+    if (capabilities & Capabilities.Floatable) {
+        method0("sqrt")
+    }
     if (capabilities & Capabilities.Logical) {
         infix("&&")
         infix("||")
@@ -277,6 +280,7 @@ export function check(module: Module): CheckResult {
     const pending: PendingFunction[] = []
     const types = new Map<Expression | Declaration | Statement, Type>()
 
+    dump(module)
     let scopes: Scopes = {
         types: new Scope(builtInTypes),
         locations: new Scope(),
@@ -331,7 +335,7 @@ export function check(module: Module): CheckResult {
     function checkValDeclaration(valDeclaration: Val) {
         const name = valDeclaration.name.name
         const declaredType = convertTypeExpression(valDeclaration.type)
-        const valueType = requiredBound(valDeclaration.value, checkExpression(valDeclaration.value))
+        const valueType = inTypeContext(declaredType, () => requiredBound(valDeclaration.value, checkExpression(valDeclaration.value)))
         const type = mustMatch(valDeclaration.value, declaredType, valueType)
         const location: ValLocation = {
             kind: LocationKind.Val,
@@ -343,7 +347,8 @@ export function check(module: Module): CheckResult {
     function checkVarDeclaration(varDeclaration: Var) {
         const name = varDeclaration.name.name
         const declaredType = convertTypeExpression(varDeclaration.type)
-        const valueType =  varDeclaration.value ? checkExpression(varDeclaration.value) : fresh()
+        const varValue = varDeclaration.value
+        const valueType =  varValue ? inTypeContext(declaredType, () => checkExpression(varValue)) : fresh()
         const type = mustMatch(varDeclaration, declaredType, valueType)
         const location: VarLocation = {
             kind: LocationKind.Var,
@@ -361,6 +366,16 @@ export function check(module: Module): CheckResult {
 
     function enterFunction(func: FunctionNode, modifier: FunctionModifier): Function {
         const parameters = convertFunctionParameters(func.parameters)
+        if (scopes.declarationContext) {
+            const selfParameter: FunctionTypeParameter = {
+                name: "self",
+                alias: "self",
+                position: -1,
+                modifier: FunctionTypeParameterModifier.Context,
+                type: scopes.declarationContext
+            }
+            scopeEnter(func, parameters, "self", selfParameter)
+        }
         const result = convertTypeExpression(func.result)
         const type: FunctionType = {
             kind: TypeKind.Function,
@@ -384,15 +399,36 @@ export function check(module: Module): CheckResult {
             scopes.resultContext = pending.type.result
             scopes.typeContext = pending.type.result
 
-            // Create parameter locaitons
+            // Create parameter locations
             let parameterIndex = 0
             pending.type.parameters.forEach((_, param) => {
-                const location = {
-                    kind: LocationKind.Let,
+                const location: ValLocation = {
+                    kind: LocationKind.Val,
                     type: param.type
                 }
                 const parameter = func.parameters[parameterIndex++]
                 scopeEnter(parameter, scopes.locations, param.alias, location)
+
+                if (param.modifier & FunctionTypeParameterModifier.Context) {
+                    const contextType = param.type
+                    if (contextType.kind == TypeKind.Struct) {
+                        contextType.fields.forEach((name, field) => {
+                            if (!scopes.locations.has(name)) {
+                                const selfLocation: ContextLocation = {
+                                    kind: LocationKind.Context,
+                                    type: field.type,
+                                    location
+                                }
+                                scopes.locations.enter(name, selfLocation)
+                            }
+                        })
+                        contextType.methods.forEach((name, method) => {
+                            if (!scopes.functions.has(name)) {
+                                scopes.functions.enter(name, method)
+                            }
+                        })
+                    }
+                }
             })
             const type = checkExpression(func.body)
             mustMatch(func.body, pending.type.result, type)
@@ -454,7 +490,7 @@ export function check(module: Module): CheckResult {
             case Kind.Reference: {
                 const referant = scopes.types.find(type.name)
                 if (!referant) {
-                    report(type, "Undefined type symbol")
+                    report(type, `Undefined type symbol '${type.name}'`)
                     return errorType
                 }
                 return referant
@@ -482,7 +518,7 @@ export function check(module: Module): CheckResult {
             case Kind.Reference: {
                 const referent = scopes.locations.find(expression.name)
                 if (!referent) {
-                    report(expression, "Undefined symbol")
+                    report(expression, `Undefined symbol '${expression.name}`)
                     return constError
                 }
                 if (referent.kind != LocationKind.Let) {
@@ -501,57 +537,41 @@ export function check(module: Module): CheckResult {
 
             case Kind.Call: {
                 const target = expression.target
-                if (target.kind != Kind.Reference) {
+                if (target.kind != Kind.Select) {
                     report(expression, "Expected a constant expression")
                     return constError
                 }
+                const opName = target.name.name
                 const synthetic = syntheticOf(type)
-                const method = synthetic.methods.find(target.name)
+                const method = synthetic.methods.find(opName)
                 if (!method) {
                     report(expression, "Unsupported operation in a constant expression")
                     return constError
                 }
+                const left = evaluateToConstant(target.target, type)
 
-                function binary(call: Call, type: Type): { aResult: ConstResult, bResult: ConstResult } {
-                    const a = call.arguments[0]
-                    const b = call.arguments[1]
-                    required(a && !a.name && b && !b.name, expression)
-                    const aResult = evaluateToConstant(a.value, type)
-                    const bResult = evaluateToConstant(b.value, type)
-                    return { aResult, bResult }
+                function binary(call: Call, op: (a: any, b: any) => any): any {
+                    const right = call.arguments[0]
+                    required(right && !right.name, expression)
+                    const rightValue = evaluateToConstant(right.value, type)
+                    return op(left, rightValue)
                 }
 
-                switch (target.name) {
-                    case 'prefix +': {
-                        const argument = expression.arguments[0]
-                        required(argument && !argument.name, expression)
-                        return evaluateToConstant(argument.value, type)
-                    }
-                    case 'prefix -': {
-                        const argument = expression.arguments[0]
-                        required(argument && !argument.name, expression)
-                        const { value } = evaluateToConstant(argument.value, type)
-                        return { value: -value, type }
-                    }
-                    case 'infix +': {
-                        const { aResult, bResult } = binary(expression, type)
-                        return { value: aResult.value + bResult.value, type }
-                    }
-                    case 'infix -': {
-                        const { aResult, bResult } = binary(expression, type)
-                        return { value: aResult.value - bResult.value, type }
-                    }
-                    case 'infix *': {
-                        const { aResult, bResult } = binary(expression, type)
-                        return { value: aResult.value * bResult.value, type }
-                    }
+                switch (opName) {
+                    case 'prefix +': return { value: left, type }
+                    case 'prefix -': return { value: -left, type }
+                    case 'infix +': return { value: binary(expression, (a, b) => a + b), type }
+                    case 'infix -': return { value: binary(expression, (a, b) => a - b), type }
+                    case 'infix *': return { value: binary(expression, (a, b) => a * b), type }
                     case 'infix /': {
-                        const { aResult, bResult } = binary(expression, type)
-                        if (bResult.value == 0) {
+                        const value = binary(expression, (a, b) => {
+                            if (b == 0) return undefined
+                            return a / b
+                        })
+                        if (value == undefined) {
                             report(expression, "Divide by zero")
-                            return constError
                         }
-                        return { value: aResult.value / bResult.value, type }
+                        return { value, type }
                     }
                     default: {
                         report(expression, "Unsupported operaiton in a const expression")
@@ -569,6 +589,7 @@ export function check(module: Module): CheckResult {
         const self: StructType = { kind: TypeKind.Struct } as any
         scope(() => {
             scopes.types.enter("self", self)
+            scopes.declarationContext = self
             self.types = buildScope(struct.types, convertTypeDeclaration)
             self.fields = buildScope(struct.fields, convertStructConstructorField)
             self. methods = buildScope(struct.methods, m => enterFunction(m, FunctionModifier.Method))
@@ -692,8 +713,22 @@ export function check(module: Module): CheckResult {
             used.add(name)
             if (!argument.name) position++
         }
+        
         if (used.size == target.parameters.size) {
             // All parameter are supplied
+            return target.result
+        }
+
+        // process context
+        target.parameters.forEach((name, param) => {
+            if (param.modifier & FunctionTypeParameterModifier.Context) {
+                used.add(name)
+                // TODO: Validate the context
+            }
+        })
+
+        if (used.size == target.parameters.size) {
+            // Context supplied the rest
             return target.result
         }
 
@@ -766,7 +801,18 @@ export function check(module: Module): CheckResult {
         }
         const location = scopes.locations.find(reference.name)
         if (!location) {
-            report(reference, "Undefined identifier")
+            if (!checkFunctions) {
+                const method = scopes.functions.find(reference.name)
+                if (method) {
+                    report(reference, `The function '${reference.name}' should be called`)
+                    return errorType
+                }
+            }
+            if (scopes.selectContext) {
+                report(reference, `Type ${nameOfType(scopes.selectContext)} does not have a member called ${reference.name}`)
+            } else {
+                report(reference, `Undefined identifier '${reference.name}'`)
+            }
             return errorType
         }
         return location.type
@@ -829,7 +875,7 @@ export function check(module: Module): CheckResult {
             const name = field.name.name
             const typeField = typeContext.fields.find(name)
             if (!typeField) {
-                report(field.name, "Struct type does not contain the this field")
+                report(field, `${nameOfType(typeContext)} does not have a field named ${name}`)
                 return errorType
             }
             inTypeContext(typeField.type, () => {
@@ -944,7 +990,15 @@ export function check(module: Module): CheckResult {
 
     function checkForStatement(forStatement: For) {
         scope(() => {
-            const name = forStatement.name.name
+            let name: string
+            let varName = false
+            if (forStatement.item.kind == Kind.Reference) {
+                name = forStatement.item.name
+            } else {
+                name = forStatement.item.name.name
+                varName = true
+            }
+            let indexName = forStatement.index?.name
             let itemType: Type
             const targetType = simplify(checkExpression(forStatement.target))
             switch (targetType.kind) {
@@ -971,11 +1025,18 @@ export function check(module: Module): CheckResult {
                     break
             }
 
-            const item: ValLocation = {
-                kind: LocationKind.Val,
+            const item: ValLocation | VarLocation = {
+                kind: varName ? LocationKind.Var : LocationKind.Val ,
                 type: itemType
             }
-            scopeEnter(forStatement.target, scopes.locations, name, item)
+            scopeEnter(forStatement.item, scopes.locations, name, item)
+            if (indexName) {
+                const index: ValLocation = {
+                    kind: LocationKind.Val,
+                    type: i32Type
+                }
+                scopeEnter(forStatement.index as any, scopes.locations, indexName, index)
+            }
             checkExpression(forStatement.body)
         })
         return voidType
@@ -1101,6 +1162,7 @@ export function check(module: Module): CheckResult {
             functions: new Scope(scopes.functions),
             resultContext: scopes.resultContext,
             typeContext: scopes.typeContext,
+            declarationContext: scopes.declarationContext
         }
         const result = cb()
         scopes = oldScopes
@@ -1108,15 +1170,19 @@ export function check(module: Module): CheckResult {
     }
 
     function open(type: Type, cb: () => Type): Type {
+        if (type.kind == TypeKind.Error) {
+            return type
+        }
         let oldScopes = scopes
         const synthetic = syntheticOf(type)
         scopes = {
             types: new Scope(scopes.types, synthetic.types),
-            locations: new Scope(scopes.locations, fieldsToLocations(synthetic.fields)),
-            functions: new Scope(scopes.functions, synthetic.methods),
+            locations: new Scope(fieldsToLocations(synthetic.fields), scopes.locations),
+            functions: new Scope(synthetic.methods, scopes.functions),
             context: new Scope(scopes.context),
             typeContext: scopes.typeContext,
         }
+        scopes.selectContext = type
         const result = cb()
         scopes = oldScopes
         return result
@@ -1208,15 +1274,18 @@ interface Scopes {
     functions: Scope<Function>
     typeContext?: Type
     resultContext?: Type
+    declarationContext?: Type
+    selectContext?: Type
 }
 
 const enum LocationKind {
     Var,
     Val,
     Let,
+    Context,
 }
 
-type Location = LetLocation | ValLocation | VarLocation
+type Location = LetLocation | ValLocation | VarLocation | ContextLocation
 
 interface LetLocation {
     kind: LocationKind.Let
@@ -1232,6 +1301,12 @@ interface ValLocation {
 interface VarLocation {
     kind: LocationKind.Var
     type: Type
+}
+
+interface ContextLocation {
+    kind: LocationKind.Context
+    type: Type
+    location: Location
 }
 
 function fieldsToLocations(fields: Scope<StructField>): Scope<Location> {
@@ -1305,7 +1380,7 @@ function nameOfType(type: Type): string {
             case TypeKind.Struct: return type.name ?? "<struct>"
             case TypeKind.Function:
             case TypeKind.Lambda: return functionText(type)
-            case TypeKind.Range: return ".."
+            case TypeKind.Range: return "range"
             case TypeKind.Never: return "<never>"
             case TypeKind.Error: return "<error>"
             case TypeKind.Open: {

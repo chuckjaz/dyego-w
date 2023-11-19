@@ -1,5 +1,5 @@
 import { Diagnostic, Locatable } from "../../last";
-import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, ElseCondition, Expression, FieldLiteral, FieldLiteralModifier, For, Function, IsCondition, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Select, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, When, WhenClause, While } from "../ast";
+import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, ElseCondition, Expression, FieldLiteral, FieldLiteralModifier, For, Function, IsCondition, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Select, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, VarForItem, When, WhenClause, While } from "../ast";
 import { Scanner } from "./scanner";
 import { Token, toString  } from "./tokens";
 
@@ -108,7 +108,18 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     }
 
     function functionParameters(): Parameter[] {
-        return sequence(parameter, parameterFirstSet, parameterFollowSet, comma)
+        const parameters = sequence(parameter, parameterFirstSet, parameterFollowSet, comma)
+
+        // Mark positional paraemters
+        let position = 0
+        for (const parameter of parameters) {
+            const name = parameter.name
+            if (parameter.alias != parameter.name && typeof name != "number" && name.name == "_") {
+                parameter.name = position++
+            }
+        }
+        
+        return parameters
     }
 
     function parameter(): Parameter {
@@ -250,12 +261,30 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         return loc(() => {
             expect(Token.For)
             expect(Token.LParen)
-            const name = expectName()
+            let item: VarForItem | Reference
+            if (token == Token.Var) {
+                item = loc(() => {
+                    next()
+                    const name = expectName()
+                    return {
+                        kind: Kind.VarForItem,
+                        name
+                    }
+    
+                })
+            } else {
+                item = expectName()
+            }
+            let index: Reference | undefined = undefined
+            if (token == Token.Comma) {
+                next()
+                index = expectName()
+            }
             expect(Token.In)
             const target = expression()
             expect(Token.RParen)
             const body = block()
-            return { kind: Kind.For, name, target, body }
+            return { kind: Kind.For, item, index, target, body }
         })
     }
 
@@ -578,6 +607,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                 case Token.Colon:
                 case Token.Var:
                     const fields = structLiteralFields()
+                    expect(Token.RBrack)
                     return {
                         kind: Kind.StructLiteral,
                         fields,
@@ -633,8 +663,13 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             let value: Expression
             if (token == Token.Colon && !firstName) {
                 next()
+                if (token as any != Token.Identifier) {
+                    report(`Expected an identifier`)
+                    name = { kind: Kind.Reference, name: "<error>" }
+                } else {
+                    name = { kind: Kind.Reference, start: pos.start, end: pos.end, name: scanner.value }
+                }
                 value = expression()
-                name = rightMostName(value)
             } else {
                 name = firstName || expectName()
                 expect(Token.Colon)
@@ -647,17 +682,6 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                 value
             }
         })
-    }
-
-    function rightMostName(expression: Expression): Reference {
-        switch (expression.kind) {
-            case Kind.Reference: return expression
-            case Kind.Select: return expression.name
-            default: {
-                report("Requires a right most name", expression)
-                return undefined as any as Reference
-            }
-        }
     }
 
     function opName(name: string): Reference {
@@ -942,7 +966,7 @@ const argumentFollowSet = setOf(Token.Comma, Token.RParen)
 const argumentFirstSet = unionOf(expressionFirstSet, setOf(Token.Var, Token.Context))
 const arrayValueFirstSet = expressionFirstSet
 const arrayValueFollowSet = setOf(Token.Comma, Token.RBrack)
-const fieldLiteralFirstSet = setOf(Token.Identifier, Token.Var)
+const fieldLiteralFirstSet = setOf(Token.Identifier, Token.Var, Token.Colon)
 const fieldLiteralFollowSet = setOf(Token.Comma, Token.RBrack)
 const structTypeFieldFirstSet = setOf(Token.Identifier, Token.Fun, Token.Type, Token.Var)
 const structTypeFieldFollowSet = setOf(Token.Comma, Token.LBrack)

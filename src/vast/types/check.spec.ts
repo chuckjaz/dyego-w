@@ -68,7 +68,11 @@ describe("files", () => {
     it("can check binary-tree.vast.dg", () => {
         checkExample("binary-tree.vast.dg")
     })
+    it("can check n-body.vast.dg", () => {
+        checkExample("n-body.vast.dg")
+    })
 })
+
 function m(text: string): Module {
     const scanner = new Scanner(text)
     const { module, diagnostics } = parse(scanner)
