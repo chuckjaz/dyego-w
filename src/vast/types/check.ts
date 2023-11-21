@@ -1,6 +1,6 @@
 import { Diagnostic, Locatable, Scope } from "../../last";
 import { required } from "../../utils";
-import { Call, Declaration, Expression, For, Function as FunctionNode, If, Index, Kind, Lambda, Let, Literal, Module, Parameter, PrimitiveKind, Range, Reference, Select, Statement, StructLiteral, StructTypeConstructor, StructTypeConstuctorField, TypeDeclaration, TypeExpression, Val, Var, When, While } from "../ast";
+import { Call, Declaration, Expression, For, Function as FunctionNode, If, ImplicitVal, Index, Kind, Lambda, Let, Literal, Module, Parameter, PrimitiveKind, Range, Reference, Select, Statement, StructLiteral, StructTypeConstructor, StructTypeConstuctorField, TypeDeclaration, TypeExpression, Val, Var, When, While } from "../ast";
 import { Type, Parameter as FunctionTypeParameter, ParameterModifier as FunctionTypeParameterModifier, Function, FunctionType, ErrorType, StructField, StructType, FunctionModifier, StructFieldModifier, OpenType, LambdaType, ArrayType, SliceType, TypeKind } from "./types";
 import { dump } from '../dump-ast'
 
@@ -102,6 +102,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
     function prefix(name: string, result: Type = self) {
         const parameters = new Scope<FunctionTypeParameter>()
         const func: Function = {
+            name,
             modifier: FunctionModifier.Method,
             type: {
                 kind: TypeKind.Function,
@@ -112,9 +113,10 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         enter(`prefix ${name}`, func)
     }
 
-    function params0(result: Type): Function {
+    function params0(name: string, result: Type): Function {
         const parameters = new Scope<FunctionTypeParameter>()
         const func: Function = {
+            name,
             modifier: FunctionModifier.Method,
             type: {
                 kind: TypeKind.Function,
@@ -125,11 +127,12 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         return func
     }
 
-    function params1(result: Type, p0: Type): Function {
+    function params1(name: string, result: Type, p0: Type): Function {
         const parameters = new Scope<FunctionTypeParameter>()
         parameters.enter("0", param(0, p0))
         const func: Function = {
-            modifier: FunctionModifier.Method,
+            name,
+            modifier: FunctionModifier.Method & FunctionModifier.Intrinsic,
             type: {
                 kind: TypeKind.Function,
                 parameters,
@@ -141,15 +144,15 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
     }
 
     function infix(name: string, result: Type = self, right: Type = self) {
-        enter(`infix ${name}`, params1(result, right))
+        enter(`infix ${name}`, params1(name, result, right))
     }
 
     function method0(name: string, result: Type = self) {
-        enter(name, params0(result))
+        enter(name, params0(name, result))
     }
 
     function method1(name: string, result: Type = self, p0: Type = self) {
-        enter(name, params1(result, p0))
+        enter(name, params1(name, result, p0))
     }
 
     function field(name: string, type: Type) {
@@ -260,8 +263,13 @@ function syntheticOf(type: Type): StructType {
     }
 }
 
+export type StorageNode = Let | ImplicitVal | StructTypeConstuctorField | Val | Var | Parameter
+
 export interface CheckResult {
-    types: Map<Expression | Statement, Type>
+    types: Map<Statement, Type>
+    references: Map<Reference, Location | Function>
+    locations: Map<Location, StorageNode>
+    functions: Map<Function, FunctionNode>
     diagnostics: Diagnostic[]
 }
 
@@ -278,7 +286,11 @@ const constError: ConstResult = {
 export function check(module: Module): CheckResult {
     const diagnostics: Diagnostic[] = []
     const pending: PendingFunction[] = []
-    const types = new Map<Expression | Declaration | Statement, Type>()
+    const types = new Map<Statement, Type>()
+    const references = new Map<Reference, Location | Function>()
+    const locations = new Map<Location, StorageNode>()
+    const fields = new Map<StructField, StructTypeConstuctorField>()
+    const functions = new Map<Function, FunctionNode>()
 
     dump(module)
     let scopes: Scopes = {
@@ -289,7 +301,7 @@ export function check(module: Module): CheckResult {
     }
 
     checkModule(module)
-    return { types, diagnostics }
+    return { types, references, locations, functions, diagnostics }
 
     function checkModule(module: Module) {
         module.declarations.forEach(checkDeclaration)
@@ -329,7 +341,7 @@ export function check(module: Module): CheckResult {
             type: requiredBound(letDeclaration, type),
             value
         }
-        scopeEnter(letDeclaration, scopes.locations, name, location)
+        enterLocation(letDeclaration, name, location)
     }
 
     function checkValDeclaration(valDeclaration: Val) {
@@ -341,7 +353,7 @@ export function check(module: Module): CheckResult {
             kind: LocationKind.Val,
             type
         }
-        scopeEnter(valDeclaration.name, scopes.locations, name, location)
+        enterLocation(valDeclaration, name, location)
     }
 
     function checkVarDeclaration(varDeclaration: Var) {
@@ -354,13 +366,13 @@ export function check(module: Module): CheckResult {
             kind: LocationKind.Var,
             type: requiredBound(varDeclaration, type)
         }
-        scopeEnter(varDeclaration.name, scopes.locations, name, location)
+        enterLocation(varDeclaration, name, location)
     }
 
     function checkTypeDeclaration(typeDeclaration: TypeDeclaration) {
         const name = typeDeclaration.name.name
         const type = convertTypeExpression(typeDeclaration.type)
-        scopeEnter(typeDeclaration.name, scopes.types, name, type)
+        scopeEnter(typeDeclaration, scopes.types, name, type)
         if (type.kind == TypeKind.Struct && !type.name) type.name = name
     }
 
@@ -382,12 +394,15 @@ export function check(module: Module): CheckResult {
             parameters,
             result
         }
+        const name = func.name.name
         const functionEntry: Function = {
+            name,
             modifier,
             type
         }
-        scopeEnter(func, scopes.functions, func.name.name, functionEntry)
+        scopeEnter(func, scopes.functions, name, functionEntry)
         pending.push({ func, type })
+        functions.set(functionEntry, func)
         return functionEntry
     }
 
@@ -407,7 +422,7 @@ export function check(module: Module): CheckResult {
                     type: param.type
                 }
                 const parameter = func.parameters[parameterIndex++]
-                scopeEnter(parameter, scopes.locations, param.alias, location)
+                enterLocation(parameter, param.alias, location)
 
                 if (param.modifier & FunctionTypeParameterModifier.Context) {
                     const contextType = param.type
@@ -419,7 +434,8 @@ export function check(module: Module): CheckResult {
                                     type: field.type,
                                     location
                                 }
-                                scopes.locations.enter(name, selfLocation)
+                                const fieldNode = required(fields.get(field))
+                                enterLocation(fieldNode, name, selfLocation)
                             }
                         })
                         contextType.methods.forEach((name, method) => {
@@ -601,7 +617,9 @@ export function check(module: Module): CheckResult {
         const name = field.name.name
         const modifier = field.modifier as unknown as StructFieldModifier
         const type = convertTypeExpression(field.type)
-        return { name, modifier, type }
+        const result: StructField = { name, modifier, type }
+        fields.set(result, field)
+        return result
     }
 
     function checkExpression(expression: Expression, checkMethods: boolean = false): Type {
@@ -713,7 +731,7 @@ export function check(module: Module): CheckResult {
             used.add(name)
             if (!argument.name) position++
         }
-        
+
         if (used.size == target.parameters.size) {
             // All parameter are supplied
             return target.result
@@ -797,7 +815,10 @@ export function check(module: Module): CheckResult {
     function checkReference(reference: Reference, checkFunctions: boolean): Type {
         if (checkFunctions) {
             const method = scopes.functions.find(reference.name)
-            if (method) return method.type
+            if (method) {
+                references.set(reference, method)
+                return method.type
+            }
         }
         const location = scopes.locations.find(reference.name)
         if (!location) {
@@ -815,6 +836,7 @@ export function check(module: Module): CheckResult {
             }
             return errorType
         }
+        references.set(reference, location)
         return location.type
     }
 
@@ -905,7 +927,7 @@ export function check(module: Module): CheckResult {
                     case Kind.Var: {
                         const name = target.name.name
                         const valueType = checkExpression(required(target.value, when))
-                        scopeEnter(target.name, scopes.locations, name, {
+                        enterLocation(target, name, {
                             kind: target.kind == Kind.Val ? LocationKind.Val : LocationKind.Var,
                             type: valueType
                         })
@@ -990,15 +1012,9 @@ export function check(module: Module): CheckResult {
 
     function checkForStatement(forStatement: For) {
         scope(() => {
-            let name: string
-            let varName = false
-            if (forStatement.item.kind == Kind.Reference) {
-                name = forStatement.item.name
-            } else {
-                name = forStatement.item.name.name
-                varName = true
-            }
-            let indexName = forStatement.index?.name
+            let item = forStatement.item
+            let name = item.name.name
+            let indexName = forStatement.index?.name.name
             let itemType: Type
             const targetType = simplify(checkExpression(forStatement.target))
             switch (targetType.kind) {
@@ -1025,17 +1041,17 @@ export function check(module: Module): CheckResult {
                     break
             }
 
-            const item: ValLocation | VarLocation = {
-                kind: varName ? LocationKind.Var : LocationKind.Val ,
+            const itemLocation: ValLocation | VarLocation = {
+                kind: item.kind == Kind.Var ? LocationKind.Var : LocationKind.Val ,
                 type: itemType
             }
-            scopeEnter(forStatement.item, scopes.locations, name, item)
+            enterLocation(forStatement.item, name, itemLocation)
             if (indexName) {
                 const index: ValLocation = {
                     kind: LocationKind.Val,
                     type: i32Type
                 }
-                scopeEnter(forStatement.index as any, scopes.locations, indexName, index)
+                enterLocation(forStatement.index as ImplicitVal, indexName, index)
             }
             checkExpression(forStatement.body)
         })
@@ -1202,6 +1218,12 @@ export function check(module: Module): CheckResult {
         return result
     }
 
+    function enterLocation(storageNode: StorageNode, name: string, item: Location) {
+        const errorLoc = typeof storageNode.name == 'number' ? storageNode : storageNode.name
+        scopeEnter(errorLoc, scopes.locations, name, item)
+        locations.set(item, storageNode)
+    }
+
     function scopeEnter<T>(location: Locatable, scope: Scope<T>, name: string, item: T) {
         if (scope.has(name)) {
             report(location, "Duplicate parmaeter name")
@@ -1285,25 +1307,25 @@ const enum LocationKind {
     Context,
 }
 
-type Location = LetLocation | ValLocation | VarLocation | ContextLocation
+export type Location = LetLocation | ValLocation | VarLocation | ContextLocation
 
-interface LetLocation {
+export interface LetLocation {
     kind: LocationKind.Let
     type: Type
     value: any
 }
 
-interface ValLocation {
+export interface ValLocation {
     kind: LocationKind.Val
     type: Type
 }
 
-interface VarLocation {
+export interface VarLocation {
     kind: LocationKind.Var
     type: Type
 }
 
-interface ContextLocation {
+export interface ContextLocation {
     kind: LocationKind.Context
     type: Type
     location: Location

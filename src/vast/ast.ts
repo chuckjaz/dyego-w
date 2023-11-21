@@ -16,6 +16,7 @@ export const enum Kind {
     Function,
     FunctionType,
     If,
+    ImplicitVal,
     IsCondition,
     Index,
     Infer,
@@ -35,7 +36,6 @@ export const enum Kind {
     Reference,
     Val,
     Var,
-    VarForItem,
     While,
     When,
     WhenClause,
@@ -179,15 +179,10 @@ export const enum FieldLiteralModifier {
 
 export interface For extends Node {
     kind: Kind.For
-    item: Reference | VarForItem
-    index?: Reference
+    item: ImplicitVal | Var
+    index?: ImplicitVal
     target: Expression
     body: Block
-}
-
-export interface VarForItem extends Node {
-    kind: Kind.VarForItem
-    name: Reference
 }
 
 export interface Function extends Node {
@@ -209,6 +204,12 @@ export interface If extends Node {
     condition: Expression
     then: Block
     else: Block
+}
+
+export interface ImplicitVal extends Node {
+    kind: Kind.ImplicitVal
+    name: Reference
+    type: TypeExpression
 }
 
 export interface Index extends Node {

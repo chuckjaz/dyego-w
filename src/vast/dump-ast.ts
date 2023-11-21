@@ -1,4 +1,4 @@
-import { ArgumentModifier, Expression, FieldLiteralModifier, Function, Kind, Module, Parameter, ParameterModifier, Reference, Statement, StructTypeConstuctorFieldModifier, TypeExpression, VarForItem } from "./ast";
+import { ArgumentModifier, Expression, FieldLiteralModifier, Function, ImplicitVal, Kind, Module, Parameter, ParameterModifier, Reference, Statement, StructTypeConstuctorFieldModifier, TypeExpression, Var } from "./ast";
 
 export function dump(item: Module | Statement): string {
     let result = ""
@@ -7,7 +7,7 @@ export function dump(item: Module | Statement): string {
 
     switch (item.kind) {
         case Kind.Module: dumpModule(item); break
-        default: dumpStatement(item); break 
+        default: dumpStatement(item); break
     }
     return result
 
@@ -71,7 +71,7 @@ export function dump(item: Module | Statement): string {
                 dumpForItem(statement.item)
                 if (statement.index) {
                     emit(", ")
-                    dumpExpression(statement.index)
+                    dumpForItem(statement.index)
                 }
                 emit(" in ")
                 dumpExpression(statement.target)
@@ -126,14 +126,22 @@ export function dump(item: Module | Statement): string {
         nl()
     }
 
-    function dumpForItem(item: Reference | VarForItem) {
+    function dumpForItem(item: ImplicitVal | Var) {
         switch (item.kind) {
-            case Kind.Reference:
-                dumpExpression(item)
+            case Kind.ImplicitVal:
+                dumpExpression(item.name)
+                if (item.type.kind != Kind.Infer) {
+                    emit(": ")
+                    dumpTypeExpression(item.type)
+                }
                 break
-            case Kind.VarForItem: {
+            case Kind.Var: {
                 emit("var ")
                 dumpExpression(item.name)
+                if (item.type.kind != Kind.Infer) {
+                    emit(": ")
+                    dumpTypeExpression(item.type)
+                }
                 break
             }
         }

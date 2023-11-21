@@ -1,5 +1,5 @@
 import { FileSet } from "../../files"
-import { Argument, ArgumentModifier, Block, Call, Declaration, Expression, FieldLiteralModifier, Function, I32Literal, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Statement, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeExpression, VarForItem } from "../ast"
+import { Argument, ArgumentModifier, Block, Call, Declaration, Expression, FieldLiteralModifier, Function, I32Literal, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Statement, StructTypeConstuctorField, TypeExpression } from "../ast"
 import { dump } from "../dump-ast"
 import { parse } from "./parser"
 import { Scanner } from "./scanner"
@@ -321,8 +321,12 @@ function noLocations(module: Module): Module {
                 break
             case Kind.For:
                 noLocation(s.item)
-                if (s.item.kind == Kind.VarForItem) {
+                if (s.item.kind == Kind.ImplicitVal) {
+                    noLocation(s.item)
                     noLocation(s.item.name)
+                    typeExpression(s.item.type)
+                } else {
+                    statement(s.item)
                 }
                 if (s.index) noLocation(s.index)
                 expression(s.target)

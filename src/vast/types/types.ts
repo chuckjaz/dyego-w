@@ -162,6 +162,7 @@ export interface FunctionType {
 }
 
 export interface Function {
+    name: string
     modifier: FunctionModifier
     type: FunctionType
 }
@@ -169,6 +170,7 @@ export interface Function {
 export const enum FunctionModifier {
     None = 0x0000,
     Method = 0x0001,
+    Intrinsic = 0x0002,
 }
 
 export interface LambdaType {

@@ -1,5 +1,5 @@
 import { Diagnostic, Locatable } from "../../last";
-import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, ElseCondition, Expression, FieldLiteral, FieldLiteralModifier, For, Function, IsCondition, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Select, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, VarForItem, When, WhenClause, While } from "../ast";
+import { Argument, ArgumentModifier, ArrayLiteral, Block, Call, Declaration, ElseCondition, Expression, FieldLiteral, FieldLiteralModifier, For, Function, ImplicitVal, IsCondition, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Select, Statement, StructLiteral, StructTypeConstuctorField, StructTypeConstuctorFieldModifier, TypeDeclaration, TypeExpression, Val, Var, When, WhenClause, While } from "../ast";
 import { Scanner } from "./scanner";
 import { Token, toString  } from "./tokens";
 
@@ -118,7 +118,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                 parameter.name = position++
             }
         }
-        
+
         return parameters
     }
 
@@ -261,24 +261,50 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
         return loc(() => {
             expect(Token.For)
             expect(Token.LParen)
-            let item: VarForItem | Reference
+            let item: ImplicitVal | Var
             if (token == Token.Var) {
                 item = loc(() => {
                     next()
                     const name = expectName()
-                    return {
-                        kind: Kind.VarForItem,
-                        name
+                    let type: TypeExpression = { kind: Kind.Infer }
+                    if (token == Token.Colon) {
+                        next()
+                        type = typeExpression()
                     }
-    
+                    return {
+                        kind: Kind.Var,
+                        name,
+                        type
+                    }
+
                 })
             } else {
-                item = expectName()
+                item = loc(() => {
+                    const name = expectName()
+                    let type: TypeExpression = { kind: Kind.Infer }
+                    if (token == Token.Colon) {
+                        next()
+                        type = typeExpression()
+                    }
+                    return {
+                        kind: Kind.ImplicitVal,
+                        name,
+                        type
+                    }
+                })
             }
-            let index: Reference | undefined = undefined
+            let index: ImplicitVal | undefined = undefined
             if (token == Token.Comma) {
-                next()
-                index = expectName()
+                index = loc(() => {
+                    next()
+                    const name = expectName()
+                    const type: TypeExpression = { kind: Kind.Infer }
+                    return {
+                        kind: Kind.ImplicitVal,
+                        name,
+                        type
+                    }
+                })
             }
             expect(Token.In)
             const target = expression()
