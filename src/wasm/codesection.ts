@@ -1,3 +1,5 @@
+import { Locatable } from "../last";
+import { error } from "../utils";
 import { ByteWriter } from "./bytewriter";
 import { Mapping } from "./codeblock";
 import { Section, writeSized } from "./section";
@@ -9,13 +11,33 @@ interface Code {
     mappings?: Mapping[]
 }
 
+export interface DeferredCode {
+    resolve(locals: ValueType[], expr: ByteWriter, mappings?: Mapping[]): void
+}
+
 export class CodeSection implements Section {
-    private codes: Code[] = [];
+    private codes: Code[] = []
+    private deferred: (Locatable | undefined)[] = []
 
     get index(): SectionIndex { return SectionIndex.Code }
 
     allocate(locals: ValueType[], expr: ByteWriter, mappings?: Mapping[]) {
         this.codes.push({ locals, expr, mappings });
+    }
+
+    preallocate(location?: Locatable): DeferredCode {
+        const index = this.codes.length
+        this.codes.push(undefined as any as Code)
+        let resolved = false
+        return {
+            resolve: (locals: ValueType[], expr: ByteWriter, mappings?) => {
+                if (resolved) {
+                    error(`Preallocated code at index ${index} resolved twice`, location)
+                }
+                this.codes[index] = { locals, expr, mappings }
+                this.deferred[index] = location
+            }
+        }
     }
 
     mappings(): Mapping[] {
@@ -38,6 +60,11 @@ export class CodeSection implements Section {
         const base = writer.current
         writer.writeByte(SectionIndex.Code);
         const codes = this.codes;
+        codes.forEach((code, index) => {
+            if (!code) {
+                error(`Incorrect code section, deferred code at ${index} was not resolved`, this.deferred[index])
+            }
+        })
         const offsets: number[] = [];
         const contentBase = writeSized(writer, writer => {
             writer.write32u(codes.length);
@@ -61,7 +88,7 @@ export class CodeSection implements Section {
 function writeCode(writer: ByteWriter, code: Code): number {
     const compressedVector: {local: ValueType, count: number}[] = [];
     let last = -1;
-    let lastType: ValueType = -1;
+    let lastType: ValueType = -1 as any;
     for (const local of code.locals) {
         if (local == lastType) {
             compressedVector[last].count++

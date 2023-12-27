@@ -2,7 +2,7 @@ import { required, check as chk } from "../utils";
 import {
     BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
     TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, PrimitiveKind,
-    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral, Memory, MemoryMethod
+    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral, Memory, MemoryMethod, ExportedMemory
 } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
@@ -23,6 +23,7 @@ interface Scopes {
 export interface CheckResult {
     types: Map<Last, Type>
     exported: Set<string>
+    exportedMemoryName: string | undefined
 }
 
 export function check(module: Module): CheckResult | Diagnostic[] {
@@ -33,12 +34,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     const moduleScope = new Scope(builtins)
     const errorType: ErrorType = { kind: TypeKind.Error }
     const exported = new Set<string>()
+    let exportedMemoryName: string | undefined = undefined
 
     checkModule(module, {
         scope: moduleScope,
         branchTargets: new Scope()
     })
-    return diagnostics.length > 0 ? diagnostics : { types, exported }
+    return diagnostics.length > 0 ? diagnostics : { types, exported, exportedMemoryName }
 
     function checkModule(module: Module, scopes: Scopes) {
         enterDeclarations(module.declarations, scopes)
@@ -137,6 +139,13 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 if (preentered.kind == TypeKind.Unknown) {
                     fixup(preentered, type)
                 }
+                break
+            }
+            case LastKind.ExportedMemory: {
+                if (exportedMemoryName) {
+                    report(declaration, "Memory exported twice")
+                }
+                exportedMemoryName = declaration.name.name
                 break
             }
         }
@@ -248,6 +257,10 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 }
                 return voidType
             }
+            case LastKind.ExportedMemory: {
+                // Nothing to check
+                return voidType
+            }
         }
     }
 
@@ -308,6 +321,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                     Capabilities.Rotatable,
                     scopes
                 )
+                break
+            case LastKind.BitNot:
+                type = unary(expression, expression.target, Capabilities.Bitwizeable, scopes)
                 break
             case LastKind.CountLeadingZeros:
             case LastKind.CountTrailingZeros:
@@ -386,10 +402,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case LastKind.Block:
                 type = checkBlockOrLoop(expression, scopes)
                 break
-            case LastKind.SizeOf:
-                typeExpr(expression.target, scopes)
+            case LastKind.SizeOf: {
+                const targetType = typeExpr(expression.target, scopes)
+                bind(expression.target, targetType)
                 type = i32Type
                 break
+            }
             case LastKind.As: {
                 const leftType = checkExpression(expression.left, scopes)
                 const rightType = typeExpr(expression.right, scopes)
@@ -468,8 +486,10 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function ifThenElseExpresssion(node: IfThenElse, scopes: Scopes): Type {
         const conditionType = checkExpression(node.condition, scopes)
         mustMatch(node.condition, booleanType, conditionType)
-        const thenType = checkBody(node.then, scopes)
-        const elseType = checkBody(node.else, scopes)
+        const thenScope = new Scope(scopes.scope)
+        const elseScope = new Scope(scopes.scope)
+        const thenType = checkBody(node.then, {...scopes, scope: thenScope })
+        const elseType = checkBody(node.else, {...scopes, scope: elseScope })
         if (node.else.length) {
             mustMatch(node, elseType, thenType)
         }
@@ -1233,7 +1253,10 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     }
 
     function enter<T>(location: Locatable, name: string, item: T, scope: Scope<T>) {
-        if (scope.has(name)) report(location, `Duplicate symbol ${name}`)
+        if (scope.has(name)) {
+            report(location, `Duplicate symbol ${name}`)
+            return
+        }
         scope.enter(name, item)
     }
 
@@ -1249,7 +1272,7 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         })
     }
 
-    function noExport(declaration: Declaration): Var | Let | Global | TypeNode | Function {
+    function noExport(declaration: Declaration): Var | Let | Global | TypeNode | Function | ExportedMemory {
         if (declaration.kind == LastKind.Exported) return declaration.target
         return declaration
     }

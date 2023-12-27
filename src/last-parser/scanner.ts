@@ -297,7 +297,6 @@ export class Scanner {
                             case '"':
                                 shift()
                                 this.value = Buffer.from(prefix + '\0', 'utf-8')
-                                i++
                                 break loop
                             case '\n':
                                 result = Token.Error

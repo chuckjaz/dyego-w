@@ -3,6 +3,8 @@ import { Options } from "./options";
 import { Flags } from "./flag";
 import { main } from './main';
 
+Error.stackTraceLimit = Infinity;
+
 const flags = new Flags()
 
 flags.string("mapFileName", "File name to write a map file (implies --mapFile)")

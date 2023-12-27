@@ -129,6 +129,49 @@ describe("last codegen", () => {
             expect(test(0)).toEqual('S'.charCodeAt(0))
         })
     })
+    describe("functions", () => {
+        it("can call a function", () => {
+            cg(`
+                fun add(a: i32, b: i32): i32 = a + b
+
+                export fun test(a: i32, b: i32): i32 {
+                    return add(a, b)
+                }
+            `, ({test}) => {
+                expect(test(32, 10)).toBe(42)
+            })
+        })
+        it("can call recursive function", () => {
+            cg(`
+                export fun fib(n: i32): i32 {
+                    if (n == 0) 0
+                    else if (n == 1) 1
+                    else fib(n - 1) + fib(n - 2)
+                }
+            `, ({fib}) => {
+                expect(fib(7)).toEqual(13)
+            })
+        })
+        it("can call mutually recursive functions", () => {
+            cg(`
+                fun a(n: i32): i32 {
+                    if (n > 0) b(n - 1) + 1
+                    else 0
+                }
+
+                fun b(n: i32): i32 {
+                    if (n > 0) a(n - 1) + 1
+                    else 0
+                }
+
+                export fun test(): i32 {
+                    a(42)
+                }
+            `, ({test}) => {
+                expect(test()).toEqual(42)
+            })
+        })
+    })
     describe("types", () => {
         describe("primitive types", () => {
             describe("i8", () => {

@@ -1,6 +1,7 @@
 import { FileSet, Position } from "../files";
 import { LastKind, Function, Type, typeToString, Declaration, TypeKind } from "../last";
 import { CompileResult } from "./compile";
+import { produceConsoleModule } from "./console-module";
 import { readLine } from "./readline";
 import { padding } from "./util";
 
@@ -14,13 +15,16 @@ export function debug(
         const metadata = new Metadata(result)
         const dbgr = new Debugger(fileSet, metadata)
         const mod = new WebAssembly.Module(result.module)
+        let memory: WebAssembly.Memory
         const inst = new WebAssembly.Instance(mod,  {
             'debug-host': {
                 functionStart: dbgr.functionStart.bind(dbgr),
                 functionEnd: dbgr.functionEnd.bind(dbgr),
                 statement: dbgr.statement.bind(dbgr)
-            }
+            },
+            'console': produceConsoleModule(() => memory)
         });
+        memory = inst.exports.mem as WebAssembly.Memory
         const host = require(hostName)
         return host.main(inst.exports, args)
     } catch(e: any) {
@@ -48,7 +52,7 @@ class Debugger {
     private commands = new Map<string, Command>()
     private commandDefs: Command[] = []
     private state: Iterator<Instruction, any, number>
-
+    private stepOverDepth: number = 0
     constructor(fileSet: FileSet, metadata: Metadata) {
         this.fileSet = fileSet
         this.stack = new Stack(fileSet, metadata)
@@ -72,25 +76,23 @@ class Debugger {
 
     *debug(): Iterator<Instruction, any, number> {
         let state: State = State.StepInto
-        let stepOverDepth = 0
         let location = 0
 
         main: while (true) {
-            stepOverDepth = this.stack.depth
             location = state == State.Stopped ? location : yield Instruction.Continue
             switch (state) {
                 case State.StepInto:
                     state = State.Stopped;
                     break
                 case State.StepOver: {
-                    if (this.stack.depth == stepOverDepth) {
+                    if (this.stack.depth == this.stepOverDepth) {
                         state = State.Stopped
                         break
                     }
                     continue main
                 }
                 case State.StepOut: {
-                    if (this.stack.depth < stepOverDepth) {
+                    if (this.stack.depth < this.stepOverDepth) {
                         state = State.Stopped
                         break
                     }
@@ -146,9 +148,15 @@ class Debugger {
     }
 
     private defineCommands() {
-        this.command("step", () => State.StepOver, "Step over the next statement", "s")
+        this.command("step", () => {
+            this.stepOverDepth = this.stack.depth
+            return State.StepOver
+        }, "Step over the next statement", "s")
         this.command("next", () => State.StepInto, "Step into the next statement", "n")
-        this.command("out", () => State.StepOut, "Step out of the current function", "o")
+        this.command("out", () => {
+            this.stepOverDepth = this.stack.depth
+            return State.StepOut
+        }, "Step out of the current function", "o")
         this.command("run", () => State.Running, "Run the program to completion or next break", "r")
         this.command("quit", () => process.exit(0), "Terminate the process", "q")
         this.command("trace", () => {
