@@ -188,7 +188,6 @@ function m(text: string): Module {
     const { module, diagnostics } = parse(scanner)
     expect(diagnostics).toEqual([])
     if (!diagnostics.length) {
-        console.log(dump(module))
         return noLocations(module)
     }
     return module

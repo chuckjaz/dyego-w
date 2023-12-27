@@ -1,6 +1,6 @@
 import { Diagnostic, Locatable, Scope } from "../../last";
 import { required } from "../../utils";
-import { Call, Declaration, Expression, For, Function as FunctionNode, If, ImplicitVal, Index, Kind, Lambda, Let, Literal, Module, Parameter, PrimitiveKind, Range, Reference, Select, Statement, StructLiteral, StructTypeConstructor, StructTypeConstuctorField, TypeDeclaration, TypeExpression, Val, Var, When, While } from "../ast";
+import { Call, Declaration, Expression, For, Function as FunctionNode, If, ImplicitVal, Index, Kind, Lambda, Let, Literal, Module, Parameter, ParameterModifier, PrimitiveKind, Range, Reference, Select, Statement, StructLiteral, StructTypeConstructor, StructTypeConstuctorField, TypeDeclaration, TypeExpression, Val, Var, When, While } from "../ast";
 import { Type, Parameter as FunctionTypeParameter, ParameterModifier as FunctionTypeParameterModifier, Function, FunctionType, ErrorType, StructField, StructType, FunctionModifier, StructFieldModifier, OpenType, LambdaType, ArrayType, SliceType, TypeKind } from "./types";
 import { dump } from '../dump-ast'
 
@@ -331,7 +331,7 @@ export function check(module: Module): CheckResult {
     }
 
     function checkLetDeclaration(letDeclaration: Let) {
-        const name = letDeclaration.name.name
+        const name = letDeclaration.name
         const declaredType = convertTypeExpression(letDeclaration.type)
         const valueType = requiredBound(letDeclaration.value, checkExpression(letDeclaration.value))
         const value = evaluateToConstant(letDeclaration.value, declaredType)
@@ -345,7 +345,7 @@ export function check(module: Module): CheckResult {
     }
 
     function checkValDeclaration(valDeclaration: Val) {
-        const name = valDeclaration.name.name
+        const name = valDeclaration.name
         const declaredType = convertTypeExpression(valDeclaration.type)
         const valueType = inTypeContext(declaredType, () => requiredBound(valDeclaration.value, checkExpression(valDeclaration.value)))
         const type = mustMatch(valDeclaration.value, declaredType, valueType)
@@ -357,7 +357,7 @@ export function check(module: Module): CheckResult {
     }
 
     function checkVarDeclaration(varDeclaration: Var) {
-        const name = varDeclaration.name.name
+        const name = varDeclaration.name
         const declaredType = convertTypeExpression(varDeclaration.type)
         const varValue = varDeclaration.value
         const valueType =  varValue ? inTypeContext(declaredType, () => checkExpression(varValue)) : fresh()
@@ -394,6 +394,7 @@ export function check(module: Module): CheckResult {
             parameters,
             result
         }
+        types.set(func.name, type)
         const name = func.name.name
         const functionEntry: Function = {
             name,
@@ -421,9 +422,23 @@ export function check(module: Module): CheckResult {
                     kind: LocationKind.Val,
                     type: param.type
                 }
-                const parameter = func.parameters[parameterIndex++]
-                enterLocation(parameter, param.alias, location)
 
+                let parameter: Parameter
+                if (param.modifier & FunctionTypeParameterModifier.Context && param.name == "self") {
+                    const self: Reference = { kind: Kind.Reference, name: "self" }
+                    parameter = {
+                        start: func.start,
+                        end: func.end,
+                        kind: Kind.Parameter,
+                        modifier: ParameterModifier.None,
+                        name: self,
+                        alias: self,
+                        type: { kind: Kind.Infer }
+                    }
+                } else {
+                    parameter = func.parameters[parameterIndex++]
+                }
+                enterLocation(parameter, parameter.alias, location)
                 if (param.modifier & FunctionTypeParameterModifier.Context) {
                     const contextType = param.type
                     if (contextType.kind == TypeKind.Struct) {
@@ -435,7 +450,7 @@ export function check(module: Module): CheckResult {
                                     location
                                 }
                                 const fieldNode = required(fields.get(field))
-                                enterLocation(fieldNode, name, selfLocation)
+                                enterLocation(fieldNode, fieldNode.name, selfLocation)
                             }
                         })
                         contextType.methods.forEach((name, method) => {
@@ -925,7 +940,7 @@ export function check(module: Module): CheckResult {
                 switch (target.kind) {
                     case Kind.Val:
                     case Kind.Var: {
-                        const name = target.name.name
+                        const name = target.name
                         const valueType = checkExpression(required(target.value, when))
                         enterLocation(target, name, {
                             kind: target.kind == Kind.Val ? LocationKind.Val : LocationKind.Var,
@@ -1013,8 +1028,8 @@ export function check(module: Module): CheckResult {
     function checkForStatement(forStatement: For) {
         scope(() => {
             let item = forStatement.item
-            let name = item.name.name
-            let indexName = forStatement.index?.name.name
+            let name = item.name
+            let indexName = forStatement.index?.name
             let itemType: Type
             const targetType = simplify(checkExpression(forStatement.target))
             switch (targetType.kind) {
@@ -1218,10 +1233,10 @@ export function check(module: Module): CheckResult {
         return result
     }
 
-    function enterLocation(storageNode: StorageNode, name: string, item: Location) {
-        const errorLoc = typeof storageNode.name == 'number' ? storageNode : storageNode.name
-        scopeEnter(errorLoc, scopes.locations, name, item)
+    function enterLocation(storageNode: StorageNode, name: Reference, item: Location) {
+        scopeEnter(name, scopes.locations, name.name, item)
         locations.set(item, storageNode)
+        references.set(name, item)
     }
 
     function scopeEnter<T>(location: Locatable, scope: Scope<T>, name: string, item: T) {
