@@ -1,5 +1,5 @@
 import {
-    booleanType, i32Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, Type, TypeDeclaration, TypeKind,
+    booleanType, i32Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, nameOfTypeKind, Type, TypeDeclaration, TypeKind,
     typeToString, voidPointerType, voidType
 } from "../last";
 import { check, error, required, unsupported } from "../utils";
@@ -722,6 +722,19 @@ export class GenType {
                         g.inst(Inst.f64_neg)
                         return
                 }
+            case LastKind.BitNot:
+                switch (this.type.kind) {
+                    case TypeKind.U32:
+                        g.inst(Inst.i32_const)
+                        g.snumber(BigInt(-1))
+                        g.inst(Inst.i32_xor)
+                        return
+                    case TypeKind.U64:
+                        g.inst(Inst.i64_const)
+                        g.snumber(BigInt(-1))
+                        g.inst(Inst.i32_xor)
+                        return
+                }
         }
         unsupported(location, `op ${nameOfLastKind(kind)} for ${typeToString(this.type)}`)
     }
@@ -1149,7 +1162,7 @@ export class DataAllocator implements LocationAllocator {
                 const data = this.data
                 const g = gen()
                 g.inst(Inst.i32_const)
-                g.index(address)
+                g.snumber(BigInt(address))
                 g.inst(Inst.End)
                 const expr = new ByteWriter()
                 g.write(expr)
@@ -2124,7 +2137,7 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
                 }
                 break
         }
-        unsupported(this.location, `Unsupported type conversion`)
+        unsupported(this.location, `Unsupported type conversion, cannot convert from ${nameOfTypeKind(from)} to ${nameOfTypeKind(to)}`)
     }
 
     simplify(): GenNode {

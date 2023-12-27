@@ -23,6 +23,7 @@ export const enum LastKind {
     BitShr,
     BitRotr,
     BitRotl,
+    BitNot,
     CountLeadingZeros,
     CountTrailingZeros,
     CountNonZeros,
@@ -76,6 +77,7 @@ export const enum LastKind {
     Import,
     ImportFunction,
     ImportVariable,
+    ExportedMemory,
     Module
 }
 
@@ -103,6 +105,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.BitShr: return "BitShr"
         case LastKind.BitRotr: return "BitRotr"
         case LastKind.BitRotl: return "BitRotl"
+        case LastKind.BitNot: return "BitNot"
         case LastKind.CountLeadingZeros: return "CountLeadingZeros"
         case LastKind.CountTrailingZeros: return "CountTrailingZeros"
         case LastKind.CountNonZeros: return "CountNonZeros"
@@ -156,6 +159,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.Import: return "Import"
         case LastKind.ImportFunction: return "ImportFunction"
         case LastKind.ImportVariable: return "ImportVariable"
+        case LastKind.ExportedMemory: return "ExportedMemory"
         case LastKind.Module: return "Module"
     }
 }
@@ -210,6 +214,7 @@ export type Expression =
     BitShr |
     BitRotr |
     BitRotl |
+    BitNot |
     CountLeadingZeros |
     CountTrailingZeros |
     CountNonZeros |
@@ -270,7 +275,8 @@ export type Declaration =
     Global |
     TypeDeclaration |
     Function |
-    Exported
+    Exported |
+    ExportedMemory
 
 export type Statement =
     Let |
@@ -399,6 +405,9 @@ export interface BitRotr extends LastNode, Binary { kind: LastKind.BitRotr }
 
 /** Bitwise rotate left (rotl) of left and right */
 export interface BitRotl extends LastNode, Binary { kind: LastKind.BitRotl }
+
+/** Bitwize not (~) of target */
+export interface BitNot extends LastNode, Unary { kind: LastKind.BitNot }
 
 /** Count leading zeros bits of target */
 export interface CountLeadingZeros extends LastNode, Unary { kind: LastKind.CountLeadingZeros }
@@ -735,6 +744,12 @@ export interface PointerConstructor extends LastNode {
 export interface Exported extends LastNode {
     kind: LastKind.Exported
     target: Exportable
+}
+
+/** Export memory declaration */
+export interface ExportedMemory extends LastNode {
+    kind: LastKind.ExportedMemory
+    name: Reference
 }
 
 /** Import the given name from the given module (abstract), optionally renaming it */

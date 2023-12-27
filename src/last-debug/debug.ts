@@ -86,7 +86,8 @@ export function transform(module: Module): Module {
             case LastKind.Let:
             case LastKind.Type:
             case LastKind.Var:
-                return declaration
+            case LastKind.ExportedMemory:
+                    return declaration
             case LastKind.Global:
             case LastKind.Function:
                 return txExportable(declaration)
@@ -256,10 +257,18 @@ function isSimple(node: Expression): boolean {
         case LastKind.LessThanEqual:
         case LastKind.Or:
         case LastKind.And:
+        case LastKind.BitAnd:
+        case LastKind.BitOr:
+        case LastKind.BitRotl:
+        case LastKind.BitRotr:
+        case LastKind.BitShl:
+        case LastKind.BitShr:
+        case LastKind.BitXor:
             return isSimple(node.left) && isSimple(node.right)
         case LastKind.Negate:
         case LastKind.Not:
         case LastKind.AddressOf:
+        case LastKind.BitNot:
             return isSimple(node.target)
         case LastKind.SizeOf:
         case LastKind.Literal:

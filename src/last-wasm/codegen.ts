@@ -8,7 +8,7 @@ import {
 } from "../utils"
 import {
     ByteWriter, CodeSection, DataSection, ExportKind, ExportSection, FunctionSection, gen, ImportSection, Inst, label,
-    Label, Mapping, MemorySection, Module as WasmModule, Mut, Section, StartSection, TypeIndex, TypeSection, ValueType
+    Label, Mapping, MemorySection, Module as WasmModule, Mut, Section, StartSection, TypeIndex, TypeSection, ValueType, DeferredCode
 } from "../wasm"
 import { GlobalSection } from "../wasm/globalsection"
 import {
@@ -25,6 +25,12 @@ interface Scopes {
     nodes: Scope<GenNode>
     alloc: LocationAllocator
     globals: GlobalsAllocator
+}
+
+interface FunctionDeclaration  {
+    funcGenNode: GenNode
+    funcIndex: number
+    code: DeferredCode
 }
 
 export function codegen(
@@ -44,6 +50,7 @@ export function codegen(
     const exportSection = new ExportSection()
     const memorySection = new MemorySection(0)
     let startSection: StartSection | undefined = undefined
+    const functions = new Map<Function, FunctionDeclaration>()
 
     // Allocate the top-of-memory variable.
     dataAllocator.allocate({ start: 0 }, voidPointerGenType)
@@ -153,6 +160,7 @@ export function codegen(
     }
 
     function statementsToBodyGenNode(containerType: GenType, nodes: Last[], scopes: Scopes) {
+        declareFunctions(nodes, scopes)
         const statements = statementsToGenNode(containerType, nodes, scopes)
         const location = { start: nodes[0]?.start, end: nodes[nodes.length - 1]?.end }
         const bodyType = statements.length > 0 ? statements[statements.length - 1].type : voidGenType
@@ -236,7 +244,8 @@ export function codegen(
             case LastKind.Floor:
             case LastKind.Ceiling:
             case LastKind.Truncate:
-            case LastKind.RoundNearest: {
+            case LastKind.RoundNearest:
+            case LastKind.BitNot: {
                 const target = lastToGenNode(node.target, scopes)
                 const type = typeOf(node)
                 return new UnaryOpGenNode(node, type, target, node.kind)
@@ -383,6 +392,14 @@ export function codegen(
                     case MemoryMethod.Grow:
                         return new MemoryMethodGenNode(node, node.method, lastToGenNode(node.amount, scopes))
                 }
+            case LastKind.SizeOf: {
+                const targetType = typeOf(node.target)
+                const valueType = typeOf(node)
+                return new NumberConstGenNode(node, valueType, targetType.size)
+            }
+            case LastKind.ExportedMemory:
+                exportSection.allocate(node.name.name, ExportKind.Mem, 0)
+                return emptyGenNode
             case LastKind.Type:
             case LastKind.StructTypeLiteral:
             case LastKind.FieldLiteral:
@@ -458,7 +475,49 @@ export function codegen(
         })
     }
 
+    function declareFunctions(nodes: Last[], scopes: Scopes) {
+        for (const node of nodes) {
+            switch (node.kind) {
+                case LastKind.Function:
+                    declareFunction(node, scopes)
+                    break
+                case LastKind.Exported:
+                    if (node.target.kind == LastKind.Function) {
+                        declareFunction(node.target, scopes)
+                    }
+                    break
+            }
+        }
+    }
+
+    function declareFunction(node: Function, scopes: Scopes): FunctionDeclaration {
+        let result = functions.get(node)
+        if (result) return result
+
+        // Create the function type
+        const typeIndex = typeIndexOf(node)
+        const resultType = typeOf(node)
+
+        // Create the function index
+        const funcIndex = funcSection.allocate(typeIndex)
+        const funcGenNode = new FunctionGenNode(node, resultType, funcIndex)
+        const functionName = node.name
+
+        // If funciton is named, declare it in the scope
+        if (functionName) {
+            scopes.nodes.enter(functionName.name, funcGenNode)
+        }
+
+        const code = codeSection.preallocate(node)
+
+        result = { funcGenNode, funcIndex, code }
+        functions.set(node, result)
+        return result
+    }
+
     function functionToGenNode(node: Function, scopes: Scopes): GenNode {
+        const { funcGenNode, funcIndex, code } = declareFunction(node, scopes)
+
         const g = gen()
 
         // Create the function scopes
@@ -474,20 +533,8 @@ export function codegen(
             nodes.enter(parameter.name.name, alloc.parameter(parameter, type))
         }
 
-        // Create the function type
-        const typeIndex = typeIndexOf(node)
-        const resultType = typeOf(node)
-
-        // Create the function index
-        const funcIndex = funcSection.allocate(typeIndex)
-        const funcGenNode = new FunctionGenNode(node, resultType, funcIndex)
-
-        // Allow the function to call itself if it is named
-        const functionName = node.name
-        if (functionName)
-            scopes.nodes.enter(functionName.name, funcGenNode)
-
         // Generate the body
+        const resultType = typeOf(node)
         let body = statementsToBodyGenNode(resultType, node.body, functionScopes).simplify()
         if (body.type.needsClamp()) {
             body = new ClampGenNode(node, body)
@@ -499,7 +546,7 @@ export function codegen(
         const bytes = new ByteWriter()
         const localMapping: Mapping[] | undefined = mappings ? [] : undefined
         g.write(bytes, localMapping)
-        codeSection.allocate(g.currentLocals(), bytes, localMapping)
+        code.resolve(g.currentLocals(), bytes, localMapping)
 
         if (exported.has(node.name.name)) {
             exportSection.allocate(node.name.name, ExportKind.Func, funcIndex)

@@ -7,7 +7,7 @@ import {
     LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter, PointerConstructor, Reference, Remainder,
     Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral, Subtact, TypeDeclaration, TypeExpression,
     TypeSelect, Var, Primitive, UnionTypeLiteral, AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest,
-    CopySign, Minimum, Maximum, ConvertTo, WrapTo, ReinterpretAs, TruncateTo, Memory, MemoryMethod
+    CopySign, Minimum, Maximum, ConvertTo, WrapTo, ReinterpretAs, TruncateTo, Memory, MemoryMethod, ExportedMemory, BitNot
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -237,6 +237,9 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         switch (token) {
             case Token.Export: {
                 next()
+                if (token as any == Token.Memory) {
+                    return exportMemory()
+                }
                 const target = exportable()
                 return l<Exported>(start, { kind: LastKind.Exported, target })
             }
@@ -266,6 +269,14 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 report("Expected a let or var declaration")
                 return undefined as any as Exportable
         }
+    }
+
+    function exportMemory(): ExportedMemory {
+        const start = pos.start
+        expect(Token.Memory)
+        expect(Token.As)
+        const name = expectName()
+        return l<ExportedMemory>(start, { kind: LastKind.ExportedMemory, name })
     }
 
     function letDeclaration(): Let {
@@ -733,7 +744,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
             case Token.Tilde: {
                 next()
                 const target = primitiveExpression()
-                return l<Negate>(start, { kind: LastKind.Negate, target })
+                return l<BitNot>(start, { kind: LastKind.BitNot, target })
             }
             case Token.Amp: {
                 next()
@@ -1131,7 +1142,7 @@ const gtSet = setOf(Token.Gt)
 const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Global, Token.Type, Token.Export)
 const expressionFirstSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
     Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
-    Token.LiteralF64, Token.Null, Token.Memory, Token.True, Token.False, Token.Dash, Token.Plus, Token.If, Token.Amp,
-    Token.LBrack, Token.LBrace)
+    Token.LiteralF64, Token.LiteralString, Token.Null, Token.Memory, Token.True, Token.False, Token.Dash,
+    Token.Plus, Token.If, Token.Amp, Token.LBrack, Token.LBrace)
 const statementFirstSet = setOf(Token.Var, Token.Let, Token.Loop, Token.Block, Token.Branch, Token.Return )
 const bodyElementFirstSet = unionOf(expressionFirstSet, statementFirstSet)
