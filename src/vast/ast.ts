@@ -379,3 +379,46 @@ export interface WhenClause extends Node {
     condition: Expression | IsCondition | ElseCondition
     body: Block
 }
+
+export function kindName(kind: Kind): string {
+    switch (kind) {
+        case Kind.Argument: return "Argument"
+        case Kind.ArrayLiteral: return "ArrayLiteral"
+        case Kind.ArrayTypeConstructor: return "ArrayTypeConstructor"
+        case Kind.As: return "As"
+        case Kind.Assign: return "Assign"
+        case Kind.Break: return "Break"
+        case Kind.Block: return "Block"
+        case Kind.Call: return "Call"
+        case Kind.Continue: return "Continue"
+        case Kind.ElseCondition: return "ElseCondition"
+        case Kind.FieldLiteral: return "FieldLiteral"
+        case Kind.For: return "For"
+        case Kind.Function: return "Function"
+        case Kind.FunctionType: return "FunctionType"
+        case Kind.If: return "If"
+        case Kind.ImplicitVal: return "ImplicitVal"
+        case Kind.IsCondition: return "IsCondition"
+        case Kind.Index: return "Index"
+        case Kind.Infer: return "Infer"
+        case Kind.Lambda: return "Lambda"
+        case Kind.Let: return "Let"
+        case Kind.Literal: return "Literal"
+        case Kind.Module: return "Module"
+        case Kind.Parameter: return "Parameter"
+        case Kind.Range: return "Range"
+        case Kind.Return: return "Return"
+        case Kind.Select: return "Select"
+        case Kind.StructLiteral: return "StructLiteral"
+        case Kind.StructTypeConstructor: return "StructTypeConstructor"
+        case Kind.StructTypeConstuctorField: return "StructTypeConstuctorField"
+        case Kind.TypeDeclaration: return "TypeDeclaration"
+        case Kind.TypeSelect: return "TypeSelect"
+        case Kind.Reference: return "Reference"
+        case Kind.Val: return "Val"
+        case Kind.Var: return "Var"
+        case Kind.While: return "While"
+        case Kind.When: return "When"
+        case Kind.WhenClause: return "WhenClause"
+    }
+}

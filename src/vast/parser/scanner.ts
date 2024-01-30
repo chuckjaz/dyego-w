@@ -34,7 +34,7 @@ export class Scanner {
     next(): Token {
         const text = this.text
         let i = this.end
-        this.prev = this.start
+        this.prev = i
         let result = Token.EOF
         this.value = undefined
         this.nl = false

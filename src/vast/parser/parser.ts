@@ -22,10 +22,12 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     let diagnostics: Diagnostic[] = []
     const pos = builder ? {
         get start() { return builder.pos(scanner.start) },
-        get end() { return builder.pos(scanner.end) }
+        get end() { return builder.pos(scanner.end) },
+        get prev() { return builder.pos(scanner.prev )}
     } : {
         get start() { return scanner.start },
-        get end() { return scanner.end},
+        get end() { return scanner.end },
+        get prev() { return scanner.prev }
     };
 
     const result = module()
@@ -390,7 +392,6 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             default: return left
         }
         const name = opName(operatorName)
-        next()
         const right = addExpression()
         return operatorCall(name, left, right)
     }
@@ -619,7 +620,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                 next()
                 elseClause = block()
             } else {
-                elseClause = { kind: Kind.Block, statements: [] }
+                elseClause = loc(() => ({ kind: Kind.Block, statements: [] }))
             }
             return { kind: Kind.If, condition, then: thenClause, else: elseClause }
         })
@@ -728,9 +729,10 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             target: receiver,
             name,
         }
+        extend(select, name)
         const args: Argument[] = rest.map(arg)
         const result: Call = { kind: Kind.Call, target: select, arguments: args }
-        return extend(result, ...args)
+        return extend(result, name, ...args)
     }
 
     function arg(value: Expression): Argument {
