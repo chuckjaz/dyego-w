@@ -2,7 +2,6 @@ import { Diagnostic, Locatable, Scope } from "../../last";
 import { required } from "../../utils";
 import { Call, Declaration, Expression, For, Function as FunctionNode, If, ImplicitVal, Index, Kind, Lambda, Let, Literal, Module, Parameter, ParameterModifier, PrimitiveKind, Range, Reference, Select, Statement, StructLiteral, StructTypeConstructor, StructTypeConstuctorField, TypeDeclaration, TypeExpression, Val, Var, When, While } from "../ast";
 import { Type, Parameter as FunctionTypeParameter, ParameterModifier as FunctionTypeParameterModifier, Function, FunctionType, ErrorType, StructField, StructType, FunctionModifier, StructFieldModifier, OpenType, LambdaType, ArrayType, SliceType, TypeKind } from "./types";
-import { dump } from '../dump-ast'
 
 interface PendingFunction {
     func: FunctionNode
@@ -267,7 +266,7 @@ export type StorageNode = Let | ImplicitVal | StructTypeConstuctorField | Val | 
 
 export interface CheckResult {
     types: Map<Statement, Type>
-    references: Map<Reference, Location | Function>
+    references: Map<Reference, Location>
     locations: Map<Location, StorageNode>
     functions: Map<Function, FunctionNode>
     diagnostics: Diagnostic[]
@@ -287,7 +286,7 @@ export function check(module: Module): CheckResult {
     const diagnostics: Diagnostic[] = []
     const pending: PendingFunction[] = []
     const types = new Map<Statement, Type>()
-    const references = new Map<Reference, Location | Function>()
+    const references = new Map<Reference, Location>()
     const locations = new Map<Location, StorageNode>()
     const fields = new Map<StructField, StructTypeConstuctorField>()
     const functions = new Map<Function, FunctionNode>()
@@ -830,7 +829,12 @@ export function check(module: Module): CheckResult {
         if (checkFunctions) {
             const method = scopes.functions.find(reference.name)
             if (method) {
-                references.set(reference, method)
+                const loc: FunctionLocation = {
+                    kind: LocationKind.Function,
+                    func: method,
+                    type: method.type
+                }
+                references.set(reference, loc)
                 return method.type
             }
         }
@@ -1319,9 +1323,10 @@ const enum LocationKind {
     Val,
     Let,
     Context,
+    Function,
 }
 
-export type Location = LetLocation | ValLocation | VarLocation | ContextLocation
+export type Location = LetLocation | ValLocation | VarLocation | ContextLocation | FunctionLocation
 
 export interface LetLocation {
     kind: LocationKind.Let
@@ -1343,6 +1348,12 @@ export interface ContextLocation {
     kind: LocationKind.Context
     type: Type
     location: Location
+}
+
+export interface FunctionLocation {
+    kind: LocationKind.Function
+    type: Type
+    func: Function
 }
 
 function fieldsToLocations(fields: Scope<StructField>): Scope<Location> {
