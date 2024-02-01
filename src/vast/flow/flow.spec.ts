@@ -1,7 +1,7 @@
 import { Function, Kind, Module, Node, Statement, kindName } from "../ast"
 import { parse } from "../parser/parser"
 import { Scanner } from "../parser/scanner"
-import { Flow, Visit, VisitKind, flow, visitKindName } from "./flow"
+import { Flow, Visit, VisitKind, createFlow, visitKindName } from "./flow"
 
 import * as fs from "fs"
 
@@ -129,14 +129,14 @@ function func(text: string): Function {
 
 function fl(text: string): Flow {
     const f = func(text)
-    const result = flow(f)
+    const result = createFlow(f)
     validate(f.body, result)
     return result
 }
 
 function dfl(text: string): Flow {
     const f = func(text)
-    const result = flow(f)
+    const result = createFlow(f)
     console.log(dump(result, text))
     validate(f.body, result)
     return result
@@ -147,7 +147,7 @@ function flowExample(name: string) {
     const module = m(text)
     for (const declaration of module.declarations) {
         if (declaration.kind == Kind.Function) {
-            const result = flow(declaration)
+            const result = createFlow(declaration)
             validate(declaration.body, result)
         }
     }

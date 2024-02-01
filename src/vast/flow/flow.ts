@@ -17,19 +17,20 @@ export function visitKindName(kind: VisitKind): string {
 
 export interface Visit {
     kind: VisitKind
-    node: Node
+    node: Statement
 }
 
 export interface Flow {
     visits: Visit[]
     exits: Set<Flow>
     enters: Set<Flow>
+    loop: boolean
 }
 
-export function flow(func: Function): Flow {
-    let current = newFlow()
+export function createFlow(func: Function): Flow {
     let continueTarget: Flow | undefined = undefined
     let breakTarget: Flow | undefined = undefined
+    let current = newFlow()
 
     const returnTarget = newFlow()
     const result = current
@@ -38,7 +39,7 @@ export function flow(func: Function): Flow {
     return result
 
     function newFlow(): Flow {
-        return { visits: [], enters: new Set(), exits: new Set() }
+        return { visits: [], enters: new Set(), exits: new Set(), loop: continueTarget != undefined }
     }
 
     function flowBlock(node: Block) {
@@ -148,6 +149,7 @@ export function flow(func: Function): Flow {
         const previousContinueTarget = continueTarget
 
         const loopStart = newFlow()
+        loopStart.loop = true
         const loopEnd = newFlow()
         flowTo(current, loopStart)
         current = loopStart

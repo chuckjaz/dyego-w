@@ -292,7 +292,6 @@ export function check(module: Module): CheckResult {
     const fields = new Map<StructField, StructTypeConstuctorField>()
     const functions = new Map<Function, FunctionNode>()
 
-    dump(module)
     let scopes: Scopes = {
         types: new Scope(builtInTypes),
         locations: new Scope(),
@@ -793,7 +792,7 @@ export function check(module: Module): CheckResult {
         const condition = checkExpression(expression.condition)
         mustMatch(expression.condition, booleanType, condition)
         const thenType = checkExpression(expression.then)
-        const elsetype = checkExpression(expression.then)
+        const elsetype = checkExpression(expression.else)
         mustMatch(expression.else, thenType, elsetype)
         return simplify(thenType)
     }
