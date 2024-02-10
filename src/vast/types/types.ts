@@ -1,5 +1,7 @@
 import { Scope } from '../../last'
 
+import * as ast from './../ast'
+
 export const enum TypeKind {
     I8,
     I16,
@@ -185,6 +187,7 @@ export interface Parameter {
     position: number
     modifier: ParameterModifier
     type: Type
+    node?: ast.Parameter
 }
 
 export const enum ParameterModifier {

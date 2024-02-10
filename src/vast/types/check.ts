@@ -116,7 +116,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         const parameters = new Scope<FunctionTypeParameter>()
         const func: Function = {
             name,
-            modifier: FunctionModifier.Method,
+            modifier: FunctionModifier.Method & FunctionModifier.Intrinsic,
             type: {
                 kind: TypeKind.Function,
                 parameters,
@@ -139,7 +139,6 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
             }
         }
         return func
-
     }
 
     function infix(name: string, result: Type = self, right: Type = self) {
@@ -262,7 +261,7 @@ function syntheticOf(type: Type): StructType {
     }
 }
 
-export type StorageNode = Let | ImplicitVal | StructTypeConstuctorField | Val | Var | Parameter
+export type StorageNode = Let | ImplicitVal | StructTypeConstuctorField | Val | Var | Parameter | Function
 
 export interface CheckResult {
     types: Map<Statement, Type>
@@ -485,7 +484,8 @@ export function check(module: Module): CheckResult {
             alias,
             position,
             modifier,
-            type
+            type,
+            node: parameter
         }
     }
 
@@ -834,7 +834,7 @@ export function check(module: Module): CheckResult {
                     func: method,
                     type: method.type
                 }
-                references.set(reference, loc)
+                enterLocation(method, reference, loc)
                 return method.type
             }
         }
@@ -1237,7 +1237,9 @@ export function check(module: Module): CheckResult {
     }
 
     function enterLocation(storageNode: StorageNode, name: Reference, item: Location) {
-        scopeEnter(name, scopes.locations, name.name, item)
+        if (item.kind != LocationKind.Function) {
+            scopeEnter(name, scopes.locations, name.name, item)
+        }
         locations.set(item, storageNode)
         references.set(name, item)
     }
@@ -1318,7 +1320,7 @@ interface Scopes {
     selectContext?: Type
 }
 
-const enum LocationKind {
+export const enum LocationKind {
     Var,
     Val,
     Let,

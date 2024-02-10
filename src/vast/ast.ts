@@ -182,6 +182,7 @@ export interface For extends Node {
     item: ImplicitVal | Var
     index?: ImplicitVal
     target: Expression
+    name?: Reference
     body: Block
 }
 
@@ -364,6 +365,7 @@ export interface Var extends Node {
 
 export interface While extends Node {
     kind: Kind.While
+    name?: Reference
     condition: Expression
     body: Block
 }
