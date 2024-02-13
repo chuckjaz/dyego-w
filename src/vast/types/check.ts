@@ -102,7 +102,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         const parameters = new Scope<FunctionTypeParameter>()
         const func: Function = {
             name,
-            modifier: FunctionModifier.Method,
+            modifier: FunctionModifier.Method | FunctionModifier.Intrinsic,
             type: {
                 kind: TypeKind.Function,
                 parameters,
@@ -116,7 +116,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         const parameters = new Scope<FunctionTypeParameter>()
         const func: Function = {
             name,
-            modifier: FunctionModifier.Method & FunctionModifier.Intrinsic,
+            modifier: FunctionModifier.Method | FunctionModifier.Intrinsic,
             type: {
                 kind: TypeKind.Function,
                 parameters,
@@ -131,7 +131,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         parameters.enter("0", param(0, p0))
         const func: Function = {
             name,
-            modifier: FunctionModifier.Method & FunctionModifier.Intrinsic,
+            modifier: FunctionModifier.Method | FunctionModifier.Intrinsic,
             type: {
                 kind: TypeKind.Function,
                 parameters,
@@ -142,7 +142,8 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
     }
 
     function infix(name: string, result: Type = self, right: Type = self) {
-        enter(`infix ${name}`, params1(name, result, right))
+        const internalName = `infix ${name}`
+        enter(internalName, params1(internalName, result, right))
     }
 
     function method0(name: string, result: Type = self) {
@@ -175,10 +176,10 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         method0("countNonZeros", i32Type)
     }
     if (capabilities & Capabilities.Bitwiseable) {
-        infix("|")
-        infix("&")
-        infix(">>")
-        infix("<<")
+        infix("or")
+        infix("and")
+        infix("shl")
+        infix("shr")
         infix("ror")
         infix("rol")
     }
@@ -398,9 +399,17 @@ export function check(module: Module): CheckResult {
             modifier,
             type
         }
+        const firstChar = name[0]
+        const functionLocation: FunctionLocation = {
+            kind: LocationKind.Function,
+            type,
+            func: functionEntry,
+            exported: firstChar.toUpperCase() == firstChar
+        }
         scopeEnter(func, scopes.functions, name, functionEntry)
         pending.push({ func, type })
         functions.set(functionEntry, func)
+        references.set(func.name, functionLocation)
         return functionEntry
     }
 
@@ -832,7 +841,8 @@ export function check(module: Module): CheckResult {
                 const loc: FunctionLocation = {
                     kind: LocationKind.Function,
                     func: method,
-                    type: method.type
+                    type: method.type,
+                    exported: false
                 }
                 enterLocation(method, reference, loc)
                 return method.type
@@ -1356,6 +1366,7 @@ export interface FunctionLocation {
     kind: LocationKind.Function
     type: Type
     func: Function
+    exported: boolean
 }
 
 function fieldsToLocations(fields: Scope<StructField>): Scope<Location> {

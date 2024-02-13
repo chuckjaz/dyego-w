@@ -189,9 +189,9 @@ class FileImpl implements File {
         const lines = this.lines
         const startLine = start - 1
         const endLine = end - 1
-        if (text && startLine >= 0 && endLine < lines.length) {
+        if (text && startLine >= 0 && endLine <= lines.length) {
             const startPos = lines[startLine]
-            const endPos = lines[endLine]
+            const endPos = endLine == lines.length ? this.size : lines[endLine]
             if (startPos !== undefined && endPos !== undefined) {
                 return text.substring(startPos, endPos)
             }

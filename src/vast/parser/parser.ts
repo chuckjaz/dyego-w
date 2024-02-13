@@ -413,6 +413,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             switch (token) {
                 case Token.Star: left = operatorCall(opName('infix *'), left, multiplyExpression()); continue
                 case Token.Slash: left = operatorCall(opName('infix /'), left, multiplyExpression()); continue
+                case Token.Percent: left = operatorCall(opName('infix %'), left, multiplyExpression()); continue
             }
             break
         }
@@ -441,13 +442,48 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
                     continue
                 default: {
                     if (!scanner.nl && expressionFirstNoInfixeSet[token]) {
-                        target = extend({
-                            start,
-                            end: start,
-                            kind: Kind.Call,
-                            target: target,
-                            arguments: [arg(primitiveExpression())]
-                        })
+                        if (token == Token.Identifier) {
+                            const name = expectName()
+                            if (expressionFirstSet[token]) {
+                                name.name = `infix ${name.name}`
+                                target = extend<Call>({
+                                    start,
+                                    end: start,
+                                    kind: Kind.Call,
+                                    target: extend<Select>({
+                                        start,
+                                        end: start,
+                                        kind: Kind.Select,
+                                        target,
+                                        name
+                                    }),
+                                    arguments: [arg(primitiveExpression())]
+                                })
+                            } else {
+                                name.name = `postfix ${name.name}`
+                                target = extend<Call>({
+                                    start,
+                                    end: start,
+                                    kind: Kind.Call,
+                                    target: extend<Select>({
+                                        start,
+                                        end: start,
+                                        kind: Kind.Select,
+                                        target,
+                                        name
+                                    }),
+                                    arguments: []
+                                })
+                            }
+                        } else {
+                            target = extend({
+                                start,
+                                end: start,
+                                kind: Kind.Call,
+                                target,
+                                arguments: [arg(primitiveExpression())]
+                            })
+                        }
                         continue
                     }
                 }

@@ -1,6 +1,6 @@
 import { ArrayLiteral, As, Assign, Block, Break, Call, Continue, Declaration, ElseCondition, Expression, FieldLiteral, For, Function, If, Index, Kind, Let, Literal, Module, Parameter, PrimitiveKind, Range, Reference, Return, Select, Statement, StructLiteral, TypeDeclaration, Val, Var, When, While } from "../ast";
 import { error, required } from "../../utils";
-import { CheckResult, Location, LocationKind } from "../types/check";
+import { CheckResult, FunctionLocation, Location, LocationKind } from "../types/check";
 
 import * as last from "../../last"
 import * as types from '../types/types'
@@ -82,8 +82,15 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
             result: lastResult,
             body: [body]
         }
-        declarations.push(lastFunction)
-        const location = required(checkResult.references.get(func.name), func)
+        const location = required(checkResult.references.get(func.name), func) as FunctionLocation
+        if (location.exported) {
+            declarations.push({
+                kind: LastKind.Exported,
+                target: lastFunction
+            })
+        } else {
+            declarations.push(lastFunction)
+        }
         locationNames.set(location, name)
     }
 
@@ -351,8 +358,13 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
     function convertCall(call: Call): last.Expression {
         const args = call.arguments.map(param => convertExpression(param.value, true))
         const originalTarget = call.target
-        if (originalTarget.kind == Kind.Reference) {
-            const location = checkResult.references.get(originalTarget)
+        const target = convertExpression(originalTarget, true)
+        if (originalTarget.kind == Kind.Select && target.kind == LastKind.Select) {
+            // Add the `this` parameter
+            args.unshift(target.target)
+
+            // Check for intrinsics
+            const location = checkResult.references.get(originalTarget.name)
             if (location != undefined) {
                 if (location.kind == LocationKind.Function) {
                     if (location.func.modifier & types.FunctionModifier.Intrinsic) {
@@ -361,8 +373,7 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
                 }
             }
         }
-        const target = convertExpression(originalTarget, true)
-        const type = required(checkResult.types.get(call), call)
+        const type = required(checkResult.types.get(originalTarget), call)
         if (type.kind != TypeKind.Function) {
             error("Expected a function", call)
         }
@@ -959,13 +970,13 @@ function nameOfFunction(func: Function): string {
         if (typeof parameter.name == 'number') {
             positionalParameters++
         } else {
-            params += `/${parameter.name}`
+            params += `/${parameter.name.name}`
         }
     }
     if (positionalParameters) {
         params += `/${positionalParameters}`
     }
-    return `${func.name}${params}`
+    return `${func.name.name}${params}`
 }
 
 interface TypeFunctions {
@@ -1218,10 +1229,10 @@ function intrinsic(func: types.Function, call: Call,  args: last.Expression[]): 
         case 'infix *': return binary(LastKind.Multiply)
         case 'infix /': return binary(LastKind.Divide)
         case 'infix %': return binary(LastKind.Remainder)
-        case 'infix |': return binary(LastKind.BitOr)
-        case 'infix &': return binary(LastKind.BitAnd)
-        case 'infix >>': return binary(LastKind.BitShr)
-        case 'infix <<': return binary(LastKind.BitShl)
+        case 'infix or': return binary(LastKind.BitOr)
+        case 'infix and': return binary(LastKind.BitAnd)
+        case 'infix shr': return binary(LastKind.BitShr)
+        case 'infix shl': return binary(LastKind.BitShl)
         case 'infix ror': return binary(LastKind.BitRotr)
         case 'infix rol': return binary(LastKind.BitRotl)
         case 'charCode': return identity()
