@@ -17,7 +17,7 @@ import {
     FunctionGenNode, GenNode, GenType, genTypeOf, GotoGenNode, i32GenType, LocalAllocator, LocationAllocator,
     NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
     voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode,
-    GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode, MemoryMethodGenNode,
+    GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode, MemoryMethodGenNode, longZeroGenNode,
 } from "./gennode"
 
 interface Scopes {
@@ -276,6 +276,8 @@ export function codegen(
                     case TypeKind.I16:
                     case TypeKind.I32:
                         return new OpGenNode(node, type, zeroGenNode, target, LastKind.Subtract)
+                    case TypeKind.I64:
+                        return new OpGenNode(node, type, longZeroGenNode, target, LastKind.Subtract)
                 }
                 break
             }

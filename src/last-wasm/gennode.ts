@@ -1,5 +1,5 @@
 import {
-    booleanType, i32Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, nameOfTypeKind, Type, TypeDeclaration, TypeKind,
+    booleanType, i32Type, i64Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, nameOfTypeKind, Type, TypeDeclaration, TypeKind,
     typeToString, voidPointerType, voidType
 } from "../last";
 import { check, error, required, unsupported } from "../utils";
@@ -1116,6 +1116,7 @@ export function genTypeOf(location: Locatable | undefined, type: Type, cache?: M
 }
 
 export const i32GenType = genTypeOf(undefined, i32Type)
+export const i64GenType = genTypeOf(undefined, i64Type)
 export const voidGenType = genTypeOf(undefined, voidType)
 export const voidPointerGenType = genTypeOf(undefined, voidPointerType)
 const booleanGenType = genTypeOf(undefined, booleanType)
@@ -2542,6 +2543,7 @@ export function builtinGenNodeFor(
 export const trueGenNode = new NumberConstGenNode(undefined, booleanGenType, 1)
 export const falseGenNode = new NumberConstGenNode(undefined, booleanGenType, 0)
 export const zeroGenNode = new NumberConstGenNode(undefined, i32GenType, 0)
+export const longZeroGenNode = new BigIntConstGenNode(undefined, i64GenType, 0n)
 
 export class CompareGenNode extends LoadonlyGenNode implements GenNode {
     location: Locatable

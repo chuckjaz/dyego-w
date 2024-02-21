@@ -26,6 +26,20 @@ const voidType: Type = { kind: TypeKind.Void }
 const neverType: Type = { kind: TypeKind.Never }
 const errorType: ErrorType = { kind: TypeKind.Error }
 
+function signedOf(type: Type): Type {
+    switch (type.kind) {
+        case TypeKind.U8: return i8Type
+        case TypeKind.U16: return i16Type
+        case TypeKind.U32: return i32Type
+        case TypeKind.U64: return i64Type
+        case TypeKind.I8: return i8Type
+        case TypeKind.I16: return i16Type
+        case TypeKind.I32: return i32Type
+        case TypeKind.I64: return i64Type
+    }
+    throw Error("Not a numeric type")
+}
+
 const enum Capabilities {
     None = 0 << 0,
     Addable = 1 << 0,
@@ -43,14 +57,14 @@ const enum Capabilities {
     Arrayable = 1 << 12,
 }
 
-const syntheticI8 = synthetic(i8Type, Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
-const syntheticI16 = synthetic(i16Type, Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
+const syntheticI8 = synthetic(i8Type, Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
+const syntheticI16 = synthetic(i16Type, Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
 const syntheticI32 = synthetic(i32Type, Capabilities.Bitcountable | Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
 const syntheticI64 = synthetic(i64Type, Capabilities.Bitcountable | Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
-const syntheticU8 = synthetic(u8Type, Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
-const syntheticU16 = synthetic(u16Type, Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
-const syntheticU32 = synthetic(u32Type, Capabilities.Bitcountable | Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
-const syntheticU64 = synthetic(u64Type, Capabilities.Bitcountable | Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.Negatable | Capabilities.NumericOperators | Capabilities.Modulus)
+const syntheticU8 = synthetic(u8Type, Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.NumericOperators | Capabilities.Modulus)
+const syntheticU16 = synthetic(u16Type, Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.NumericOperators | Capabilities.Modulus)
+const syntheticU32 = synthetic(u32Type, Capabilities.Bitcountable | Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.NumericOperators | Capabilities.Modulus)
+const syntheticU64 = synthetic(u64Type, Capabilities.Bitcountable | Capabilities.Bitwiseable | Capabilities.Comparable | Capabilities.Equatable | Capabilities.NumericOperators | Capabilities.Modulus)
 const syntheticF32 = synthetic(f32Type, Capabilities.Comparable | Capabilities.Equatable | Capabilities.Floatable | Capabilities.Negatable | Capabilities.NumericOperators)
 const syntheticF64 = synthetic(f64Type, Capabilities.Comparable | Capabilities.Equatable | Capabilities.Floatable | Capabilities.Negatable | Capabilities.NumericOperators)
 const syntheticChar = synthetic(charType, Capabilities.Charable | Capabilities.Equatable | Capabilities.Comparable)
@@ -99,9 +113,10 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
     }
 
     function prefix(name: string, result: Type = self) {
+        const prefixName = `prefix ${name}`
         const parameters = new Scope<FunctionTypeParameter>()
         const func: Function = {
-            name,
+            name: prefixName,
             modifier: FunctionModifier.Method | FunctionModifier.Intrinsic,
             type: {
                 kind: TypeKind.Function,
@@ -109,7 +124,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
                 result
             }
         }
-        enter(`prefix ${name}`, func)
+        enter(prefixName, func)
     }
 
     function params0(name: string, result: Type): Function {
@@ -171,17 +186,17 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         infix("+")
     }
     if (capabilities & Capabilities.Bitcountable) {
-        method0("countTrailingZeros", i32Type)
-        method0("countLeadingZeros", i32Type)
-        method0("countNonZeros", i32Type)
+        method0("countTrailingZeros")
+        method0("countLeadingZeros")
+        method0("countNonZeros")
     }
     if (capabilities & Capabilities.Bitwiseable) {
         infix("or")
         infix("and")
-        infix("shl")
-        infix("shr")
-        infix("ror")
-        infix("rol")
+        infix("shl", self, signedOf(self))
+        infix("shr", self, signedOf(self))
+        infix("ror", self, signedOf(self))
+        infix("rol", self, signedOf(self))
     }
     if (capabilities & Capabilities.Charable) {
         method0("charCode", i32Type)

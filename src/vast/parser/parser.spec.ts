@@ -1,5 +1,5 @@
 import { FileSet } from "../../files"
-import { Argument, ArgumentModifier, Block, Call, Declaration, Expression, FieldLiteralModifier, Function, I32Literal, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Statement, StructTypeConstuctorField, TypeExpression } from "../ast"
+import { Argument, ArgumentModifier, Block, Call, Declaration, Expression, FieldLiteralModifier, Function, I32Literal, Kind, Lambda, Let, Module, Node, Parameter, ParameterModifier, PrimitiveKind, Reference, Select, Statement, StructTypeConstuctorField, TypeExpression, kindName } from "../ast"
 import { dump } from "../dump-ast"
 import { parse } from "./parser"
 import { Scanner } from "./scanner"
@@ -125,11 +125,8 @@ describe("expression", () => {
                 call("a", arg(one), arg(one), namedArg("name", one), namedArg("name2", one))
             )
         })
-        it("can call using juxtaposition", () => {
-            expect(e("a a")).toEqual(call("a", arg(a)))
-        })
-        it("can reduce multiple expressions", () => {
-            expect(e("a b c")).toEqual(call(call("a", arg(r("b"))), arg(r("c"))))
+        it("can call using an arbitrary infix opartor", () => {
+            expect(e("a a a")).toEqual(call(select(r("a"), r('infix a')), arg(a)))
         })
     })
     describe("if", () => {
@@ -304,6 +301,14 @@ function call(target: string | Expression, ...args: (Argument | number | string)
         kind: Kind.Call,
         target: typeof target == 'string' ? r(target) : target,
         arguments: args.map(a => typeof a == 'number' ? arg(int(a)) : typeof a == 'string' ? arg(r(a)) : a) as Argument[]
+    }
+}
+
+function select(target: Expression, name: Reference): Select {
+    return {
+        kind: Kind.Select,
+        target,
+        name
     }
 }
 

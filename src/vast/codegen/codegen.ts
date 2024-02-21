@@ -1251,7 +1251,7 @@ function intrinsic(func: types.Function, call: Call,  args: last.Expression[]): 
         case 'countLeadingZeros': return unary(LastKind.CountLeadingZeros)
         case 'countNonZeros': return unary(LastKind.CountNonZeros)
     }
-    error('Unsupported intrinsic', call)
+    error(`Unsupported intrinsic: ${func.name}`, call)
 }
 
 function locOf<E extends last.Locatable>(...locatables: E[]): last.Locatable {
