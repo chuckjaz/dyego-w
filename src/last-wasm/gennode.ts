@@ -722,6 +722,7 @@ export class GenType {
                         g.inst(Inst.f64_neg)
                         return
                 }
+                break
             case LastKind.BitNot:
                 switch (this.type.kind) {
                     case TypeKind.U32:
@@ -735,6 +736,21 @@ export class GenType {
                         g.inst(Inst.i32_xor)
                         return
                 }
+                break
+            case LastKind.Or:
+                switch (this.type.kind) {
+                    case TypeKind.Boolean:
+                        g.inst(Inst.i32_or)
+                        return
+                }
+                break
+            case LastKind.And:
+                switch (this.type.kind) {
+                    case TypeKind.Boolean:
+                        g.inst(Inst.i32_and)
+                        return
+                }
+                break
         }
         unsupported(location, `op ${nameOfLastKind(kind)} for ${typeToString(this.type)}`)
     }
@@ -806,6 +822,7 @@ export class GenType {
                     case TypeKind.U16:
                     case TypeKind.U32:
                     case TypeKind.Pointer:
+                    case TypeKind.Boolean:
                         g.inst(Inst.i32_eq)
                         return
                     case TypeKind.I64:
@@ -867,7 +884,7 @@ export class GenType {
                         g.inst(Inst.i64_ge_u)
                         return
                     case TypeKind.F32:
-                        g.inst(Inst.f64_ge)
+                        g.inst(Inst.f32_ge)
                         return
                     case TypeKind.F64:
                         g.inst(Inst.f64_ge)
@@ -894,7 +911,7 @@ export class GenType {
                         g.inst(Inst.i64_lt_u)
                         return
                     case TypeKind.F32:
-                        g.inst(Inst.f64_lt)
+                        g.inst(Inst.f32_lt)
                         return
                     case TypeKind.F64:
                         g.inst(Inst.f64_lt)
@@ -921,7 +938,7 @@ export class GenType {
                         g.inst(Inst.i64_le_u)
                         return
                     case TypeKind.F32:
-                        g.inst(Inst.f64_le)
+                        g.inst(Inst.f32_le)
                         return
                     case TypeKind.F64:
                         g.inst(Inst.f64_le)
@@ -939,6 +956,7 @@ export class GenType {
                     case TypeKind.U16:
                     case TypeKind.U32:
                     case TypeKind.Pointer:
+                    case TypeKind.Boolean:
                         g.inst(Inst.i32_ne)
                         return
                     case TypeKind.I64:
@@ -948,7 +966,7 @@ export class GenType {
                         g.inst(Inst.i64_ne)
                         return
                     case TypeKind.F32:
-                        g.inst(Inst.f64_ne)
+                        g.inst(Inst.f32_ne)
                         return
                     case TypeKind.F64:
                         g.inst(Inst.f64_ne)
@@ -1600,8 +1618,13 @@ export class DoubleConstGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     load(g: Generate): void {
-        g.inst(Inst.f64_const)
-        g.float64(this.value)
+        if (this.type.type.kind == TypeKind.F32) {
+            g.inst(Inst.f32_const)
+            g.float32(this.value)
+        } else {
+            g.inst(Inst.f64_const)
+            g.float64(this.value)
+        }
     }
 
     reference(location: Locatable, type?: GenType): GenNode {

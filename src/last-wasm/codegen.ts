@@ -1,7 +1,7 @@
 import {
     ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last,
     LastKind, Let, PrimitiveKind, Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type,
-    TypeKind, Var, u8Type, MemoryMethod
+    TypeKind, Var, u8Type, MemoryMethod, booleanType
 } from "../last"
 import {
     error, required, unsupported
@@ -234,6 +234,13 @@ export function codegen(
                         LastKind.Multiply
                     )
                 }
+                return new OpGenNode(node, type, left, right, node.kind)
+            }
+            case LastKind.Or:
+            case LastKind.And: {
+                const left = lastToGenNode(node.left, scopes)
+                const right = lastToGenNode(node.right, scopes)
+                const type = typeOf(node)
                 return new OpGenNode(node, type, left, right, node.kind)
             }
             case LastKind.CountLeadingZeros:

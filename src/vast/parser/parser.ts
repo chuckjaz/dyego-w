@@ -372,7 +372,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
     function andExpression(firstName: Reference | undefined = undefined): Expression {
         let left = compareExpression(firstName)
         while (token == Token.And) {
-            const name = opName('infix ||')
+            const name = opName('infix &&')
             const right = compareExpression()
             left = operatorCall(name, left, right)
         }

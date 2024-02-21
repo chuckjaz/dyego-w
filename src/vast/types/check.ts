@@ -212,7 +212,15 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         infix("!=", booleanType)
     }
     if (capabilities & Capabilities.Floatable) {
+        method0("abs")
         method0("sqrt")
+        method0("floor")
+        method0("ceiling")
+        method0("truncate")
+        method0("roundNearest")
+        infix("sign")
+        infix("min")
+        infix("max")
     }
     if (capabilities & Capabilities.Logical) {
         infix("&&")
