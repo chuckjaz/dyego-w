@@ -197,6 +197,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
         infix("shr", self, signedOf(self))
         infix("ror", self, signedOf(self))
         infix("rol", self, signedOf(self))
+        prefix("~")
     }
     if (capabilities & Capabilities.Charable) {
         method0("charCode", i32Type)
@@ -225,6 +226,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
     if (capabilities & Capabilities.Logical) {
         infix("&&")
         infix("||")
+        prefix("!")
     }
     if (capabilities & Capabilities.Negatable) {
         prefix("+")

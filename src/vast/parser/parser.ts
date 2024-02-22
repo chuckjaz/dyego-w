@@ -593,6 +593,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): { module: Module
             case Token.Plus:  return operatorCall(opName('prefix +'), simpleExpression())
             case Token.Dash: return operatorCall(opName('prefix -'), simpleExpression())
             case Token.Bang: return operatorCall(opName('prefix !'), simpleExpression())
+            case Token.Tilde: return operatorCall(opName('prefix ~'), simpleExpression())
             case Token.If: return ifExpr()
             case Token.When: return when();
             case Token.DotDot: return range(undefined)
@@ -1015,11 +1016,11 @@ const parameterFollowSet = setOf(Token.RParen)
 const expressionFirstSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
     Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
     Token.LiteralF64, Token.LiteralChar, Token.Null, Token.True, Token.False, Token.Dash, Token.Plus, Token.If,
-    Token.LBrack, Token.LBrace, Token.LParen, Token.When, Token.DotDot)
+    Token.Bang, Token.Tilde, Token.LBrack, Token.LBrace, Token.LParen, Token.When, Token.DotDot)
 const expressionFirstNoInfixeSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
     Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
     Token.LiteralF64, Token.LiteralChar, Token.Null, Token.True, Token.False, Token.If,
-    Token.LBrack, Token.LBrace, Token.LParen, Token.When, Token.DotDot)
+    Token.Bang, Token.Tilde, Token.LBrack, Token.LBrace, Token.LParen, Token.When, Token.DotDot)
 const statementFirstSet = unionOf(
     expressionFirstSet,
     declarationFirstSet,

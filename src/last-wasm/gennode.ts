@@ -725,15 +725,17 @@ export class GenType {
                 break
             case LastKind.BitNot:
                 switch (this.type.kind) {
+                    case TypeKind.I32:
                     case TypeKind.U32:
                         g.inst(Inst.i32_const)
                         g.snumber(BigInt(-1))
                         g.inst(Inst.i32_xor)
                         return
+                    case TypeKind.I64:
                     case TypeKind.U64:
                         g.inst(Inst.i64_const)
                         g.snumber(BigInt(-1))
-                        g.inst(Inst.i32_xor)
+                        g.inst(Inst.i64_xor)
                         return
                 }
                 break

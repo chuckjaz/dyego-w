@@ -237,7 +237,7 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
         return {
             ...locOf(field),
             kind: LastKind.Field,
-            name: convertReference(field.name),
+            name: convertToReference(field.name),
             value: convertExpression(field.value, true)
         }
     }
@@ -1253,6 +1253,8 @@ function intrinsic(func: types.Function, call: Call,  args: last.Expression[]): 
         case 'infix max': return binary(LastKind.Maximum)
         case 'infix &&': return binary(LastKind.And)
         case 'infix ||': return binary(LastKind.Or)
+        case 'prefix !': return unary(LastKind.Not)
+        case 'prefix ~': return unary(LastKind.BitNot)
         case 'prefix +': return identity()
         case 'prefix -': return unary(LastKind.Negate)
         case 'countTrailingZeros': return unary(LastKind.CountTrailingZeros)

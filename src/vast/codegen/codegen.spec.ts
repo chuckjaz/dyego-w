@@ -128,6 +128,7 @@ describe("codegen", () => {
                     it("can modulus", () => { bin('a % b', 142, 100) })
                 })
                 describe("bitwise", () => {
+                    it("can bit not", () => unary('~a', 23, ~23))
                     it("can bit or", () => { bin('a or b', 32, 10) })
                     it("can bit and", () => { bin('a and b', 43, 254) })
                     it("can bit shl", () => { bin('a shl b', 21, 1) })
@@ -210,6 +211,7 @@ describe("codegen", () => {
                     it("can modulus", () => { bin('a % b', 142n, 100n) })
                 })
                 describe("bitwise", () => {
+                    it("can bit not", () => unary('~a', 23n, ~23n))
                     it("can bit or", () => { bin('a or b', 32n, 10n) })
                     it("can bit and", () => { bin('a and b', 43n, 254n) })
                     it("can bit shl", () => { bin('a shl b', 21n, 1n) })
@@ -386,6 +388,7 @@ describe("codegen", () => {
                     it("can modulus", () => { bin('a % b', 142, 100) })
                 })
                 describe("bitwise", () => {
+                    it("can bit not", () => unary('~a', 23, ~23))
                     it("can bit or", () => { bin('a or b', 32, 10) })
                     it("can bit and", () => { bin('a and b', 43, 254) })
                     it("can bit shl", () => { shift('a shl b', 21, 1) })
@@ -471,6 +474,7 @@ describe("codegen", () => {
                     it("can modulus", () => { bin('a % b', 142n, 100n) })
                 })
                 describe("bitwise", () => {
+                    it("can bit not", () => unary('~a', 23n, ~23n))
                     it("can bit or", () => { bin('a or b', 32n, 10n) })
                     it("can bit and", () => { bin('a and b', 43n, 254n) })
                     it("can bit shl", () => { shift('a shl b', 21n, 1n) })
@@ -652,7 +656,28 @@ describe("codegen", () => {
             describe("logical", () => {
                 it("can and", () => { bin('a && b', true, true)})
                 it("can or", () => { bin('a || b', true, false)})
+                it("can not", () => { unary("!a", true, false)})
             })
+        })
+        describe("struct", () => {
+            it("can construct a literal", () => {
+                cg(`
+                  fun Test(a: i32, b: i32): [a: i32; b: i32] {
+                    [a: a, b: b]
+                  }`, (exports) => {
+                    expect(exports['Test/a/b'](1, 2)).toEqual([1, 2])
+                  })
+            })
+            it("can select a field", () => {
+                cg(`
+                    fun Test(a: i32, b: i32): i32 {
+                        val c: [a: i32; b: i32] = [a: a, b: b]
+                        c.a + c.b
+                    }
+                `, (exports) => {
+                    expect(exports['Test/a/b'](1, 2)).toEqual(3)
+                })
+            })       
         })
     })
 })
