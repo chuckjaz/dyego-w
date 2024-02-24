@@ -9,6 +9,7 @@ import * as fs from 'fs'
 import * as last from '../../last'
 import * as wasm from '../../wasm'
 import * as lastWasm from '../../last-wasm'
+import { dump } from "../../last-util/dump-ast"
 
 describe("codegen", () => {
     describe("expressions", () => {
@@ -756,7 +757,7 @@ describe("codegen", () => {
             })
         })
         describe("when", () => {
-            it("can when an integer", () => {
+            it("can when with a target", () => {
                 cg(`
                     fun Test(a: i32): i32 {
                         when (a) {
@@ -768,9 +769,38 @@ describe("codegen", () => {
                     }
                 `, (exports) => {
                     expect(exports['Test/a'](0)).toEqual(44)
+                    expect(exports['Test/a'](1)).toEqual(45)
+                    expect(exports['Test/a'](2)).toEqual(46)
+                    expect(exports['Test/a'](3)).toEqual(47)
+                    expect(exports['Test/a'](4)).toEqual(47)
+                })
+            })
+            it("can when without a target", () => {
+                cg(`
+                    fun Test(a: i32): i32 {
+                        when {
+                            a == 0 -> 44
+                            a == 1 -> 45
+                            a == 2 -> 46
+                            else -> 47
+                        }
+                    }
+                `, (exports) => {
+                    expect(exports['Test/a'](0)).toEqual(44)
+                    expect(exports['Test/a'](1)).toEqual(45)
+                    expect(exports['Test/a'](2)).toEqual(46)
+                    expect(exports['Test/a'](3)).toEqual(47)
+                    expect(exports['Test/a'](4)).toEqual(47)
                 })
             })
         })
+    })
+    describe("examples", () => {
+        // it("can atoi.dg", () => {
+        //     cgf('src/vast/examples/atoi.dg', (exports) => {
+        //         expect(exports['Test']()).toEqual(42)
+        //     })
+        // })
     })
 })
 
@@ -821,6 +851,8 @@ function cgv(text: string): { module: last.Module, fileSet: FileSet } {
     const { module, fileSet } = m(text)
     const checkResult = ck(module, fileSet)
     const lastModule = codegen(module, checkResult)
+    const lastDump = dump(lastModule)
+    fs.writeFileSync('out/tmp.last', lastDump)
     return { module: lastModule, fileSet }
 }
 
@@ -844,5 +876,26 @@ function cg(text: string, block: (exports: any) => void) {
     expect(WebAssembly.validate(bytes)).toBeTrue()
     const module = new WebAssembly.Module(bytes)
     const inst = new WebAssembly.Instance(module)
+    block(inst.exports)
+}
+
+function cgf(file: string, block: (exports: any) => void) {
+    const text = fs.readFileSync(file, 'utf-8')
+    const fileSet = new FileSet()
+    const fileBuilder = fileSet.buildFile(file, text.length, text)
+    const scanner = new Scanner(text, fileBuilder)
+    fileBuilder.build()
+    const { module, diagnostics } = parse(scanner)
+    if (diagnostics.length) {
+        report("parsing", diagnostics, fileSet)
+    }
+    const checkResult = ck(module, fileSet)
+    const lastModule = codegen(module, checkResult)
+    const lastDump = dump(lastModule)
+    fs.writeFileSync('out/tmp.last', lastDump)
+    const bytes = wsm(lastModule, fileSet)
+    expect(WebAssembly.validate(bytes)).toBeTrue()
+    const wasmModule = new WebAssembly.Module(bytes)
+    const inst = new WebAssembly.Instance(wasmModule)
     block(inst.exports)
 }

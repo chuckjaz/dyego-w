@@ -299,7 +299,12 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
             const value = convertExpression(elseBlock, true)
             lastElseBody.push(value)
         }
-        return firstIf ?? { kind: LastKind.Block, body: lastElseBody }
+        if (firstIf) {
+            body.push(firstIf)
+        } else {
+            body.push(...lastElseBody)
+        }
+        return { kind: LastKind.Block, body }
     }
 
     function convertPrimitiveKind(kind: PrimitiveKind): last.PrimitiveKind | undefined {
