@@ -388,7 +388,7 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
     function convertIf(expression: If): last.IfThenElse {
         const condition = convertExpression(expression.condition, true)
         const thenClause = convertBlock(expression.then)
-        const elseClause = convertBlock(expression.then)
+        const elseClause = convertBlock(expression.else)
         return {
             ...locOf(expression),
             kind: LastKind.IfThenElse,
@@ -548,7 +548,8 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
                         convertBlock(statement.body)
                     ], [
                         lastBranch(ref(whileStatementName))
-                    ])
+                    ]),
+                    lastBranch(ref(whileLoopName))
                 )
             ), statement)
         ]

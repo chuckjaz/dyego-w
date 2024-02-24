@@ -1,8 +1,8 @@
-export type Hashable = {! fun hash(): i32 !}
+type Hashable = {! fun hash(): i32 !}
 
-export type Missing = type { ...Error }
+type Missing = type { }
 
-export type Map = <K: Hashable, V>{
+type Map = <K: Hashable, V>{
     type Slot = { key: K, value: V }
     slots: (Slot | Missing)[] = []
     index: i32[][] = [defaultIndexSize; []]
@@ -15,7 +15,7 @@ export type Map = <K: Hashable, V>{
         }
     }
 
-    fun add(key: K, value: V): V | Missing {
+    fun Add(key: K, value: V): V | Missing {
         match find(key) {
             index: i32 ->  match slots[index] {
                 slot: Slot -> slot.value = value
@@ -29,15 +29,15 @@ export type Map = <K: Hashable, V>{
         }
     }
 
-    fun remove(key: K): V | Missing {
+    fun Remove(key: K): V | Missing {
         match find(key) {
             slot: var (Slot | Missing) ->
         }
     }
 
-    fun sequence() = slots.sequence()
+    fun Sequence() = slots.Sequence()
 
-    fun keys(): K* {
+    fun Keys(): K* {
         for slot in slots {
             match slot {
                 slot: Slot -> yield slot.key
@@ -46,7 +46,7 @@ export type Map = <K: Hashable, V>{
         }
     }
 
-    fun values(): (var V)* {
+    fun Values(): (var V)* {
         for slot in slots {
             match slot {
                 slot: Slot -> yield slot.value
@@ -55,7 +55,7 @@ export type Map = <K: Hashable, V>{
         }
     }
 
-    private fun find(key: K) i32 | var i32[] {
+    fun find(key: K) i32 | var i32[] {
         var indexes = indexesOf(key)
         for index in indexes {
             val slot = slots[index]
@@ -66,7 +66,7 @@ export type Map = <K: Hashable, V>{
         yield return indexes
     }
 
-    private fun indexesOf(key: Key): var i32[] {
+    fun indexesOf(key: Key): var i32[] {
         yield return indexes[key.hash() % indexes.size]
     }
 }

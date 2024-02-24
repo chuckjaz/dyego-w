@@ -680,6 +680,98 @@ describe("codegen", () => {
             })       
         })
     })
+    describe("statements", () => {
+        describe("if", () => {
+            it("can use an if with literals", () => {
+                cg(`fun Test(): i32 { if (1 > 2) { 10 } else { 42 } }`, (exports) => {
+                    expect(exports['Test']()).toEqual(42)
+                })
+            })
+            it("can use an if with a parameter", () => {
+                cg(`fun Test(a: i32, b: i32): i32 { if (a > b) { a } else { b }}`, (exports) => {
+                    expect(exports['Test/a/b'](15, 42)).toEqual(42)
+                    expect(exports['Test/a/b'](42, 12)).toEqual(42)
+                })
+            })
+        })
+        describe("while", () => {
+            it("can use a while", () => {
+                cg(`
+                    fun Test(a: i32): i32 {
+                        var i = 0
+                        var r = 0
+                        while (i < a) {
+                            r = r + i
+                            i = i + 1
+                        }
+                        r
+                    }
+                `, (exports) => {
+                    expect(exports['Test/a'](10)).toEqual((9 * 10)/2)
+                })
+            })
+            it("can break out of a while", () => {
+                cg(`
+                    fun Test(a: i32): i32 {
+                        var i = 0
+                        var r = 0
+                        while (i < a) {
+                            r = r + i
+                            if (r > 10) { break }
+                            i = i + 1
+                        }
+                        r
+                    }
+                `, (exports) => {
+                    expect(exports['Test/a'](1)).toEqual(0)
+                    expect(exports['Test/a'](2)).toEqual(1)
+                    expect(exports['Test/a'](3)).toEqual(3)
+                    expect(exports['Test/a'](4)).toEqual(6)
+                    expect(exports['Test/a'](5)).toEqual(10)
+                    expect(exports['Test/a'](6)).toEqual(15)
+                    expect(exports['Test/a'](7)).toEqual(15)
+                })
+            })
+            it("can continue a while", () => {
+                cg(`
+                    fun Test(a: i32): i32 {
+                        var i = 0
+                        var r = 0
+                        while (i < a) {
+                            i = i + 1
+                            if (i % 2 == 0) { continue }
+                            r = r + i
+                        }
+                        r
+                    }
+                `, (exports) => {
+                    expect(exports['Test/a'](1)).toEqual(1)
+                    expect(exports['Test/a'](2)).toEqual(1)
+                    expect(exports['Test/a'](3)).toEqual(4)
+                    expect(exports['Test/a'](4)).toEqual(4)
+                    expect(exports['Test/a'](5)).toEqual(9)
+                    expect(exports['Test/a'](6)).toEqual(9)
+                    expect(exports['Test/a'](7)).toEqual(16)
+                })
+            })
+        })
+        describe("when", () => {
+            it("can when an integer", () => {
+                cg(`
+                    fun Test(a: i32): i32 {
+                        when (a) {
+                            0 -> 44
+                            1 -> 45
+                            2 -> 46
+                            else -> 47
+                        }
+                    }
+                `, (exports) => {
+                    expect(exports['Test/a'](0)).toEqual(44)
+                })
+            })
+        })
+    })
 })
 
 function m(text: string): { module: Module, fileSet: FileSet } {

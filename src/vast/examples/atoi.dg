@@ -12,6 +12,6 @@ fun atoi(value: string): i32 | error {
 val b30 = '30'
 val b12 = '12'
 
-export fun test(): i32 {
+fun Test(): i32 | error {
     (atoi(b30)? + atoi(b12)?) ?: -1
 }

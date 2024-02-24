@@ -86,7 +86,7 @@ let sun: BodyValue = {
 
 var bodies = [sun, jupiter, saturn, uranus, neptune]
 
-export fun offsetMomentum(var bodies: BodyValue[]): BodyValue[] {
+fun OffsetMomentum(var bodies: BodyValue[]): BodyValue[] {
     var p = zero
     for body in bodies {
         p += body.velocity * mass
@@ -96,7 +96,7 @@ export fun offsetMomentum(var bodies: BodyValue[]): BodyValue[] {
     bodies
 }
 
-export fun advance(var bodies: BodyValue[], dt: f64): BodyValue[] {
+fun Advance(var bodies: BodyValue[], dt: f64): BodyValue[] {
     for var bodyi, i in bodies {
         var velocity = body.velocity
         for bodyj in bodies[i + 1:] {
@@ -111,7 +111,7 @@ export fun advance(var bodies: BodyValue[], dt: f64): BodyValue[] {
     bodies
 }
 
-export fun energy(bodies: BodyValue[]): f64 {
+fun Energy(bodies: BodyValue[]): f64 {
     var e = 0.0
     for bodyi, index in bodies {
         e += 0.5 * bodyi.mass * body.velocity.distanceSquared()
@@ -124,7 +124,7 @@ export fun energy(bodies: BodyValue[]): f64 {
     e
 }
 
-export fun main(n: i32) {
+fun Main(n: i32) {
     var bodies = bodies
     for i in 0..(n - 1) {
         bodies = advance(bodies, 0.01)

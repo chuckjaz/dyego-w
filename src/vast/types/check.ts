@@ -826,8 +826,8 @@ export function check(module: Module): CheckResult {
         mustMatch(expression.condition, booleanType, condition)
         const thenType = checkExpression(expression.then)
         const elsetype = checkExpression(expression.else)
-        mustMatch(expression.else, thenType, elsetype)
-        return simplify(thenType)
+        const ifType = mustMatch(expression.else, thenType, elsetype)
+        return simplify(ifType)
     }
 
     function checkIndex(expression: Index): Type {

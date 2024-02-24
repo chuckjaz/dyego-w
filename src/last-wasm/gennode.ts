@@ -2826,7 +2826,7 @@ export class IfThenGenNode extends LoadonlyGenNode implements GenNode {
         const thenSimple = then.simplify()
         const elseSimple = e?.simplify()
 
-        const conditionNumber = condition.number()
+        const conditionNumber = conditionSimple.number()
         if (conditionNumber === 1) return thenSimple
         if (elseSimple && conditionNumber === 0) return elseSimple
         if (condition === conditionSimple && then === thenSimple && e === elseSimple)

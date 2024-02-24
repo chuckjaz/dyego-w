@@ -15,7 +15,7 @@ fun itemCheck(tree: Node): i32 {
     result
 }
 
-export fun work(iterations: i32, depth: i32): i32 {
+fun Work(iterations: i32, depth: i32): i32 {
     var check = 0
     for iteration in 0..iterations - 1 {
         val tree = bottomUpTree(depth)
