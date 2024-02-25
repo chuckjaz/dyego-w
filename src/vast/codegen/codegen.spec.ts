@@ -818,13 +818,13 @@ describe("codegen", () => {
             fs.writeFileSync("out/tmp.wasm", bytes)
         })
     })
-    describe("examples", () => {
-        // it("can atoi.dg", () => {
-        //     cgf('src/vast/examples/atoi.dg', (exports) => {
-        //         expect(exports['Test']()).toEqual(42)
-        //     })
-        // })
-    })
+    // describe("examples", () => {
+    //     // it("can atoi.dg", () => {
+    //     //     cgf('src/vast/examples/atoi.dg', (exports) => {
+    //     //         expect(exports['Test']()).toEqual(42)
+    //     //     })
+    //     // })
+    // })
 })
 
 function m(text: string): { module: Module, fileSet: FileSet } {
