@@ -3140,12 +3140,25 @@ export class MemoryMethodGenNode extends LoadonlyGenNode implements GenNode {
     location: Locatable
     private method: MemoryMethod
     private amount?: GenNode
+    private source?: GenNode
+    private destination?: GenNode
+    private value?: GenNode
 
-    constructor(location: Locatable, method: MemoryMethod, amount?: GenNode) {
+    constructor(
+        location: Locatable,
+        method: MemoryMethod,
+        amount?: GenNode,
+        source?: GenNode,
+        destination?: GenNode,
+        value?: GenNode,
+    ) {
         super(location)
         this.location = location
         this.method = method
         this.amount = amount
+        this.source = source
+        this.destination = destination
+        this.value = value
     }
 
     get type(): GenType {
@@ -3155,6 +3168,9 @@ export class MemoryMethodGenNode extends LoadonlyGenNode implements GenNode {
             case MemoryMethod.Limit:
             case MemoryMethod.Top:
                 return voidPointerGenType
+            case MemoryMethod.Copy:
+            case MemoryMethod.Fill:
+                return voidGenType
         }
     }
 
@@ -3174,6 +3190,23 @@ export class MemoryMethodGenNode extends LoadonlyGenNode implements GenNode {
                 break
             case MemoryMethod.Top:
                 i32GenType.loadData(this.location, g, zeroGenNode, 0)
+                break
+            case MemoryMethod.Copy:
+                this.destination?.load(g)
+                this.source?.load(g)
+                this.amount?.load(g)
+                g.inst(Inst.Extended)
+                g.inst(Inst.Memory_copy)
+                g.index(0)
+                g.index(0)
+                break
+            case MemoryMethod.Fill:
+                this.destination?.load(g)
+                this.amount?.load(g)
+                this.value?.load(g)
+                g.inst(Inst.Extended)
+                g.inst(Inst.Memory_fill)
+                g.index(0)
                 break
         }
     }

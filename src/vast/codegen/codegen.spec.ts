@@ -7,9 +7,10 @@ import { FileSet } from "../../files"
 
 import * as fs from 'fs'
 import * as last from '../../last'
+import * as lastParser from '../../last-parser'
 import * as wasm from '../../wasm'
 import * as lastWasm from '../../last-wasm'
-import { dump } from "../../last-util/dump-ast"
+import { dump, mergeModules } from "../../last-util"
 
 describe("codegen", () => {
     describe("expressions", () => {
@@ -678,7 +679,7 @@ describe("codegen", () => {
                 `, (exports) => {
                     expect(exports['Test/a/b'](1, 2)).toEqual(3)
                 })
-            })       
+            })
         })
     })
     describe("statements", () => {
@@ -795,6 +796,28 @@ describe("codegen", () => {
             })
         })
     })
+    describe("support", () => {
+        it("can load memory manager", () => {
+            loadSupport('src/vast/support/simple-memory.last.dg')
+        })
+        it("can merge modules that contains support",  () => {
+            const fileSet = new FileSet()
+            const support = loadSupport(`src/vast/support/simple-memory.last.dg`, fileSet)
+            const supportUser = parseLast('supportuser.last.dg', `
+                export fun test(): void {
+                    var a = ${"`$$allocate`"}(123);
+                    ${"`$$free`"}(a, 123)
+
+                }
+            `, fileSet)
+            const mergedModule = mergeModules([support, supportUser])
+            if (Array.isArray(mergedModule)) {
+                report("merge", mergedModule, fileSet)
+            }
+            const bytes = wsm(mergedModule, fileSet)
+            fs.writeFileSync("out/tmp.wasm", bytes)
+        })
+    })
     describe("examples", () => {
         // it("can atoi.dg", () => {
         //     cgf('src/vast/examples/atoi.dg', (exports) => {
@@ -877,6 +900,27 @@ function cg(text: string, block: (exports: any) => void) {
     const module = new WebAssembly.Module(bytes)
     const inst = new WebAssembly.Instance(module)
     block(inst.exports)
+}
+
+function parseLast(name: string, text: string, fileSet: FileSet = new FileSet()): last.Module {
+    const fileBuilder = fileSet.buildFile(name, text.length, text)
+    const scanner = new lastParser.Scanner(text, fileBuilder)
+    const module = lastParser.parse(scanner, fileBuilder)
+    fileBuilder.build()
+    if (Array.isArray(module)) {
+        report("support", module, fileSet)
+    }
+    return module
+}
+
+function loadSupport(file: string, fileSet: FileSet = new FileSet()): last.Module{
+    const text = fs.readFileSync(file, 'utf-8')
+    const module = parseLast(file, text, fileSet)
+    const checkResult = last.check(module)
+    if (Array.isArray(checkResult)) {
+        report("support-check", checkResult, fileSet)
+    }
+    return module
 }
 
 function cgf(file: string, block: (exports: any) => void) {

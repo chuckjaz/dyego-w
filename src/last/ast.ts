@@ -263,7 +263,9 @@ export type Literal =
 export type Memory =
     MemoryTop |
     MemoryLimit |
-    MemoryGrow
+    MemoryGrow |
+    MemoryFill |
+    MemoryCopy
 
 export type Exportable =
     Global |
@@ -643,6 +645,8 @@ export const enum MemoryMethod {
     Top,
     Limit,
     Grow,
+    Copy,
+    Fill,
 }
 
 /** Returns the top of memory */
@@ -661,6 +665,24 @@ export interface MemoryLimit extends LastNode {
 export interface MemoryGrow extends LastNode {
     kind: LastKind.Memory
     method: MemoryMethod.Grow
+    amount: Expression
+}
+
+/** Fills memory */
+export interface MemoryFill extends LastNode {
+    kind: LastKind.Memory
+    method: MemoryMethod.Fill
+    destination: Expression
+    amount: Expression
+    value: Expression
+}
+
+/** Copies memory */
+export interface MemoryCopy extends LastNode {
+    kind: LastKind.Memory
+    method: MemoryMethod.Copy
+    source: Expression
+    destination: Expression
     amount: Expression
 }
 

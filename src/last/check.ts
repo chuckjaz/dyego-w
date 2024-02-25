@@ -619,10 +619,29 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             case MemoryMethod.Top:
             case MemoryMethod.Limit:
                 return voidPointerType
-            case MemoryMethod.Grow:
+            case MemoryMethod.Grow: {
                 const amountType = checkExpression(node.amount, scopes)
                 mustMatch(node.amount, amountType, i32Type)
                 return i32Type
+            }
+            case MemoryMethod.Copy: {
+                const sourceType = checkExpression(node.source, scopes)
+                mustMatch(node.source, sourceType, voidPointerType)
+                const destinationType = checkExpression(node.destination, scopes)
+                mustMatch(node.destination, destinationType, voidPointerType)
+                const amountType = checkExpression(node.amount, scopes)
+                mustMatch(node.amount, amountType, i32Type)
+                return voidType
+            }
+            case MemoryMethod.Fill: {
+                const destinationType = checkExpression(node.destination, scopes)
+                mustMatch(node.destination, destinationType, voidPointerType)
+                const amountType = checkExpression(node.amount, scopes)
+                mustMatch(node.amount, amountType, i32Type)
+                const valueType  = checkExpression(node.value, scopes)
+                mustMatch(node.value, valueType, u8Type)
+                return voidType
+            }
         }
     }
 

@@ -144,6 +144,20 @@ export function dump(node: Last): string {
                     case MemoryMethod.Top:
                         emit("top")
                         return
+                    case MemoryMethod.Copy:
+                        emit("copy(")
+                        dump(node.destination, 0)
+                        dump(node.source, 0)
+                        dump(node.amount, 0)
+                        emit(")")
+                        return
+                    case MemoryMethod.Fill:
+                        emit("fill(")
+                        dump(node.destination, 0)
+                        dump(node.amount, 0)
+                        dump(node.value, 0)
+                        emit(")")
+                        return
                 }
             }
             case LastKind.ArrayLiteral: {

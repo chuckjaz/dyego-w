@@ -722,8 +722,38 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                         expect(Token.RParen)
                         return l<Memory>(start, { kind: LastKind.Memory, method: MemoryMethod.Grow,  amount })
                     }
+                    case "copy": {
+                        expect(Token.LParen)
+                        const args = sequence(expression, expressionFirstSet, rparenSet, comma)
+                        if (args.length != 3) {
+                            report("Expected 3 arguments")
+                        }
+                        expect(Token.RParen)
+                        return l<Memory>(start, {
+                            kind: LastKind.Memory,
+                            method: MemoryMethod.Copy,
+                            destination: args[0],
+                            source: args[1],
+                            amount: args[2]
+                        })
+                    }
+                    case "fill": {
+                        expect(Token.LParen)
+                        const args = sequence(expression, expressionFirstSet, rparenSet, comma)
+                        if (args.length != 3) {
+                            report("Expected 3 arguments")
+                        }
+                        expect(Token.RParen)
+                        return l<Memory>(start, {
+                            kind: LastKind.Memory,
+                            method: MemoryMethod.Fill,
+                            destination: args[0],
+                            amount: args[1],
+                            value: args[2]
+                        })
+                    }
                     default:
-                        report("expected one of 'top', 'limit' or 'grow'", methodName)
+                        report("expected one of 'copy', 'fill', 'top', 'limit' or 'grow'", methodName)
                 }
                 return undefined as any as Expression
             }

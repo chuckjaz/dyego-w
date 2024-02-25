@@ -1,0 +1,16 @@
+var `$$top`: void^ = memory.top;
+
+fun `$$allocate`(size: i32): void^ {
+    var result = `$$top`;
+    var newTop = ((result reinterpretas u8^) + size) reinterpretas void^;
+    if (newTop >= memory.limit) {
+        memory.grow(1);
+    }
+    `$$top` = newTop;
+    memory.fill(result, size, 0ut);
+    result;
+}
+
+fun `$$free`(buffer: void^, size: i32): void {
+
+}

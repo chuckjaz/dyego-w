@@ -400,6 +400,23 @@ export function codegen(
                         return new MemoryMethodGenNode(node, node.method)
                     case MemoryMethod.Grow:
                         return new MemoryMethodGenNode(node, node.method, lastToGenNode(node.amount, scopes))
+                    case MemoryMethod.Copy:
+                        return new MemoryMethodGenNode(
+                            node,
+                            node.method,
+                            lastToGenNode(node.amount, scopes),
+                            lastToGenNode(node.source, scopes),
+                            lastToGenNode(node.destination, scopes),
+                        )
+                    case MemoryMethod.Fill:
+                        return new MemoryMethodGenNode(
+                            node,
+                            node.method,
+                            lastToGenNode(node.amount, scopes),
+                            undefined,
+                            lastToGenNode(node.destination, scopes),
+                            lastToGenNode(node.value, scopes),
+                        )
                 }
             case LastKind.SizeOf: {
                 const targetType = typeOf(node.target)

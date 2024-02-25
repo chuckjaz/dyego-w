@@ -299,10 +299,27 @@ export function validate(module: Module): Diagnostic[] {
             break
         case LastKind.Memory:
             requiredMembers(node, 'method')
-            required(node, node.method >= MemoryMethod.Top && node.method <= MemoryMethod.Grow, "Invalid memory method")
-            if (node.method == MemoryMethod.Grow) {
-                requiredMembers(node, 'amount')
-                validateExpression(node.amount)
+            required(node, node.method >= MemoryMethod.Top && node.method <= MemoryMethod.Fill, "Invalid memory method")
+            switch (node.method) {
+                case MemoryMethod.Grow:
+                    requiredMembers(node, 'amount')
+                    validateExpression(node.amount)
+                    break
+                case MemoryMethod.Copy:
+                    requiredMembers(node, 'source', 'destination', 'amount')
+                    validateExpression(node.source)
+                    validateExpression(node.destination)
+                    validateExpression(node.amount)
+                    break
+                case MemoryMethod.Fill:
+                    requiredMembers(node, 'destination', 'amount', 'value')
+                    validateExpression(node.destination)
+                    validateExpression(node.amount)
+                    validateExpression(node.value)
+                    break
+                case MemoryMethod.Limit:
+                case MemoryMethod.Top:
+                    break
             }
             break
         case LastKind.Block:
