@@ -14,3 +14,7 @@ fun `$$allocate`(size: i32): void^ {
 fun `$$free`(buffer: void^, size: i32): void {
 
 }
+
+fun `$$copy`(source: void^, destination: void^, amount: i32): void {
+    memory.copy(destination, source, amount)
+}

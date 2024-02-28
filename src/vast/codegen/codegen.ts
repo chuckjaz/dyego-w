@@ -7,7 +7,10 @@ import * as types from '../types/types'
 import { LastKind } from "../../last";
 import { Type, TypeKind } from "../types/types";
 
-export function codegen(module: Module, checkResult: CheckResult): last.Module {
+export function codegen(
+    module: Module,
+    checkResult: CheckResult
+): last.Module {
     const importNode: last.Import = {
         kind: LastKind.Import,
         imports: []
@@ -80,7 +83,7 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
             name: nameReference,
             parameters: lastParameters,
             result: lastResult,
-            body: [body]
+            body: body.kind == LastKind.Block && !body.name ? body.body : [body]
         }
         const location = required(checkResult.references.get(func.name), func) as FunctionLocation
         if (location.exported) {
@@ -154,7 +157,6 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
                 case Kind.When:
                     return convertWhen(expression)
             }
-            expression
         }
 
         const previous = blockPrefix
@@ -169,9 +171,11 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
                 body: [...blockPrefix, ...result.body]
             }
         }
+        const prefix = blockPrefix
+        blockPrefix = previous
         return {
             kind: LastKind.Block,
-            body: [...blockPrefix, result]
+            body: [...prefix, result]
         }
     }
 
@@ -342,13 +346,24 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
         const targetName = target.kind == LastKind.Reference ? target: ref(uniqueName("target"))
         const valueName = ref(uniqueName("value"))
         const funcs = typeFunctionsOf(type)
-        return lastBlock(
-            target.kind == LastKind.Reference ? undefined : lastVar(targetName, target),
-            lastVar(valueName, funcs.copy(value)),
-            funcs.release(targetName),
-            lastAssign(targetName, valueName),
-            valueName
-        )
+        if (valueRequired) {
+            const tmpName = ref(uniqueName("tmp"))
+            const targetNode = target.kind == LastKind.Reference ? target : targetName
+            return lastBlock(
+                target.kind == LastKind.Reference ? undefined : lastVar(targetName, target),
+                lastVar(valueName, funcs.aquire(value)),
+                lastVar(tmpName, targetNode),
+                lastAssign(targetNode, valueName),
+                tmpName
+            )
+        } else {
+            return lastBlock(
+                target.kind == LastKind.Reference ? undefined : lastVar(targetName, target),
+                lastVar(valueName, funcs.aquire(value)),
+                funcs.release(targetName),
+                lastAssign(targetName, valueName)
+            )
+        }
     }
 
     function convertBlock(block: Block): last.Block {
@@ -445,8 +460,6 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
             default:
                 return [convertExpression(statement, false)]
         }
-        statement
-        return []
     }
 
     function convertFor(forStatement: For): last.BodyElement[] {
@@ -601,7 +614,7 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
     }
 
     function convertReference(reference: Reference): last.Reference {
-        const location = required(checkResult.references.get(reference), reference) as Location
+        const location = required(checkResult.references.get(reference), reference)
         const name = required(locationNames.get(location), reference)
         return convertToReference(reference, name)
     }
@@ -864,12 +877,12 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
         const lastType = convertType(type)
         const elementTypeName = nameOfType(type)
         const allocate = allocateTypeFunction(lastType, elementTypeName)
-        const copy = copyTypeFunction(lastType, elementTypeName)
+        const aquire = aquireTypeFunction(lastType, elementTypeName)
         const release = releaseTypeFunction(lastType, elementTypeName)
         const unique = uniqueTypeFunction(lastType, elementTypeName)
         return {
             allocate,
-            copy,
+            aquire,
             release,
             unique
         }
@@ -877,22 +890,48 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
 
     function allocateTypeFunction(type: last.TypeExpression, name: string): () => last.Expression {
         const allocateName = uniqueName(`${name}_allocate`)
-        const systemMalloc = mallocFunc()
+        const supportAllocate = allocateFunc()
         const allocateNameRef = ref(allocateName)
         const allocateFunction = lastFunc(allocateNameRef, [lastParam("size", lastInt())], lastPtr(lastArr(type)),
-            lastAs(lastCall(systemMalloc, lastMult(lastSizeOf(type), ref("size"))), lastPtr(lastArr(type)))
+            lastAs(lastCall(supportAllocate, lastMult(lastSizeOf(type), ref("size"))), lastPtr(lastArr(type)))
         )
         declarations.push(allocateFunction)
         return () => lastCall(allocateNameRef)
     }
 
-    function copyTypeFunction(type: last.TypeExpression, name: string): (expr: last.Expression) => last.Expression {
-        const systemCopy = cloneFunc()
-        return expr => lastAs(lastCall(systemCopy, lastAs(expr, lastPtr(lastVoid()))), type)
+    function aquireTypeFunction(type: last.TypeExpression, name: string): (expr: last.Expression) => last.Expression {
+        var valueName = uniqueName("value")
+        var refcount = uniqueName("refcount")
+        return expr => {
+            const value = expr.kind == LastKind.Reference ? expr : ref(valueName)
+            const result = lastBlock(
+                value !== expr ? lastVar(ref(valueName), expr) : undefined,
+                lastVar(
+                    ref(refcount),
+                    lastAdd(
+                        lastAs(
+                            value,
+                            lastPtr(
+                                lastI32Type()
+                            ),
+                        ),
+                        lastI32(-1)
+                    )
+                ),
+                lastAssign(
+                    lastDereference(ref(refcount)),
+                    lastAdd(
+                        lastDereference(ref(refcount)),
+                        lastI32(1)
+                    )
+                ),
+            )
+            return result
+        }
     }
 
     function releaseTypeFunction(type: last.TypeExpression, name: string): (expr: last.Expression) => last.Expression {
-        const systemFree = freeFunc()
+        const supportFree = freeFunc()
         const releaseName = uniqueName(`${name}_release`)
         const tmp = uniqueName("value")
         const releaseFunction = lastFunc(ref(releaseName), [lastParam("value", type)], lastVoid(),
@@ -900,7 +939,7 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
             lastAssign(lastSelect(ref("value"), "refCount"), ref(tmp)),
             lastIf(
                 lastEqual(ref(tmp), lastI32(0)),
-                [lastCall(systemFree, ref("value"))],
+                [lastCall(supportFree, ref("value"))],
                 []
             )
         )
@@ -909,17 +948,17 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
     }
 
     function uniqueTypeFunction(type: last.TypeExpression, name: string): (expr: last.Expression) => last.Expression {
-        const systemClone = cloneFunc()
-        const cloneName = uniqueName(`${name}_clone`)
-        const cloneFunction = lastFunc(ref(cloneName), [lastParam("value", type)], lastVoid(),
+        const supportCopy = copyFunc()
+        const toUniqueName = uniqueName(`${name}_unique`)
+        const uniqueFunction = lastFunc(ref(toUniqueName), [lastParam("value", type)], lastVoid(),
             lastIf(
                 lastEqual(lastSelect(ref("value"), "refCount"), lastI32(1)),
                 [ref("value")],
-                [lastAs(lastCall(systemClone, ref("value")), type)]
+                [lastAs(lastCall(supportCopy, ref("value")), type)]
             )
         )
-        declarations.push(cloneFunction)
-        return expr => lastCall(ref(cloneName), expr)
+        declarations.push(uniqueFunction)
+        return expr => lastCall(ref(toUniqueName), expr)
     }
 
     function importFunction(module: string, name: string, parameters: last.Parameter[], result: last.TypeExpression): last.Reference {
@@ -945,16 +984,16 @@ export function codegen(module: Module, checkResult: CheckResult): last.Module {
         return ref(importName)
     }
 
-    function mallocFunc(): last.Reference {
-        return importFunction(dyegoSystem, mallocName, mallocParamters, mallocResult)
+    function allocateFunc(): last.Reference {
+        return ref(`$$allocate`)
     }
 
-    function cloneFunc(): last.Reference {
-        return importFunction(dyegoSystem, cloneName, cloneParameters, cloneResult)
+    function copyFunc(): last.Reference {
+        return ref(`$$copy`)
     }
 
     function freeFunc(): last.Reference {
-        return importFunction(dyegoSystem, freeName, freeParameters, freeResult)
+        return ref(`$$free`)
     }
 }
 
@@ -987,28 +1026,10 @@ function nameOfFunction(func: Function): string {
 
 interface TypeFunctions {
     allocate: () => last.Expression
-    copy: (expression: last.Expression) => last.Expression
+    aquire: (expression: last.Expression) => last.Expression
     release: (expression: last.Expression) => last.BodyElement
     unique: (expression: last.Reference) => last.Expression
 }
-
-// System
-const dyegoSystem = "dyego-system"
-
-// System.malloc
-const mallocName = "malloc"
-const mallocParamters: last.Parameter[] = [lastParam("size", lastInt())]
-const mallocResult = lastPtr(lastVoid())
-
-// System.free
-const freeName = "free"
-const freeParameters: last.Parameter[] = [lastParam("value", lastPtr(lastVoid()))]
-const freeResult = lastVoid()
-
-// System.clone
-const cloneName = "clone"
-const cloneParameters: last.Parameter[] = [lastParam("value", lastPtr(lastVoid()))]
-const cloneResult = lastPtr(lastVoid())
 
 function lastI32(value: number): last.LiteralI32 {
     return {
@@ -1025,12 +1046,27 @@ function lastVoid(): last.Primitive {
     }
 }
 
+function lastI32Type(): last.Primitive {
+    return {
+        kind: LastKind.Primitive,
+        primitive: last.PrimitiveKind.I32
+    }
+}
+
 function lastAssign(target: last.Expression, value: last.Expression): last.Assign {
     return {
         ...locOf(target, value),
         kind: LastKind.Assign,
         target,
         value
+    }
+}
+
+function lastDereference(target: last.Expression): last.Dereference {
+    return {
+        ...locOf(target),
+        kind: LastKind.Dereference,
+        target
     }
 }
 

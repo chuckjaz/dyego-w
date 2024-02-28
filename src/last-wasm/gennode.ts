@@ -2167,6 +2167,10 @@ export class TypeConvertGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     simplify(): GenNode {
+        const simpleTarget = this.target.simplify()
+        if (simpleTarget != this.target) {
+            return new TypeConvertGenNode(this.location, this.type, simpleTarget, this.from, this.op, this.saturated)
+        }
         return this
     }
 
@@ -2260,6 +2264,37 @@ export class OpGenNode extends LoadonlyGenNode implements GenNode {
         const rightSimple = right.simplify()
         const leftNumber = leftSimple.number()
         const rightNumber = rightSimple.number()
+
+        // Handle multiplictive and additive identities that work even if both are not
+        // reducible to numbers
+        if (leftNumber === 1) {
+            switch (this.op) {
+                case LastKind.Multiply:
+                    return rightSimple
+            }
+        }
+        if (rightNumber === 1) {
+            switch (this.op) {
+                case LastKind.Multiply:
+                case LastKind.Divide:
+                    return leftSimple
+            }
+        }
+        if (leftNumber === 0) {
+            switch (this.op) {
+                case LastKind.Add:
+                    return leftSimple
+            }
+        }
+        if (rightNumber === 0) {
+            switch (this.op) {
+                case LastKind.Add:
+                case LastKind.Subtract:
+                    return leftSimple
+            }
+        }
+
+        // Constant fold
         if (leftNumber !== undefined && rightNumber !== undefined) {
             let result: number = 0
             switch (this.op) {
