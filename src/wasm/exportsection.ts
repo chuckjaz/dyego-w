@@ -38,7 +38,6 @@ export class ExportSection implements Section {
             }
         });
     }
-
 }
 
 function writeExport(writer: ByteWriter, exp: Export) {

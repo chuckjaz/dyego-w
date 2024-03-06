@@ -28,7 +28,6 @@ export class TableSection implements Section {
         writer.writeByte(SectionIndex.Table);
         writeSized(writer, writer => {
             const tables = this.tables;
-            writer.write32u(SectionIndex.Table);
             writer.write32u(tables.length);
             for (const table of tables) {
                 writeTableType(writer, table);

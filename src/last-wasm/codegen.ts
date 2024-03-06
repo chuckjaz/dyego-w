@@ -1,15 +1,16 @@
 import {
     ArrayLiteral, Assign, Call, CheckResult, Function, Global, IfThenElse, Import, ImportFunction, Index, Last,
     LastKind, Let, PrimitiveKind, Locatable, Loop, Module, nameOfLastKind, Scope, Select, StructLiteral, Type,
-    TypeKind, Var, u8Type, MemoryMethod, booleanType
+    TypeKind, Var, u8Type, MemoryMethod, booleanType, FunctionReferenceType
 } from "../last"
 import {
     error, required, unsupported
 } from "../utils"
 import {
     ByteWriter, CodeSection, DataSection, ExportKind, ExportSection, FunctionSection, gen, ImportSection, Inst, label,
-    Label, Mapping, MemorySection, Module as WasmModule, Mut, Section, StartSection, TypeIndex, TypeSection, ValueType, DeferredCode
+    Label, Mapping, MemorySection, Module as WasmModule, Mut, Section, StartSection, TypeIndex, TypeSection, ValueType, DeferredCode, TableSection, ReferenceType
 } from "../wasm"
+import { ElementKind, ElementMode, ElementSection } from "../wasm/elementsection"
 import { GlobalSection } from "../wasm/globalsection"
 import {
     ArrayLiteralGenNode, AssignGenNode, BigIntConstGenNode, BlockGenNode, BodyGenNode, BranchTableGenNode, ClampGenNode,
@@ -17,7 +18,7 @@ import {
     FunctionGenNode, GenNode, GenType, genTypeOf, GotoGenNode, i32GenType, LocalAllocator, LocationAllocator,
     NumberConstGenNode, OpGenNode, ReturnGenNode, StructLiteralGenNode, UnaryOpGenNode, voidGenType,
     voidPointerGenType, zeroGenNode, builtinGenNodeFor, IfThenGenNode, LoopGenNode, trueGenNode, falseGenNode,
-    GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode, MemoryMethodGenNode, longZeroGenNode,
+    GlobalsAllocator, LocalIndexes, GlobalGenNode, TypeConvertGenNode, MemoryMethodGenNode, longZeroGenNode, FunctionReferenceAllocator,
 } from "./gennode"
 
 interface Scopes {
@@ -43,6 +44,8 @@ export function codegen(
     const genTypes = new Map<Type, GenType>()
     const typeSection = new TypeSection()
     const importSection = new ImportSection()
+    const tableSection = new TableSection(0)
+    const elementSeciton = new ElementSection()
     const codeSection = new CodeSection()
     const dataSection = new DataSection()
     const initGen = gen()
@@ -51,12 +54,13 @@ export function codegen(
     const memorySection = new MemorySection(0)
     let startSection: StartSection | undefined = undefined
     const functions = new Map<Function, FunctionDeclaration>()
+    const functionReferenceAllocator = new FunctionReferenceAllocator()
 
     // Allocate the top-of-memory variable.
     dataAllocator.allocate({ start: 0 }, voidPointerGenType)
 
     function typeOfType(location: Locatable | undefined, type: Type | undefined): GenType {
-        return genTypeOf(location, required(type, location), genTypes)
+        return genTypeOf(location, required(type, location), genTypes, typeIndexOfFunctionReference)
     }
 
     function typeOf(tree: Last): GenType {
@@ -94,13 +98,30 @@ export function codegen(
 
     // Allocate an init function if necessary
     if (initGen.size() > 0) {
-        const type = typeSection.funtionType({parameters: [], result: []})
+        const type = typeSection.functionType({parameters: [], result: []})
         const funcIndex = funcSection.allocate(type)
         const bytes = new ByteWriter()
         initGen.inst(Inst.End)
         initGen.write(bytes)
         codeSection.allocate(initGen.currentLocals(), bytes)
         startSection = new StartSection(funcIndex)
+    }
+
+    // Allocate tables and elements if necessary
+    if (!functionReferenceAllocator.empty) {
+        const funcrefs = functionReferenceAllocator.build()
+        tableSection.allocate(ReferenceType.funcref, { min: funcrefs.length + 1 })
+        const offsetGen = gen()
+        offsetGen.inst(Inst.i32_const)
+        offsetGen.number(1n)
+        offsetGen.inst(Inst.End)
+        const offset = new ByteWriter()
+        offsetGen.write(offset)
+        elementSeciton.allocate({
+            mode: ElementMode.ActiveFuncRef,
+            offset,
+            funcrefs
+        })
     }
 
     function addSection(section: Section | undefined) {
@@ -110,10 +131,12 @@ export function codegen(
     addSection(typeSection)
     addSection(importSection)
     addSection(funcSection)
+    addSection(tableSection)
     addSection(memorySection)
     addSection(globalSection)
     addSection(exportSection)
     addSection(startSection)
+    addSection(elementSeciton)
     addSection(codeSection)
     addSection(dataSection)
 
@@ -129,7 +152,7 @@ export function codegen(
                             typeIndex
                         )
                         const resultType = typeOf(item)
-                        const functionGenNode = new FunctionGenNode(item, resultType, funcIndex)
+                        const functionGenNode = new FunctionGenNode(item, resultType, funcIndex, typeIndex, functionReferenceAllocator)
                         scopes.nodes.enter((item.as ?? item.name).name, functionGenNode)
                         break
                     }
@@ -495,7 +518,20 @@ export function codegen(
         }
         const resultType = typeOf(node)
         const result = flattenTypes(resultType.locals(node.result))
-        return typeSection.funtionType({
+        return typeSection.functionType({
+            parameters,
+            result
+        })
+    }
+
+    function typeIndexOfFunctionReference(type: FunctionReferenceType): number {
+        const parameters: ValueType[] = []
+        type.parameters.forEach((_, type) => {
+            const parameterType = typeOfType(undefined, type)
+            parameters.push(...flattenTypes(parameterType.locals(undefined)))
+        })
+        const result = flattenTypes(typeOfType(undefined, type.result).locals(undefined))
+        return typeSection.functionType({
             parameters,
             result
         })
@@ -526,10 +562,10 @@ export function codegen(
 
         // Create the function index
         const funcIndex = funcSection.allocate(typeIndex)
-        const funcGenNode = new FunctionGenNode(node, resultType, funcIndex)
+        const funcGenNode = new FunctionGenNode(node, resultType, funcIndex, typeIndex, functionReferenceAllocator)
         const functionName = node.name
 
-        // If funciton is named, declare it in the scope
+        // If function is named, declare it in the scope
         if (functionName) {
             scopes.nodes.enter(functionName.name, funcGenNode)
         }

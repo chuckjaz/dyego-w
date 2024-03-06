@@ -63,7 +63,7 @@ describe("modules", () => {
     it("can create a module with an add function", () => {
         const typeSection = new TypeSection();
         // (a: i32, b: i32) -> i32
-        const typeIndex = typeSection.funtionType({
+        const typeIndex = typeSection.functionType({
             parameters: [NumberType.i32, NumberType.i32],
             result: [NumberType.i32]
         });
@@ -110,7 +110,7 @@ describe("modules", () => {
         // Type section
         const typeSection = new TypeSection();
         // (a: f64) -> f64
-        const typeIndex = typeSection.funtionType({
+        const typeIndex = typeSection.functionType({
             parameters: [NumberType.f64],
             result: [NumberType.f64]
         });

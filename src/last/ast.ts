@@ -73,6 +73,7 @@ export const enum LastKind {
     FieldLiteral,
     ArrayConstructor,
     PointerConstructor,
+    FunctionReference,
     Exported,
     Import,
     ImportFunction,
@@ -155,6 +156,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.FieldLiteral: return "FieldLiteral"
         case LastKind.ArrayConstructor: return "ArrayConstructor"
         case LastKind.PointerConstructor: return "PointerConstructor"
+        case LastKind.FunctionReference: return "FunctionReference"
         case LastKind.Exported: return "Exported"
         case LastKind.Import: return "Import"
         case LastKind.ImportFunction: return "ImportFunction"
@@ -302,7 +304,8 @@ export type TypeExpression =
     StructTypeLiteral |
     UnionTypeLiteral |
     ArrayConstructor |
-    PointerConstructor
+    PointerConstructor |
+    FunctionReference
 
 export type ImportItem =
     ImportFunction |
@@ -756,10 +759,17 @@ export interface ArrayConstructor extends LastNode {
     size?: number
 }
 
-/** A pointr type expression (*) */
+/** A pointer type expression (*) */
 export interface PointerConstructor extends LastNode {
     kind: LastKind.PointerConstructor
     target: TypeExpression
+}
+
+/** A function type which is a reference to a function (fun) */
+export interface FunctionReference extends LastNode {
+    kind: LastKind.FunctionReference
+    parameters: Parameter[]
+    result: TypeExpression
 }
 
 /** Export the target declaration (export) */

@@ -1,5 +1,5 @@
 import {
-    booleanType, i32Type, i64Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, nameOfTypeKind, Type, TypeDeclaration, TypeKind,
+    booleanType, FunctionReferenceType, i32Type, i64Type, LastKind, Locatable, MemoryMethod, memoryType, nameOfLastKind, nameOfTypeKind, Type, TypeDeclaration, TypeKind,
     typeToString, voidPointerType, voidType
 } from "../last";
 import { check, error, required, unsupported } from "../utils";
@@ -37,6 +37,7 @@ interface GenTypeParts {
     void?: boolean
     memory?: boolean
     union?: boolean
+    typeIndex?: number
 }
 
 export class GenType {
@@ -322,7 +323,7 @@ export class GenType {
         }
     }
 
-    locals(location: Locatable): LocalTypes {
+    locals(location: Locatable | undefined): LocalTypes {
         const parts = this.parts
         const piece = parts.piece
         if (piece !== undefined) {
@@ -1081,7 +1082,12 @@ export function flattenTypes(types: LocalTypes): ValueType[] {
     return result
 }
 
-export function genTypeOf(location: Locatable | undefined, type: Type, cache?: Map<Type, GenType>): GenType {
+export function genTypeOf(
+    location: Locatable | undefined,
+    type: Type,
+    cache?: Map<Type, GenType>,
+    typeIndexOf: ((type: FunctionReferenceType) => number) | undefined = undefined
+): GenType {
     const cached = cache?.get(type)
     if (cached) return cached
     let union = false
@@ -1129,6 +1135,10 @@ export function genTypeOf(location: Locatable | undefined, type: Type, cache?: M
             return genTypeOf(location, type.type, cache)
         case TypeKind.Function:
             return genTypeOf(location, type.result, cache)
+        case TypeKind.FunctionReference: {
+            const typeIndex = required(typeIndexOf)(type)
+            return new GenType(type, { piece: NumberType.i32, typeIndex })
+        }
         case TypeKind.Memory:
             return new GenType(type, { memory: true })
     }
@@ -1197,6 +1207,27 @@ export class DataAllocator implements LocationAllocator {
     }
 
     release(node: GenNode) { }
+}
+
+export class FunctionReferenceAllocator {
+    private allocated = new Map<number, number>()
+    private refs: number[] = []
+
+    // Begin the offsets at 1 to reserve 0 for null
+    private current = 1
+
+    get empty() { return this.current == 1 }
+
+    allocate(functionIndex: number): number {
+        return this.allocated.get(functionIndex) ?? ( () => {
+            let tableIndex = this.current++
+            this.refs.push(functionIndex)
+            this.allocated.set(functionIndex, tableIndex)
+            return tableIndex
+        })()
+    }
+
+    build() { return this.refs }
 }
 
 export class LocalAllocator implements LocationAllocator {
@@ -1394,8 +1425,8 @@ class LocalGenNode implements GenNode {
         unsupported(this.location)
     }
 
-    call(args: GenNode[], location?: Locatable): GenNode {
-        unsupported(location ?? this.location)
+    call(args: GenNode[], location?: Locatable): GenNode {zeroGenNode
+        return new CallIndirectGenNode(location ?? this.location, this.type, this, args)
     }
 
     select(index: number | string): GenNode {
@@ -2772,6 +2803,46 @@ export class ReturnGenNode extends LoadonlyGenNode implements GenNode {
     }
 }
 
+class CallIndirectGenNode extends LoadonlyGenNode implements GenNode {
+    location: Locatable
+    type: GenType
+    target: GenNode
+    args: GenNode[]
+
+    constructor(location: Locatable, type: GenType, target: GenNode, args: GenNode[]) {
+        super(location)
+        this.location = location
+        this.type = type
+        this.target = target
+        this.args = args
+    }
+
+    load(g: Generate) {
+        const args = this.args
+        for (const arg of args) {
+            arg.load(g)
+        }
+        this.target.load(g)
+        g.inst(Inst.Call_indirect)
+        const typeIndex = required(this.type.parts.typeIndex, this.location)
+        g.index(typeIndex)
+        g.index(0)
+    }
+
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new CallIndirectGenNode(location, type ?? this.type, this.target, this.args)
+    }
+
+    simplify(): GenNode {
+        const simpleTarget = this.target.simplify()
+        const simpleArgs = simplified(this.args)
+        if (this.args === this.args && this.target === simpleTarget) {
+            return this
+        }
+        return new CallIndirectGenNode(this.location, this.type, simpleTarget, simpleArgs)
+    }
+}
+
 class CallGenNode extends LoadonlyGenNode implements GenNode {
     location: Locatable
     type: GenType
@@ -2989,12 +3060,16 @@ export class FunctionGenNode extends LoadonlyGenNode implements GenNode {
     location: Locatable
     type: GenType
     funcIndex: FuncIndex
+    typeIndex: number
+    allocator: FunctionReferenceAllocator
 
-    constructor(location: Locatable, type: GenType, funcIndex: FuncIndex) {
+    constructor(location: Locatable, type: GenType, funcIndex: FuncIndex, typeIndex: number, allocator: FunctionReferenceAllocator) {
         super(location)
         this.location = location
         this.type = type
         this.funcIndex = funcIndex
+        this.typeIndex = typeIndex
+        this.allocator = allocator
     }
 
     load(g: Generate): void {
@@ -3002,7 +3077,7 @@ export class FunctionGenNode extends LoadonlyGenNode implements GenNode {
     }
 
     reference(location: Locatable, type?: GenType): GenNode {
-        return new FunctionGenNode(location, type ?? this.type, this.funcIndex)
+        return new FunctionGenNode(location, type ?? this.type, this.funcIndex, this.typeIndex, this.allocator)
     }
 
     simplify(): GenNode {
@@ -3011,6 +3086,51 @@ export class FunctionGenNode extends LoadonlyGenNode implements GenNode {
 
     call(args: GenNode[], location?: Locatable): GenNode {
         return new CallGenNode(location ?? this.location, this.type, this.funcIndex, args)
+    }
+
+    addressOf(): GenNode {
+        return new FunctionReferenceGenNode(this.location, i32GenType, this.funcIndex, this.typeIndex, this.allocator)
+    }
+}
+
+class FunctionReferenceGenNode extends LoadonlyGenNode implements GenNode {
+    location: Locatable
+    type: GenType
+    funcIndex: number
+    typeIndex: number
+    allocator: FunctionReferenceAllocator
+
+    constructor(
+        location: Locatable,
+        type: GenType,
+        funcIndex: number,
+        typeIndex: number,
+        allocator: FunctionReferenceAllocator
+    ) {
+        super(location)
+        this.location = location
+        this.type = type
+        this.funcIndex = funcIndex
+        this.typeIndex = typeIndex
+        this.allocator = allocator
+    }
+
+    reference(location: Locatable, type?: GenType): GenNode {
+        return new FunctionReferenceGenNode(location, type ?? this.type, this.funcIndex, this.typeIndex, this.allocator)
+    }
+
+    simplify(): GenNode {
+        return this
+    }
+
+    load(g: Generate): void {
+        const tableIndex = this.allocator.allocate(this.funcIndex)
+        g.inst(Inst.i32_const)
+        g.index(tableIndex)
+    }
+
+    call(args: GenNode[], location?: Locatable): GenNode {
+        return new CallIndirectGenNode(location ?? this.location, this.type, this, args)
     }
 }
 

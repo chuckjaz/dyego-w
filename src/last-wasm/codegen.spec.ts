@@ -1642,6 +1642,30 @@ describe("last codegen", () => {
             })
         })
     })
+    describe("function references", () => {
+        it("can take a reference to a function", () => {
+            cg(`
+                fun f(): void {}
+
+                export fun test(): void {
+                    var p = &f;
+                }
+            `, ({test}) => {
+                test()
+            })
+        })
+        it("can call a function through a function", () => {
+            cg(`
+                fun f(): i32 { 42 }
+                export fun test(): i32 {
+                    var p = &f
+                    p()
+                }
+            `, ({test}) => {
+                expect(test()).toEqual(42)
+            })
+        })
+    })
 })
 
 function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet): never {

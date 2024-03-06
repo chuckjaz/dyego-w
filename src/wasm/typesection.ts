@@ -1,3 +1,4 @@
+import { FunctionReference, FunctionReferenceType } from '../last';
 import { ByteWriter } from './bytewriter';
 import { Section, writeSized } from './section';
 import { FunctionType, NumberType, ReferenceType, ResultType, SectionIndex, TypeIndex, ValueType } from './wasm';
@@ -12,7 +13,7 @@ export class TypeSection implements Section {
         return this.types.length == 0;
     }
 
-    funtionType(type: FunctionType): TypeIndex {
+    functionType(type: FunctionType): TypeIndex {
         const key = functionTypeToString(type);
         return this.map.get(key) ?? this.newIndex(key, type);
     }

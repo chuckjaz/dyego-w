@@ -7,7 +7,7 @@ import {
     LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter, PointerConstructor, Reference, Remainder,
     Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral, Subtact, TypeDeclaration, TypeExpression,
     TypeSelect, Var, Primitive, UnionTypeLiteral, AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest,
-    CopySign, Minimum, Maximum, ConvertTo, WrapTo, ReinterpretAs, TruncateTo, Memory, MemoryMethod, ExportedMemory, BitNot
+    CopySign, Minimum, Maximum, ConvertTo, WrapTo, ReinterpretAs, TruncateTo, Memory, MemoryMethod, ExportedMemory, BitNot, FunctionReference
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -207,6 +207,15 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
                 const fields = sequence(fieldLiteral, identSet, unionEndSet, comma)
                 expect(Token.UnionEnd)
                 return l<UnionTypeLiteral>(start, { kind: LastKind.UnionTypeLiteral, fields })
+            }
+            case Token.Fun: {
+                next()
+                expect(Token.LParen)
+                const parameters = parameterList()
+                expect(Token.RParen)
+                expect(Token.Colon)
+                const result = typeExpression()
+                return l<FunctionReference>(start, { kind: LastKind.FunctionReference, parameters, result })
             }
             case Token.LParen: {
                 const savedFollows = follows

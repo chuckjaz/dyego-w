@@ -19,6 +19,7 @@ export const enum TypeKind {
     Null,
     Void,
     Function,
+    FunctionReference,
     Location,
     Memory,
     Unknown,
@@ -45,6 +46,7 @@ export function nameOfTypeKind(kind: TypeKind): string {
         case TypeKind.Null: return "Null";
         case TypeKind.Void: return "Void";
         case TypeKind.Function: return "Function";
+        case TypeKind.FunctionReference: return "FunctionReference";
         case TypeKind.Location: return "Location";
         case TypeKind.Memory: return "Memory";
         case TypeKind.Unknown: return "Unknown";
@@ -64,6 +66,7 @@ export type Type =
     NullType |
     VoidType |
     FunctionType |
+    FunctionReferenceType |
     LocationType |
     MemoryType |
     UnknownType |
@@ -176,6 +179,12 @@ export interface FunctionType {
     name?: string
 }
 
+export interface FunctionReferenceType {
+    kind: TypeKind.FunctionReference
+    parameters: Scope<Type>
+    result: Type
+}
+
 export interface LocationType {
     kind: TypeKind.Location
     type: Type
@@ -239,6 +248,7 @@ export function capabilitesOf(type: Type): Capabilities {
         case TypeKind.Array:
             return Capabilities.Indexable;
         case TypeKind.Function:
+        case TypeKind.FunctionReference:
             return Capabilities.Callable;
         case TypeKind.Location:
             return Capabilities.Loadable | Capabilities.Storeable | capabilitesOf(type.type);
@@ -290,6 +300,8 @@ export function typeToString(type: Type): string {
             return `bool`
         case TypeKind.Function:
             return type.name ?? `(${type.parameters.map(nameTypeToString).join(", ")})->${typeToString(type.result)}`
+        case TypeKind.FunctionReference:
+            return `(${type.parameters.map(nameTypeToString).join(", ")})->${typeToString(type.result)}`
         case TypeKind.Location:
             return typeToString(type.type)
         case TypeKind.Struct:

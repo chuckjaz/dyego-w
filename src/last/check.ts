@@ -2,7 +2,7 @@ import { required, check as chk } from "../utils";
 import {
     BranchTarget, Declaration, Last, LastKind, Let, Function, Module, nameOfLastKind, StructTypeLiteral,
     TypeDeclaration as TypeNode, Var, Parameter, Import, Expression, Block, Loop, Reference, IfThenElse, PrimitiveKind,
-    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral, Memory, MemoryMethod, ExportedMemory
+    StructLiteral, ArrayLiteral, Call, Select, Index, Assign, BodyElement, Global, UnionTypeLiteral, Memory, MemoryMethod, ExportedMemory, FunctionReference
 } from "./ast";
 import { Diagnostic } from "./diagnostic";
 import { Locatable } from "./locatable";
@@ -10,7 +10,7 @@ import { Scope } from "./scope";
 import {
     globals, Type, TypeKind, UnknownType, typeToString, nameOfTypeKind, PointerType, ErrorType, StructType, booleanType,
     ArrayType, FunctionType, voidType, Capabilities, capabilitesOf, i32Type, i8Type, i16Type, i64Type, u8Type, u16Type,
-    u32Type, u64Type, f32Type, f64Type, nullType, voidPointerType, UnionType
+    u32Type, u64Type, f32Type, f64Type, nullType, voidPointerType, UnionType, FunctionReferenceType
 } from "./types";
 
 const builtins = new Scope<Type>(globals)
@@ -457,6 +457,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
         if (type.kind == TypeKind.Location && type.addressable) {
             return { kind: TypeKind.Pointer, target: type.type }
         }
+        if (type.kind == TypeKind.Function) {
+            return { kind: TypeKind.FunctionReference, parameters: type.parameters, result: type.result }
+        }
         report(node, "The value does not have an address")
         return errorType
     }
@@ -557,24 +560,28 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function call(node: Call, scopes: Scopes): Type {
         const callType = checkExpression(node.target, scopes)
         requireCapability(callType, Capabilities.Callable, node.target)
-        if (callType.kind != TypeKind.Function) {
-            if (callType.kind != TypeKind.Error)
-                report(node.target, `Expected a function reference`)
-            return errorType
+        const refType = callType.kind == TypeKind.Location ? callType.type : callType
+        switch (refType.kind) {
+            case TypeKind.Function:
+            case TypeKind.FunctionReference:
+                if (node.arguments.length != refType.parameters.size) {
+                    report(node, `Expected ${refType.parameters.size} argument${
+                        refType.parameters.size == 1 ? '' : 's'
+                    }, received ${node.arguments.length}`)
+                    return errorType
+                }
+                let index = 0
+                refType.parameters.forEach((name, type) => {
+                    const arg = node.arguments[index++]
+                    const argType = checkExpression(arg, scopes)
+                    mustMatch(arg, type, argType)
+                })
+                return refType.result
+            default:
+                if (refType.kind != TypeKind.Error)
+                    report(node.target, `Expected a function reference`)
+                return errorType
         }
-        if (node.arguments.length != callType.parameters.size) {
-            report(node, `Expected ${callType.parameters.size} argument${
-                callType.parameters.size == 1 ? '' : 's'
-            }, received ${node.arguments.length}`)
-            return errorType
-        }
-        let index = 0
-        callType.parameters.forEach((name, type) => {
-            const arg = node.arguments[index++]
-            const argType = checkExpression(arg, scopes)
-            mustMatch(arg, type, argType)
-        })
-        return callType.result
     }
 
     function select(node: Select, scopes: Scopes): Type {
@@ -889,6 +896,9 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 const target = typeExpr(node.target, scopes)
                 return { kind: TypeKind.Pointer, target }
             }
+            case LastKind.FunctionReference: {
+                return functionReference(node, scopes)
+            }
             case LastKind.StructTypeLiteral:
                 return structTypeLiteral(node, scopes)
             case LastKind.UnionTypeLiteral:
@@ -923,6 +933,12 @@ export function check(module: Module): CheckResult | Diagnostic[] {
     function unionTypeLiteral(tree: UnionTypeLiteral, scopes: Scopes): Type {
         const fields = structuredType(tree, scopes)
         return { kind: TypeKind.Union, fields }
+    }
+
+    function functionReference(tree: FunctionReference, scopes: Scopes): Type {
+        const parameters = funcParameters(tree.parameters, scopes)
+        const result = typeExpr(tree.result, scopes)
+        return { kind: TypeKind.FunctionReference, parameters, result }
     }
 
     function hasUnknown(type: Type): UnknownType | undefined {
@@ -1016,6 +1032,25 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 case TypeKind.Union:
                 case TypeKind.Function:
                     return false;
+                case TypeKind.FunctionReference: {
+                    const toType = to as FunctionReferenceType
+                    if (from.parameters.size != toType.parameters.size) {
+                        return false
+                    }
+                    if (!equivilent(from.result, toType.result)) {
+                        return false
+                    }
+                    const fromTypes = from.parameters.map((_, type) => type)
+                    const toTypes = toType.parameters.map((_, type) => type)
+                    for (let i = 0; i < fromTypes.length; i++) {
+                        const fromParameter = fromTypes[i]
+                        const toParaemter = toTypes[i]
+                        if (!equivilent(fromParameter, toParaemter)) {
+                            return false
+                        }
+                    }
+                    return true
+                }
                 case TypeKind.Pointer:
                     return equivilent(from.target, (to as PointerType).target)
                 case TypeKind.Array:

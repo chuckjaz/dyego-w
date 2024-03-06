@@ -127,6 +127,10 @@ describe("parser", () => {
         describe("union", () => {
             it("can parse union", () => { t("<| a: i32, c: i64 |>") })
         })
+        describe("func type", () => {
+            it("can parse parameterless", () => t("fun (): void"))
+            it("can parse parameters", () => t("fun(a: i32, b: i64): void"))
+        })
     })
 })
 

@@ -554,6 +554,25 @@ describe("check", () => {
         })
     })
 
+    describe("function references", () => {
+        it("can declare a funciton reference type", () => {
+            t("type FunctionPtr = fun (): void")
+        })
+        it("can call a function reference", () => {
+            t(`
+                fun test(fp: fun (): i32): i32 {
+                    fp()
+                }
+            `)
+        })
+        it("can convert a function to a function reference", () => {
+            t(`
+                fun t(): i32 { 23 }
+                var f: fun(): i32 = &t;
+            `)
+        })
+    })
+
     describe("negative tests", () => {
         it("can report array locals", () => {
             d(`

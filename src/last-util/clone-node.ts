@@ -119,6 +119,8 @@ export function cloneNode<T extends Last>(node: T): T {
             return { ...node, element: cloneNode(node.element) }
         case LastKind.PointerConstructor:
             return { ...node, target: cloneNode(node.target) }
+        case LastKind.FunctionReference:
+            return { ...node, parameters: node.parameters.map(cloneNode), result: cloneNode(node.result) }
         case LastKind.Exported:
             return { ...node, target: cloneNode(node.target) }
         case LastKind.Import:
