@@ -597,14 +597,16 @@ export function check(module: Module): CheckResult | Diagnostic[] {
             if (originalTarget.kind == TypeKind.Location && fieldType.kind != TypeKind.Location)
                 return { kind: TypeKind.Location, type: fieldType }
             return fieldType
-
         }
-        switch (targetType.kind) {
+        const type = targetType.kind == TypeKind.Location ? targetType.type : targetType;
+        switch (type.kind) {
             case TypeKind.Struct:
             case TypeKind.Union:
-                return fieldTypeOf(targetType);
+                return fieldTypeOf(type);
+            case TypeKind.Error:
+                return type
             default:
-                report(node.name, `Type ${typeToString(targetType)} does not have a member "${node.name.name}"`)
+                report(node.name, `Type ${typeToString(type)} does not have a member "${node.name.name}"`)
                 return errorType
         }
     }

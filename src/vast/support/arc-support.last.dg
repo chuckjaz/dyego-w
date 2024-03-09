@@ -1,0 +1,96 @@
+type `$$buffer_header` = < size: i32, refCount: i32 >
+type `$$descriptor` = < size: i32, field_count: i32, fields: `$$descriptor_field`[]^ >
+type `$$descriptor_field` = < offset: i32, descriptor: `$$descriptor`^ >
+
+fun `$$allocate_buffer`(size: i32): void^ {
+    var buffer = (`$$allocate`(size + (sizeof i32 + sizeof i32))) reinterpretas `$$buffer_header`^;
+    buffer^ = { size: size, refCount: 1 };
+    var result = (buffer + 1) reinterpretas void^;
+    result
+}
+
+fun `$$aquire_buffer`(buffer: void^): void^ {
+    var buffer_header = (buffer reinterpretas `$$buffer_header`^) - 1
+    var newCount = buffer_header^.refCount + 1
+    buffer_header^.refCount = newCount
+
+    buffer
+}
+
+fun `$$release_buffer`(buffer: void^, descriptor: `$$descriptor`^): void {
+    var buffer_header = (buffer reinterpretas `$$buffer_header`^) - 1
+    var newCount = buffer_header^.refCount - 1
+    buffer_header^.refCount = newCount
+    if (newCount == 0) {
+        var size = buffer_header^.size
+        if (descriptor != null) {
+            `$$release_elements`(buffer, descriptor^, size / descriptor^.size)
+        }
+        `$$free`(buffer_header reinterpretas void^, size)
+    }
+}
+
+fun `$$release_elements`(buffer: void^, descriptor: `$$descriptor`, count: i32): void {
+    var current = buffer reinterpretas u8^
+    block outer {
+        loop {
+            if (count <= 0) {
+                branch outer
+            }
+            block inner {
+                var i = 0
+                loop {
+                    var field = descriptor.fields^[i]
+                    var element = ((current + field.offset) reinterpretas void^^)^
+                    `$$release_buffer`(element, field.descriptor)
+                    i = i + 1
+                    if (i >= descriptor.field_count) {
+                        branch inner
+                    }
+                    branch
+                }
+            }
+            current = current + descriptor.size
+            count = count - 1
+        }
+    }
+}
+
+fun `$$unique_buffer`(buffer: void^, descriptor: `$$descriptor`): void^ {
+    var buffer_header = (buffer reinterpretas `$$buffer_header`^) - 1
+
+    if (buffer_header^.refCount == 1) {
+
+        buffer
+    } else {
+        var size = buffer_header^.size
+        var new_buffer = `$$allocate_buffer`(size)
+        memory.copy(new_buffer, buffer, size)
+        var current = new_buffer reinterpretas u8^
+        var count = size / descriptor.size
+        block outer {
+            loop {
+                if (count <= 0) {
+                    branch outer
+                }
+                block inner {
+                    var i = 0
+                    loop {
+                        var field = descriptor.fields^[i]
+                        var element = ((current + field.offset) reinterpretas void^^)^
+                        `$$aquire_buffer`(element)
+                        i = i + 1
+                        if (i >= descriptor.field_count) {
+                            branch inner
+                        }
+                        branch
+                    }
+                }
+                current = current + descriptor.size
+                count = count - 1
+            }
+        }
+
+        new_buffer
+    }
+}

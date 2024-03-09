@@ -817,6 +817,19 @@ describe("codegen", () => {
             const bytes = wsm(mergedModule, fileSet)
             fs.writeFileSync("out/tmp.wasm", bytes)
         })
+        it("can load arc support", () => {
+            const fileSet = new FileSet()
+            const memorySupport = loadSupport(`src/vast/support/simple-memory.last.dg`, fileSet)
+            const arcSupport = loadSupport(`src/vast/support/arc-support.last.dg`, fileSet)
+            const support = mergeModules([memorySupport, arcSupport])
+            if (Array.isArray(support)) {
+                report("merge", support, fileSet)
+            }
+            const checkResult = last.check(support)
+            if (Array.isArray(checkResult)) {
+                report("last check", checkResult, fileSet)
+            }
+        })
     })
     // describe("examples", () => {
     //     // it("can atoi.dg", () => {
@@ -915,12 +928,7 @@ function parseLast(name: string, text: string, fileSet: FileSet = new FileSet())
 
 function loadSupport(file: string, fileSet: FileSet = new FileSet()): last.Module{
     const text = fs.readFileSync(file, 'utf-8')
-    const module = parseLast(file, text, fileSet)
-    const checkResult = last.check(module)
-    if (Array.isArray(checkResult)) {
-        report("support-check", checkResult, fileSet)
-    }
-    return module
+    return parseLast(file, text, fileSet)
 }
 
 function cgf(file: string, block: (exports: any) => void) {
