@@ -832,11 +832,11 @@ describe("codegen", () => {
         })
     })
     // describe("examples", () => {
-    //     // it("can atoi.dg", () => {
-    //     //     cgf('src/vast/examples/atoi.dg', (exports) => {
-    //     //         expect(exports['Test']()).toEqual(42)
-    //     //     })
-    //     // })
+    //     it("can atoi.dg", () => {
+    //         cgf('src/vast/examples/atoi.dg', (exports) => {
+    //             expect(exports['Test']()).toEqual(42)
+    //         })
+    //     })
     // })
 })
 

@@ -297,7 +297,7 @@ export class Scanner {
                     if (text[i++] != "'") {
                         i--
                         result = Token.Error
-                        this.message = "Unterniated char"
+                        this.message = "Unterminated char"
                     }
                     break
                 case '"': {
