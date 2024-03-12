@@ -15,6 +15,6 @@ export function required<T>(value: T | undefined, location?: Locatable): T {
     error("Value is required", location)
 }
 
-export function check(value: boolean, message?: string) {
-    if (!value) error(message || "Failed check")
+export function check(value: boolean, message?: string, location?: Locatable) {
+    if (!value) error(message || "Failed check", location)
 }
