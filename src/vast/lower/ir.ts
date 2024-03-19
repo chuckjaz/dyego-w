@@ -1,7 +1,9 @@
 import * as ast from "../ast"
 import { Type } from "../types/types";
-import { Location, ValLocation, VarLocation } from "../types/check"
+import { FunctionLocation, Location, ValLocation, VarLocation } from "../types/check"
 import { Locatable } from "../../last";
+
+export { PrimitiveKind } from "../ast"
 
 export const enum IrKind {
     ArrayLiteral,
@@ -34,9 +36,8 @@ export interface Module extends IrNode {
     initialize: Block
 }
 
-export type Expression = 
+export type Expression =
     ArrayLiteral |
-    Assign |
     Block |
     Call |
     ComputedBranch |
@@ -48,7 +49,8 @@ export type Expression =
     Select |
     StructLiteral
 
-export type Statement = 
+export type Statement =
+    Assign |
     Break |
     Continue |
     Definition |
@@ -78,13 +80,13 @@ export interface Assign extends IrNode {
 
 export interface Block extends IrNode {
     kind: IrKind.Block
-    name?: ast.Reference
+    name: string
     statements: Statement[]
 }
 
 export interface Break extends IrNode {
     kind: IrKind.Break
-    target?: ast.Reference
+    target: string
 }
 
 export interface Call extends IrNode {
@@ -102,7 +104,7 @@ export interface ComputedBranch extends IrNode {
 
 export interface Continue extends IrNode {
     kind: IrKind.Continue
-    target?: ast.Reference
+    target: string
 }
 
 export interface Definition extends IrNode {
@@ -112,13 +114,16 @@ export interface Definition extends IrNode {
 
 export interface For extends IrNode {
     kind: IrKind.For
+    name: string
     index: Reference
     initialize: Expression
     advance: Expression
+    body: Block
 }
 
 export interface Function extends IrNode {
     kind: IrKind.Function
+    location: FunctionLocation
     name: Reference
     parameters: Reference[]
     body: Block
@@ -176,6 +181,7 @@ export interface FieldLiteral extends IrNode {
 
 export interface While extends IrNode {
     kind: IrKind.While
+    name: string
     condition: Expression
     body: Block
 }

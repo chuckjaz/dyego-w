@@ -6,17 +6,21 @@ import { FunctionType, StructType, Type, TypeKind } from "../types/types"
 import { Locatable } from "../../last"
 import { check as chk, error, required } from "../../utils"
 import { IrKind } from "./ir"
+import { FunctionLocation } from "../types/check"
 
 export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): ir.Module {
     const data: (check.ValLocation | check.VarLocation)[] = []
     const functions: ir.Function[] = []
     const initializers: ir.Statement[] = []
 
+    let uniquBlockNumber = 0
+    let topBlock: string = ""
+
     for (const declaration of astModule.declarations) {
         if (declaration.kind == ast.Kind.Function) {
             functions.push(convertFunction(declaration))
         } else {
-            const irDeclaration = convertStatement(declaration)
+            const irDeclaration = convertStatement(declaration, false)
             if (irDeclaration.kind != IrKind.Nothing) {
                 initializers.push(irDeclaration)
             }
@@ -31,28 +35,30 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
 
     return {
         kind: IrKind.Module,
-        type: voidType, 
-        functions, 
-        data, 
-        initialize: { kind: IrKind.Block, type: voidType, statements: initializers } 
+        type: voidType,
+        functions,
+        data,
+        initialize: { kind: IrKind.Block, name: uniqueBlockName(), type: voidType, statements: initializers }
     }
 
     function convertFunction(func: ast.Function): ir.Function {
+        const location = required(checkResult.references.get(func.name), func) as FunctionLocation
         const parameters = func.parameters.map(parameter => convertReference(parameter.alias))
-        const result = required(checkResult.types.get(func.body), func.body)
-        const name = convertReference(func.name)
-        const body = convertBlock(result, func.body)
+        const type = required(checkResult.types.get(func.body), func.body)
+        const name = convertReference(func.name, nameOfFunction(func))
+        const body = convertBlock(type, func.body, type.kind != TypeKind.Void)
         return {
             ...locationOf(func),
             kind: IrKind.Function,
-            type: result,
+            type,
+            location,
             name,
             parameters,
             body
         }
     }
 
-    function convertExpression(expression: ast.Expression): ir.Expression {
+    function convertExpression(expression: ast.Expression, valueNeeded: boolean): ir.Expression {
         const type = required(checkResult.types.get(expression), expression)
         switch (expression.kind) {
             case ast.Kind.ArrayLiteral:
@@ -60,20 +66,23 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
                     ...locationOf(expression),
                     kind: IrKind.ArrayLiteral,
                     type,
-                    values: expression.values.map(convertExpression) 
+                    values: expression.values.map(value => convertExpression(value, true))
                 }
             case ast.Kind.As:
-                return convertExpression(expression.left)
+                return convertExpression(expression.left, valueNeeded)
             case ast.Kind.Assign:
-                return {
-                    ...locationOf(expression),
-                    kind: IrKind.Assign,
-                    type,
-                    target: convertExpression(expression.target),
-                    value: convertExpression(expression.value)
-                }
+                if (valueNeeded)
+                    return convertAssignExpression(expression)
+                else
+                    return {
+                        ...locationOf(expression),
+                        kind: IrKind.Block,
+                        type: voidType,
+                        name: uniqueBlockName(),
+                        statements: [convertAssignStatment(expression)]
+                    }
             case ast.Kind.Block:
-                return convertBlock(type, expression)
+                return convertBlock(type, expression, valueNeeded)
             case ast.Kind.Call:
                 return convertCall(type, expression)
             case ast.Kind.If:
@@ -81,17 +90,17 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
                     ...locationOf(expression),
                     kind: IrKind.If,
                     type,
-                    condition: convertExpression(expression.condition),
-                    then: convertBlock(type, expression.then),
-                    else: convertBlock(type, expression.else)
+                    condition: convertExpression(expression.condition, true),
+                    then: convertBlock(type, expression.then, valueNeeded),
+                    else: convertBlock(type, expression.else, valueNeeded)
                 }
             case ast.Kind.Index:
                 return {
                     ...locationOf(expression),
                     kind: IrKind.Index,
                     type,
-                    target: convertExpression(expression.target),
-                    index: convertExpression(expression.index)
+                    target: convertExpression(expression.target, true),
+                    index: convertExpression(expression.index, true)
                 }
             case ast.Kind.Lambda:
                 error("Not supported yet", expression)
@@ -112,14 +121,14 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
                     fields: [ syntheticField("start", start), syntheticField("end", end) ]
                 }
             case ast.Kind.Reference:
-                return convertReference(expression, type)
+                return convertReference(expression, undefined, type)
             case ast.Kind.Select: {
-                const name = convertExpression(expression.target) as ir.Reference
+                const name = convertExpression(expression.name, true) as ir.Reference
                 return {
                     ...locationOf(expression),
                     kind: IrKind.Select,
                     type,
-                    target: convertExpression(expression.target),
+                    target: convertExpression(expression.target, true),
                     name
                 }
             }
@@ -130,13 +139,81 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
         }
     }
 
-    function convertStatement(statement: ast.Statement): ir.Statement {
+    function convertAssignExpression(expression: ast.Assign): ir.Block {
+        const target = convertExpression(expression.target, true)
+        const value = convertExpression(expression.value, true)
+
+        if (isSimple(expression.value)) {
+            const assign: ir.Assign = {
+                kind: IrKind.Assign,
+                type: voidType,
+                target,
+                value
+            }
+            return {
+                ...locationOf(expression),
+                kind: IrKind.Block,
+                name: uniqueBlockName(),
+                type: value.type,
+                statements: [ assign, value ]
+            }
+        }
+
+        const location: check.ValLocation = {
+            kind: check.LocationKind.Val,
+            type: target.type
+        }
+        const name: ir.Reference = {
+            kind: IrKind.Reference,
+            type: location.type,
+            name: "tmp",
+            location
+        }
+        const definition: ir.Definition = {
+            kind: IrKind.Definition,
+            type: location.type,
+            name
+        }
+        const assignTmp: ir.Assign = {
+            kind: IrKind.Assign,
+            type: voidType,
+            target: name,
+            value
+        }
+        const assign: ir.Assign = {
+            kind: IrKind.Assign,
+            type: voidType,
+            target,
+            value: name
+        }
+        return {
+            ...locationOf(expression),
+            kind: IrKind.Block,
+            type: location.type,
+            name: uniqueBlockName(),
+            statements: [ definition, assignTmp, assign, name ]
+        }
+    }
+
+    function convertAssignStatment(expression: ast.Assign): ir.Assign {
+        const target = convertExpression(expression.target, true)
+        const value = convertExpression(expression.value, true)
+        return {
+            ...locationOf(expression),
+            kind: IrKind.Assign,
+            type: voidType,
+            target,
+            value
+        }
+    }
+
+    function convertStatement(statement: ast.Statement, valueNeeded: boolean): ir.Statement {
         switch (statement.kind) {
             case ast.Kind.Var:
             case ast.Kind.Val:
                 if (statement.value) {
-                    const target = convertReference(statement.name)
-                    const value = convertExpression(statement.value)
+                    const target = convertReference(statement.name, undefined, voidType)
+                    const value = convertExpression(statement.value, true)
                     return {
                         ...locationOf(statement),
                         kind: IrKind.Assign,
@@ -157,47 +234,66 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
                     ...locationOf(statement),
                     kind: IrKind.Break,
                     type: voidType,
-                    target: statement.target
+                    target: statement.target?.name ?? topBlock
                 }
             case ast.Kind.Continue:
                 return {
                     ...locationOf(statement),
                     kind: IrKind.Continue,
                     type: voidType,
-                    target: statement.target
+                    target: statement.target?.name ?? topBlock
                 }
-            case ast.Kind.While: 
+            case ast.Kind.While:
+                const [name, body] = namedBlock(statement, () => convertBlock(voidType, statement.body, false))
                 return {
                     ...locationOf(statement),
                     kind: IrKind.While,
                     type: voidType,
-                    condition: convertExpression(statement.condition),
-                    body: convertBlock(voidType, statement.body)
+                    name,
+                    condition: convertExpression(statement.condition, true),
+                    body
                 }
             case ast.Kind.Return:
                 return {
                     ...locationOf(statement),
                     kind: IrKind.Return,
                     type: voidType,
-                    value: convertExpressionOrNothing(statement.value) 
+                    value: convertExpressionOrNothing(statement.value)
                 }
             default:
-                return convertExpression(statement)
+                return convertExpression(statement, valueNeeded)
         }
     }
 
-    function convertBlock(type: Type, expression: ast.Block): ir.Block {
+    function convertBlock(type: Type, expression: ast.Block, valueNeeded: boolean): ir.Block {
+        const astStatements = expression.statements
+        const len = astStatements.length;
+        const end = valueNeeded ? len - 2 : len - 1
+        const [name, irStatements] = namedBlock(expression, () => {
+            const irStatements: ir.Statement[] = []
+            for (let i = 0; i < end; i++) {
+                const statement = astStatements[i]
+                const irStatement = convertStatement(statement, false)
+                if (irStatement.kind != IrKind.Nothing)
+                    irStatements.push(irStatement)
+            }
+            if (len > 0) {
+                irStatements.push(convertStatement(astStatements[len - 1], true))
+            }
+            return irStatements
+        })
         return {
             ...locationOf(expression),
             kind: IrKind.Block,
             type,
-            name: expression.name,
-            statements: expression.statements.map(convertStatement).filter(statment => statment.kind != IrKind.Nothing)
+            name,
+            statements: irStatements
         }
     }
 
     function convertCall(type: Type, expression: ast.Call): ir.Expression {
-        const target = convertExpression(expression.target)
+        const originalTarget = expression.target
+        let target = convertExpression(originalTarget, true)
         const targetType = target.type
         chk(targetType.kind == TypeKind.Function, "Required a function type", expression)
         const callType = targetType as FunctionType
@@ -246,7 +342,7 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
         }
 
         for (const argument of expression.arguments) {
-            const value = convertExpression(argument.value)
+            const value = convertExpression(argument.value, true)
             const name = argument.name ? argument.name.name : expectedPosition().toString()
             const index = required(parameters.order(name), argument)
             isComplex[index] = !isSimple(argument.value)
@@ -255,6 +351,11 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
             } else {
                 args[index] = value
             }
+        }
+
+        if (target.kind == IrKind.Select) {
+            args.unshift(target.target)
+            target = target.name
         }
 
         const call: ir.Call = {
@@ -268,22 +369,27 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
             return {
                 ...locationOf(expression),
                 kind: IrKind.Block,
+                name: uniqueBlockName(),
                 type,
                 statements
-            } 
+            }
         } else {
             return call
         }
     }
 
-    function convertReference(expression: ast.Reference, type?: Type): ir.Reference {
+    function convertReference(
+        expression: ast.Reference,
+        name?: string,
+        type?: Type
+    ): ir.Reference {
         const t = type ?? required(checkResult.types.get(expression), expression)
-        const location = required(checkResult.references.get(expression), expression) 
+        const location = required(checkResult.references.get(expression), expression)
         return {
             ...locationOf(expression),
             kind: IrKind.Reference,
             type: t,
-            name: expression.name,
+            name: name ?? expression.name,
             location
         }
     }
@@ -297,11 +403,6 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
         function needsReorder(index: number): boolean {
             for (let i = 0; i < index; i++) if (isComplex[i]) return true
             return false
-        }
-
-        function expectedPosition() {
-            for (let i = 0; i < fields.length; i++) if (!fields[i]) return i
-            return fields.length
         }
 
         function tmpFor(value: ir.Expression): ir.Reference {
@@ -337,12 +438,12 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
         const typeFields = type.fields
         for (const field of expression.fields) {
             const name = convertReference(field.name)
-            let value = convertExpression(field.value)
+            let value = convertExpression(field.value, true)
             const index = required(typeFields.order(name.name), field)
             isComplex[index] = !isSimple(field.value)
             if (needsReorder(index) && isComplex[index]) {
                 value = tmpFor(value)
-            } 
+            }
             fields[index] = {
                 kind: IrKind.FieldLiteral,
                 type: voidType,
@@ -358,13 +459,20 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
             fields
         }
     }
- 
+
     function convertWhen(type: Type, expression: ast.When): ir.Expression {
         error("not supported yet", expression)
     }
 
     function convertFor(statement: ast.For): ir.For {
         error("not supported yet", statement)
+    }
+
+    function uniqueBlockName(): string {
+        return `block_${uniquBlockNumber++}`
+    }
+    function dup<N extends ir.Reference | ir.Literal>(node: N): N {
+        return { ...node }
     }
 
     function nothing(): ir.Nothing {
@@ -375,8 +483,8 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
     }
 
     function convertExpressionOrNothing(expression: ast.Expression | undefined): ir.Expression {
-        if (expression !== undefined) 
-            return convertExpression(expression)
+        if (expression !== undefined)
+            return convertExpression(expression, true)
         return nothing()
     }
 
@@ -402,10 +510,19 @@ export function fromAst(astModule: ast.Module, checkResult: check.CheckResult): 
         }
         return {
             kind: IrKind.FieldLiteral,
-            type: voidType, 
-            name: irRef, 
-            value 
+            type: voidType,
+            name: irRef,
+            value
         }
+    }
+
+    function namedBlock<R>(node: { name?: ast.Reference }, block: () => R): [string, R] {
+        const name = node.name?.name ?? uniqueBlockName()
+        const oldTopBlock = topBlock
+        topBlock = name
+        const result = block()
+        topBlock = oldTopBlock
+        return [name, result]
     }
 }
 
@@ -414,3 +531,19 @@ function locationOf(locatable: Locatable): Locatable {
 }
 
 const voidType: Type = { kind: TypeKind.Void }
+
+function nameOfFunction(func: ast.Function): string {
+    let params = ""
+    let positionalParameters = 0
+    for (const parameter of func.parameters) {
+        if (typeof parameter.name == 'number') {
+            positionalParameters++
+        } else {
+            params += `/${parameter.name.name}`
+        }
+    }
+    if (positionalParameters) {
+        params += `/${positionalParameters}`
+    }
+    return `${func.name.name}${params}`
+}

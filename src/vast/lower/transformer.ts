@@ -4,7 +4,7 @@ export function transformer(visitor: <N extends IrNode>(node: N) => N | undefine
     const convertReference = (node: Reference) => visitor(node) ?? node
     const convertStatements = arrayConverter(convertStatement)
     const convertArrayLiteral = converter<ArrayLiteral>({ values: arrayConverter(convertExpression) })
-    const convertAssign = converter<Assign>({ target: convertExpression, value: convertExpression }) 
+    const convertAssign = converter<Assign>({ target: convertExpression, value: convertExpression })
     const convertBlock = converter<Block>({ statements: convertStatements })
     const convertCall = converter<Call>({ target: convertExpression, args: arrayConverter(convertExpression) })
     const convertComputedBranch = converter<ComputedBranch>({ target: convertExpression, branches: arrayConverter(convertMaybeExpression) })
@@ -32,7 +32,6 @@ export function transformer(visitor: <N extends IrNode>(node: N) => N | undefine
     function convertExpression(expression: Expression): Expression {
         switch (expression.kind) {
             case IrKind.ArrayLiteral: return convertArrayLiteral(expression)
-            case IrKind.Assign: return convertAssign(expression)
             case IrKind.Block: return convertBlock(expression)
             case IrKind.Call: return convertCall(expression)
             case IrKind.ComputedBranch: return convertComputedBranch(expression)
@@ -53,6 +52,7 @@ export function transformer(visitor: <N extends IrNode>(node: N) => N | undefine
 
     function convertStatement(statement: Statement): Statement {
         switch (statement.kind) {
+            case IrKind.Assign: return convertAssign(statement)
             case IrKind.Break:
             case IrKind.Continue:
                 return visitor(statement) ?? statement
@@ -95,7 +95,6 @@ function arrayConverter<E>(convert: (value: E) => E): (values: E[]) => E[] {
         return changes ? result : nodes
     }
 }
-
 
 type Mapper<Type> = { [Property in keyof Type]?: ((value: Type[Property]) => Type[Property]) }
 type Partial<Type> = { [Property in keyof Type]?: Type[Property] }

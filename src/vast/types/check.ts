@@ -193,6 +193,7 @@ function synthetic(self: Type, capabilities: Capabilities): StructType {
     if (capabilities & Capabilities.Bitwiseable) {
         infix("or")
         infix("and")
+        infix("xor")
         infix("shl", self, signedOf(self))
         infix("shr", self, signedOf(self))
         infix("ror", self, signedOf(self))
@@ -513,6 +514,7 @@ export function check(module: Module): CheckResult {
         const modifier = parameter.modifier as unknown as FunctionTypeParameterModifier
         const alias = parameter.alias.name
         const type = convertTypeExpression(parameter.type)
+        types.set(parameter.alias, type)
         return {
             name,
             alias,
