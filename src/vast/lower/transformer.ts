@@ -1,6 +1,27 @@
 import { ArrayLiteral, Assign, Block, Call, ComputedBranch, Definition, Expression, FieldLiteral, For, Function, If, Index, IrKind, IrNode, Module, Reference, Return, Select, Statement, StructLiteral, While } from "./ir"
 
-export function transformer(visitor: <N extends IrNode>(node: N) => N | undefined): (module: Module) => Module {
+export type Visitor = <N extends IrNode>(node: N) => N | undefined
+export type Transform = (module: Module) => Module
+
+export function dbg(transform: Transform, debug: (module: Module) => void): Transform {
+    return module => {
+        const result = transform(module)
+        debug(result)
+        return result
+    }
+}
+
+export function join(...transformers: Transform[]): Transform {
+    return module => {
+        let result = module
+        for (const transform of transformers) {
+            result = transform(result)
+        }
+        return result
+    }
+}
+
+export function transformer(visitor: Visitor): (module: Module) => Module {
     const convertReference = (node: Reference) => visitor(node) ?? node
     const convertStatements = arrayConverter(convertStatement)
     const convertArrayLiteral = converter<ArrayLiteral>({ values: arrayConverter(convertExpression) })
@@ -78,7 +99,8 @@ export function transformer(visitor: <N extends IrNode>(node: N) => N | undefine
                 }
             }
             const newNode = { ...node, ...mapped }
-            return changed ? visitor(newNode) ?? newNode : node
+            const visited = visitor(newNode)
+            return visited ?? changed ? newNode : node
         }
     }
 }

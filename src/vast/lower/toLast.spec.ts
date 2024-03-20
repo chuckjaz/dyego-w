@@ -7,6 +7,9 @@ import * as test from '../test'
 import { fromAst } from './fromAst'
 import { toLast } from './toLast'
 import { dumpIr } from './util'
+import { Transform, dbg, join } from './transformer'
+import { lowerRange } from './lowerRange'
+
 describe("toLast", () => {
     describe("function", () => {
         it("simple", () => {
@@ -413,9 +416,32 @@ describe("toLast", () => {
                 it("!", () => { p(false, "!a") })
             })
         })
+        describe("range", () => {
+            it("construct a range", () => {
+                cg(`
+                    fun Test(): range {
+                        1..2
+                    }
+
+                `, ({Test}) => {
+                    const r = Test()
+                })
+            })
+        })
     })
 })
 
+
+function d(name: string, transform: Transform): Transform {
+    return dbg(transform, module => {
+        const irDump = dumpIr(module)
+        fs.writeFileSync(`out/tmp.${name}.ir`, irDump)
+    })
+}
+
+const lower = join(
+    d("range", lowerRange)
+)
 
 function cgv(text: string): { lastModule: last.Module, fileSet: files.FileSet } {
     const { module: astModule, fileSet } = test.m(text)
@@ -423,7 +449,8 @@ function cgv(text: string): { lastModule: last.Module, fileSet: files.FileSet } 
     const irModule = fromAst(astModule, checkResult)
     const irDump = dumpIr(irModule)
     fs.writeFileSync('out/tmp.ir', irDump)
-    const lastModule = toLast(irModule)
+    const loweredIrModule = lower(irModule)
+    const lastModule = toLast(loweredIrModule)
     const lastDump = lastUtil.dump(lastModule)
     fs.writeFileSync('out/tmp.last', lastDump)
     return { lastModule, fileSet }

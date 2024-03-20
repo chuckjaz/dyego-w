@@ -1,4 +1,4 @@
-import { ArgumentModifier, Expression, FieldLiteralModifier, Function, ImplicitVal, Kind, Module, Parameter, ParameterModifier, Reference, Statement, StructTypeConstuctorFieldModifier, TypeExpression, Var } from "./ast";
+import { ArgumentModifier, Expression, FieldLiteralModifier, Function, ImplicitVal, Kind, Module, Parameter, ParameterModifier, Reference, Statement, StructTypeConstuctorFieldModifier, TypeExpression, Val, Var } from "./ast";
 
 export function dump(item: Module | Statement): string {
     let result = ""
@@ -237,17 +237,17 @@ export function dump(item: Module | Statement): string {
                 emit("[")
                 commas(expression.values, dumpExpression)
                 emit("]")
-                break
+                return
             case Kind.As:
                 dumpExpression(expression.left)
                 emit(" as ")
                 dumpTypeExpression(expression.right)
-                break
+                return
             case Kind.Assign:
                 dumpExpression(expression.target)
                 emit(" = ")
                 dumpExpression(expression.value)
-                break
+                return
             case Kind.Block:
                 emit("{")
                 nl()
@@ -255,7 +255,7 @@ export function dump(item: Module | Statement): string {
                     expression.statements.forEach(dumpStatement)
                 })
                 emit("}")
-                break
+                return
             case Kind.Call:
                 dumpExpression(expression.target)
                 emit("(")
@@ -270,7 +270,7 @@ export function dump(item: Module | Statement): string {
                     dumpExpression(arg.value)
                 })
                 emit(")")
-                break
+                return
             case Kind.If:
                 emit("if (")
                 dumpExpression(expression.condition)
@@ -278,13 +278,13 @@ export function dump(item: Module | Statement): string {
                 dumpExpression(expression.then)
                 emit(" else ")
                 dumpExpression(expression.else)
-                break
+                return
             case Kind.Index:
                 dumpExpression(expression.target)
                 emit("[")
                 dumpExpression(expression.index)
                 emit("]")
-                break
+                return
             case Kind.Lambda:
                 emit("{ ")
                 commas(expression.parameters, dumpParameter)
@@ -295,18 +295,18 @@ export function dump(item: Module | Statement): string {
                 })
                 emit("}: ")
                 dumpTypeExpression(expression.result)
-                break
+                return
             case Kind.Literal:
                 emit(`${expression.value}`)
-                break
+                return
             case Kind.Reference:
                 emit(expression.name)
-                break
+                return
             case Kind.Select:
                 dumpExpression(expression.target)
                 emit(".")
                 dumpExpression(expression.name)
-                break
+                return
             case Kind.StructLiteral:
                 emit("[")
                 commas(expression.fields, f => {
@@ -318,7 +318,43 @@ export function dump(item: Module | Statement): string {
                     dumpExpression(f.value)
                 })
                 emit("]")
-                break
+                return
+            case Kind.Range:
+                if (expression.left) dumpExpression(expression.left)
+                emit("..")
+                if (expression.right) dumpExpression(expression.right)
+                return
+            case Kind.When:
+                emit("when")
+                const target = expression.target
+                if (target) {
+                    emit("(")
+                    dumpStatement(target)
+                    emit(")")
+                }
+                emit(" {")
+                nl()
+                indent(() => {
+                    for (const clause of expression.clauses) {
+                        switch (clause.condition.kind) {
+                            case Kind.IsCondition:
+                                emit("is ")
+                                dumpTypeExpression(clause.condition.target)
+                                break
+                            case Kind.ElseCondition:
+                                emit("else")
+                                break
+                            default:
+                                dumpExpression(clause.condition)
+                                break
+                        }
+                        emit(" -> ")
+                        dumpStatement(clause.body)
+                        nl()
+                    }
+                })
+                nl()
+                return
         }
     }
 

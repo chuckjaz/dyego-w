@@ -168,7 +168,7 @@ export function dumpIr(node: Module | Function | FieldLiteral | Expression | Sta
             case IrKind.FieldLiteral:
                 dump(node.name)
                 emit(": ")
-                dumpType(node.type)
+                dump(node.value)
                 return
             case IrKind.Function:
                 emit("fun ")
@@ -177,6 +177,7 @@ export function dumpIr(node: Module | Function | FieldLiteral | Expression | Sta
                 commas(node.parameters)
                 emit("): ")
                 dumpType(node.body.type)
+                emit(" ")
                 dump(node.body)
                 return
             case IrKind.Module:
@@ -233,7 +234,7 @@ export function dumpIr(node: Module | Function | FieldLiteral | Expression | Sta
                 }
                 return
             case TypeKind.Function:
-                emit("fun ()")
+                emit("fun (")
                 let comma = false
                 type.parameters.forEach((name, parameter) => {
                     if (comma) emit(", ")
@@ -247,10 +248,10 @@ export function dumpIr(node: Module | Function | FieldLiteral | Expression | Sta
                 emit("<lambda>")
                 return
             case TypeKind.Range:
-                emit("Range")
+                emit("range")
                 return
             case TypeKind.Never:
-                emit("Never")
+                emit("never")
                 return
             case TypeKind.Open:
                 emit("_OPEN_")
