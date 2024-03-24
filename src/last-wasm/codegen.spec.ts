@@ -1666,6 +1666,41 @@ describe("last codegen", () => {
             })
         })
     })
+    describe("sizeof", () => {
+        it("can report the size of i32", () => {
+            cg(`
+                export fun test(): i32 {
+                    sizeof i32
+                }
+            `, ({test}) => {
+                expect(test()).toEqual(4)
+            })
+        })
+        it("can report the size of a struct", () => {
+            cg(`
+                type someStruct = < a: i32, b: i64 >
+
+                export fun test(): i32 {
+                    sizeof someStruct
+                }
+            `, ({test}) => {
+                expect(test()).toEqual(12)
+            })
+        })
+    })
+    describe("offsetof", () => {
+        it("can determine the offset of a field", () => {
+            cg(`
+                type someStruct = < a: i32, b: i64 >
+
+                export fun test(): i32 {
+                    offsetof someStruct.b
+                }
+            `, ({test}) => {
+                expect(test()).toEqual(4)
+            })
+        })
+    })
 })
 
 function report(text: string, name: string, diagnostics: Diagnostic[], fileSet: FileSet): never {

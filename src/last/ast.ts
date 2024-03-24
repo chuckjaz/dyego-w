@@ -43,6 +43,7 @@ export const enum LastKind {
     As,
     AddressOf,
     SizeOf,
+    OffsetOf,
     Dereference,
     Literal,
     StructLiteral,
@@ -126,6 +127,7 @@ export function nameOfLastKind(kind: LastKind): string {
         case LastKind.As: return "As"
         case LastKind.AddressOf: return "AddressOf"
         case LastKind.SizeOf: return "SizeOf"
+        case LastKind.OffsetOf: return "OffsetOf"
         case LastKind.Dereference: return "Dereference"
         case LastKind.Literal: return "Literal"
         case LastKind.StructLiteral: return "StructLiteral"
@@ -236,6 +238,7 @@ export type Expression =
     As |
     AddressOf |
     SizeOf |
+    OffsetOf |
     Dereference |
     Literal |
     IfThenElse |
@@ -470,6 +473,9 @@ export interface AddressOf extends LastNode, Unary { kind: LastKind.AddressOf }
 
 /** Size of the type expression target */
 export interface SizeOf extends LastNode { kind: LastKind.SizeOf; target: TypeExpression }
+
+/** Offset of the field reference */
+export interface OffsetOf extends LastNode { kind: LastKind.OffsetOf, type: TypeExpression, member: Reference }
 
 /** Dereference a pointer */
 export interface Dereference extends LastNode, Unary { kind: LastKind.Dereference }

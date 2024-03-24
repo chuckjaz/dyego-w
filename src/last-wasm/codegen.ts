@@ -446,6 +446,12 @@ export function codegen(
                 const valueType = typeOf(node)
                 return new NumberConstGenNode(node, valueType, targetType.size)
             }
+            case LastKind.OffsetOf: {
+                const targetType = typeOf(node.type)
+                const valueType = typeOf(node)
+                const { offset } = targetType.select(node.member, node.member.name)
+                return new NumberConstGenNode(node.type, valueType, offset)
+            }
             case LastKind.ExportedMemory:
                 exportSection.allocate(node.name.name, ExportKind.Mem, 0)
                 return emptyGenNode

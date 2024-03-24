@@ -408,6 +408,20 @@ export function check(module: Module): CheckResult | Diagnostic[] {
                 type = i32Type
                 break
             }
+            case LastKind.OffsetOf: {
+                const targetType = typeExpr(expression.type, scopes)
+                bind(expression.type, targetType)
+                if (targetType.kind != TypeKind.Struct) {
+                    report(expression.type, "Expected a struct type")
+                } else {
+                    const member = targetType.fields.find(expression.member.name)
+                    if (member === undefined) {
+                        report(expression.member, `Type ${typeToString(targetType)} does not have a member named ${expression.member.name}`)
+                    }
+                }
+                type = i32Type
+                break
+            }
             case LastKind.As: {
                 const leftType = checkExpression(expression.left, scopes)
                 const rightType = typeExpr(expression.right, scopes)

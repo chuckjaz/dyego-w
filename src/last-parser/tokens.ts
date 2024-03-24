@@ -29,6 +29,7 @@ export const enum Token {
     Branch,
     Return,
     SizeOf,
+    OffsetOf,
     Global,
     Shl,
     Shr,

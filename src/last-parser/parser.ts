@@ -7,7 +7,7 @@ import {
     LiteralU8, Locatable, Loop, Module, Multiply, Negate, Not, Or, Parameter, PointerConstructor, Reference, Remainder,
     Return, Select, SizeOf, FieldLiteral, StructLiteral, StructTypeLiteral, Subtact, TypeDeclaration, TypeExpression,
     TypeSelect, Var, Primitive, UnionTypeLiteral, AbsoluteValue, SquareRoot, Floor, Ceiling, Truncate, RoundNearest,
-    CopySign, Minimum, Maximum, ConvertTo, WrapTo, ReinterpretAs, TruncateTo, Memory, MemoryMethod, ExportedMemory, BitNot, FunctionReference
+    CopySign, Minimum, Maximum, ConvertTo, WrapTo, ReinterpretAs, TruncateTo, Memory, MemoryMethod, ExportedMemory, BitNot, FunctionReference, OffsetOf, TypeKind
 } from "../last";
 import { Scanner } from "../last-parser";
 import { Token } from "./tokens";
@@ -792,6 +792,7 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
             }
             case Token.If: return ifExpression()
             case Token.SizeOf: return sizeOfExpression()
+            case Token.OffsetOf: return offsetOfExpression()
             case Token.Block: return blockStatement()
             case Token.LBrack: return array()
             case Token.LBrace: return struct()
@@ -862,6 +863,21 @@ export function parse(scanner: Scanner, builder?: PositionMap): Module | Diagnos
         expect(Token.SizeOf)
         const target = typeExpression()
         return l<SizeOf>(start, { kind: LastKind.SizeOf, target })
+    }
+
+    function offsetOfExpression(): OffsetOf {
+        const start = pos.start
+        expect(Token.OffsetOf)
+        let type = typeExpression()
+        let member: Reference
+        if (type.kind != LastKind.TypeSelect) {
+            report("Expected a member selection", type)
+            member = { kind: LastKind.Reference, name: "error" }
+        } else {
+            member = type.name
+            type = type.target
+        }
+        return l<OffsetOf>(start, { kind: LastKind.OffsetOf, type, member })
     }
 
     function array(): ArrayLiteral {
@@ -1083,6 +1099,7 @@ function tokenText(token: Token): string {
         case Token.Branch: return "a `branch` reserved word"
         case Token.Return: return "a `return` reserved word"
         case Token.SizeOf: return "a `sizeof` reserved word"
+        case Token.OffsetOf: return "a `offsetof` reserved word"
         case Token.Global: return "a `global` reserved word"
         case Token.Xor: return "a `xor` reserved word"
         case Token.Shl: return "a `shl` reserved word"
@@ -1182,6 +1199,6 @@ const declarationFirstSet = setOf(Token.Var, Token.Let, Token.Fun, Token.Global,
 const expressionFirstSet = setOf(Token.Identifier, Token.LiteralI8, Token.LiteralI16, Token.LiteralI32,
     Token.LiteralI64, Token.LiteralU8, Token.LiteralU16, Token.LiteralU32, Token.LiteralU64, Token.LiteralF32,
     Token.LiteralF64, Token.LiteralString, Token.Null, Token.Memory, Token.True, Token.False, Token.Dash,
-    Token.Plus, Token.If, Token.Amp, Token.LBrack, Token.LBrace)
+    Token.Plus, Token.If, Token.Amp, Token.LBrack, Token.LBrace, Token.SizeOf, Token.OffsetOf)
 const statementFirstSet = setOf(Token.Var, Token.Let, Token.Loop, Token.Block, Token.Branch, Token.Return )
 const bodyElementFirstSet = unionOf(expressionFirstSet, statementFirstSet)

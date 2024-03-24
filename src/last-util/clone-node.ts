@@ -53,6 +53,8 @@ export function cloneNode<T extends Last>(node: T): T {
             return {...node, left: cloneNode(node.left), right: cloneNode(node.right) }
         case LastKind.SizeOf:
             return {...node, target: cloneNode(node.target) }
+        case LastKind.OffsetOf:
+            return { ...node, type: cloneNode(node.type), member: cloneNode(node.member) }
         case LastKind.Literal:
         case LastKind.Reference:
         case LastKind.Primitive:
